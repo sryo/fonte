@@ -26,7 +26,7 @@ curl -X POST http://localhost:3777/api/search -H "Content-Type: application/json
 
 The search endpoint:
 - Tries multiple query variations (title+year+quality, title+year, title alone)
-- Searches Jackett (7+ tracker indexers) AND bt4g (DHT network) in parallel
+- Searches bitmagnet (self-hosted DHT crawler + torrent indexer)
 - Deduplicates by info hash
 - Filters by title match
 - Sorts by seeders then size

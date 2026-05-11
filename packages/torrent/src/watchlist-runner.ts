@@ -1,7 +1,6 @@
 import { Cron } from 'croner';
 import { log, emitEvent, getSettings } from '@aitorrent/core';
-import { searchJackett, JackettResult } from './jackett-client';
-import { searchBt4g } from './bt4g-client';
+import { searchBitmagnet, BitmagnetResult } from './bitmagnet-client';
 import {
     getWatchlistEntries, updateWatchlistEntry,
     insertWatchlistResult, getWatchlistResults, markResultSelected,
@@ -9,6 +8,17 @@ import {
 import { getTorrentManager } from './torrent-manager';
 import { getTorrentByHash } from './torrent-db';
 import { WATCHLIST_EVENTS } from './watchlist-events';
+
+interface SearchResult {
+    title: string;
+    magnetUri: string;
+    seeders: number;
+    leechers: number;
+    size: number;
+    publishDate?: number;
+    indexer: string;
+    category: number[];
+}
 
 let watchlistJob: Cron | null = null;
 
@@ -42,13 +52,7 @@ export function stopWatchlistRunner(): void {
 
 export async function runWatchlistCheck(): Promise<void> {
     const settings = getSettings();
-    const jackettUrl = settings.watchlist?.jackett_url;
-    const apiKey = settings.watchlist?.jackett_api_key;
-
-    if (!jackettUrl || !apiKey) {
-        log('WARN', 'Watchlist: Jackett URL or API key not configured');
-        return;
-    }
+    const bitmagnetUrl = settings.watchlist?.bitmagnet_url || 'http://localhost:3333';
 
     const autoAdd = settings.watchlist?.auto_add !== false;
     const preferredQuality = settings.watchlist?.preferred_quality || '1080p';
@@ -60,37 +64,34 @@ export async function runWatchlistCheck(): Promise<void> {
 
     for (const entry of entries) {
         try {
-            // Search Jackett (tracker-based indexers)
-            let results: JackettResult[] = [];
-            if (jackettUrl && apiKey) {
-                results = await searchJackett({
-                    query: entry.searchQuery,
+            // Search bitmagnet (DHT crawler + content classifier)
+            const bmResults = await searchBitmagnet({
+                query: entry.searchQuery,
+                categories: [entry.category],
+                baseUrl: bitmagnetUrl,
+            });
+
+            // Also try with just title + year (broader)
+            if (bmResults.length === 0 && entry.year) {
+                const broader = await searchBitmagnet({
+                    query: `${entry.title} ${entry.year}`,
                     categories: [entry.category],
-                    jackettUrl,
-                    apiKey,
+                    baseUrl: bitmagnetUrl,
                 });
+                bmResults.push(...broader);
             }
 
-            // Search bt4g (DHT-based, finds content not on any tracker)
-            try {
-                const bt4gResults = await searchBt4g(entry.searchQuery);
-                for (const r of bt4gResults) {
-                    if (r.magnetUri && r.category?.toLowerCase() !== 'doc' && r.category?.toLowerCase() !== 'audio') {
-                        results.push({
-                            title: r.title,
-                            magnetUri: r.magnetUri,
-                            seeders: 0, // bt4g RSS doesn't include seeder count
-                            leechers: 0,
-                            size: parseSizeString(r.size),
-                            publishDate: r.publishDate,
-                            indexer: 'bt4g-dht',
-                            category: [],
-                        });
-                    }
-                }
-            } catch (err) {
-                log('WARN', `Watchlist: bt4g search failed: ${(err as Error).message}`);
-            }
+            // Convert to common format
+            const results = bmResults.map(r => ({
+                title: r.title,
+                magnetUri: r.magnetUri,
+                seeders: r.seeders,
+                leechers: r.leechers,
+                size: r.size,
+                publishDate: r.publishDate,
+                indexer: 'bitmagnet',
+                category: [] as number[],
+            }));
 
             emitEvent(WATCHLIST_EVENTS.SEARCH, {
                 watchlistId: entry.id,
@@ -180,7 +181,7 @@ export async function runWatchlistCheck(): Promise<void> {
 
 // ── Quality Ranking ───────────────────────────────────────────────────────────
 
-function rankResults(results: JackettResult[], preferredQuality: string): JackettResult[] {
+function rankResults(results: SearchResult[], preferredQuality: string): SearchResult[] {
     return [...results].sort((a, b) => {
         const scoreA = computeScore(a, preferredQuality);
         const scoreB = computeScore(b, preferredQuality);
@@ -188,7 +189,7 @@ function rankResults(results: JackettResult[], preferredQuality: string): Jacket
     });
 }
 
-function computeScore(r: JackettResult, preferredQuality: string): number {
+function computeScore(r: SearchResult, preferredQuality: string): number {
     const qm = computeQualityMatch(r.title, preferredQuality);
     const seederScore = Math.min(r.seeders, 100) / 100;
     const recencyScore = r.publishDate
@@ -224,14 +225,4 @@ function extractInfoHash(magnetUri: string): string | undefined {
     const b32 = magnetUri.match(/xt=urn:btih:([A-Z2-7]{32})/i);
     if (b32) return b32[1].toLowerCase();
     return undefined;
-}
-
-function parseSizeString(size: string): number {
-    if (!size) return 0;
-    const match = size.match(/([\d.]+)\s*(GB|MB|KB|TB)/i);
-    if (!match) return 0;
-    const value = parseFloat(match[1]);
-    const unit = match[2].toUpperCase();
-    const multipliers: Record<string, number> = { KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 };
-    return Math.round(value * (multipliers[unit] || 0));
 }
