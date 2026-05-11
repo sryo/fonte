@@ -1,0 +1,120 @@
+name: Create Release Bundle
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Verify tag matches package version
+        if: github.ref_type == 'tag'
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          EXPECTED_TAG="v${PACKAGE_VERSION}"
+          ACTUAL_TAG="${GITHUB_REF#refs/tags/}"
+
+          if [ "$ACTUAL_TAG" != "$EXPECTED_TAG" ]; then
+            echo "::error::Tag/package version mismatch. expected=${EXPECTED_TAG}, actual=${ACTUAL_TAG}"
+            exit 1
+          fi
+
+          echo "Tag and package.json version match: ${ACTUAL_TAG}"
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION=$(git describe --tags --always)
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: npm install --include=dev
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Prune development dependencies
+        run: npm prune --omit=dev
+
+      - name: Create bundle tarball
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          BUNDLE_NAME="aitorrent-bundle.tar.gz"
+          TEMP_DIR=$(mktemp -d)
+          BUNDLE_DIR="$TEMP_DIR/aitorrent"
+
+          mkdir -p "$BUNDLE_DIR"
+
+          cp -r packages/ "$BUNDLE_DIR/"
+          cp -r node_modules/ "$BUNDLE_DIR/"
+          cp -r dashboard/ "$BUNDLE_DIR/"
+
+          cp package.json "$BUNDLE_DIR/"
+          cp tsconfig.json "$BUNDLE_DIR/"
+          cp tsconfig.base.json "$BUNDLE_DIR/"
+          cp README.md "$BUNDLE_DIR/"
+          cp LICENSE "$BUNDLE_DIR/"
+          cp .gitignore "$BUNDLE_DIR/"
+
+          chmod +x "$BUNDLE_DIR/packages/cli/bin/aitorrent.mjs"
+
+          cd "$TEMP_DIR"
+          tar -czf "$GITHUB_WORKSPACE/$BUNDLE_NAME" aitorrent/
+
+          BUNDLE_SIZE=$(du -h "$GITHUB_WORKSPACE/$BUNDLE_NAME" | cut -f1)
+          echo "Bundle created: $BUNDLE_NAME ($BUNDLE_SIZE)"
+          echo "bundle_name=$BUNDLE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Release notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          git fetch origin "refs/tags/$VERSION:refs/tags/$VERSION" --force 2>/dev/null || true
+          TAG_TYPE=$(git cat-file -t "refs/tags/$VERSION" 2>/dev/null)
+          if [ "$TAG_TYPE" = "tag" ]; then
+            git cat-file -p "refs/tags/$VERSION" | sed '1,/^$/d' > release_notes.md
+          fi
+          if [ ! -s release_notes.md ]; then
+            echo "## AITorrent $VERSION" > release_notes.md
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        if: github.ref_type == 'tag'
+        with:
+          body_path: release_notes.md
+          files: aitorrent-bundle.tar.gz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact (for non-tag builds)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aitorrent-bundle
+          path: aitorrent-bundle.tar.gz
+          retention-days: 7

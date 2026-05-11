@@ -1,0 +1,38 @@
+import path from 'path';
+import { AgentConfig } from './types';
+
+/**
+ * Parse @agent_id prefix from a message.
+ * Returns { agentId, message } where message has the prefix stripped.
+ */
+export function parseAgentRouting(
+    rawMessage: string,
+    agents: Record<string, AgentConfig>,
+): { agentId: string; message: string } {
+    // Match @agent_id at the start of the message
+    const match = rawMessage.match(/^@(\S+)\s+([\s\S]*)$/);
+    if (match) {
+        const candidateId = match[1].toLowerCase();
+        const message = match[2];
+
+        // Check agent IDs
+        if (agents[candidateId]) {
+            return { agentId: candidateId, message };
+        }
+
+        // Match by agent name (case-insensitive)
+        for (const [id, config] of Object.entries(agents)) {
+            if (config.name.toLowerCase() === candidateId) {
+                return { agentId: id, message };
+            }
+        }
+    }
+    return { agentId: 'aitorrent', message: rawMessage };
+}
+
+/**
+ * Get the reset flag path for a specific agent.
+ */
+export function getAgentResetFlag(agentId: string, workspacePath: string): string {
+    return path.join(workspacePath, agentId, 'reset_flag');
+}

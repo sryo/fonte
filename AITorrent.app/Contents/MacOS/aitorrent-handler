@@ -1,0 +1,119 @@
+#!/bin/bash
+#
+# AITorrent — macOS handler for magnet: URLs and .torrent files
+#
+# This script is the CFBundleExecutable for AITorrent.app.
+# macOS calls it with either:
+#   - A magnet URI as $1 (from URL scheme handler)
+#   - A .torrent file path as $1 (from file association)
+#   - No args (double-click the app icon)
+#
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+# Resolve the aitorrent CLI — check common locations
+find_cli() {
+    # 1. Sibling to .app bundle (development)
+    local dev_cli="$APP_DIR/packages/cli/bin/aitorrent.mjs"
+    if [ -f "$dev_cli" ]; then
+        echo "node" "$dev_cli"
+        return
+    fi
+
+    # 2. Global npm install
+    if command -v aitorrent &>/dev/null; then
+        echo "aitorrent"
+        return
+    fi
+
+    # 3. npx fallback
+    echo "npx" "aitorrent"
+}
+
+CLI=($(find_cli))
+API_PORT="${AITORRENT_API_PORT:-3777}"
+API_URL="http://localhost:$API_PORT"
+
+# Log to a file for debugging
+LOG_FILE="$HOME/.aitorrent/handler.log"
+mkdir -p "$(dirname "$LOG_FILE")"
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
+}
+
+# Try to add via API first (if daemon is running), fall back to CLI
+add_torrent() {
+    local source="$1"
+    log "Adding torrent: $source"
+
+    # Try the API (fast, non-blocking)
+    local response
+    response=$(curl -s -X POST "$API_URL/api/torrents" \
+        -H "Content-Type: application/json" \
+        -d "{\"magnetUri\": \"$source\"}" \
+        --connect-timeout 2 2>/dev/null)
+
+    if echo "$response" | grep -q '"ok":true'; then
+        log "Added via API: $response"
+        # Show notification
+        osascript -e "display notification \"Torrent added\" with title \"AITorrent\"" 2>/dev/null
+        return 0
+    fi
+
+    log "API not available, falling back to CLI"
+    # Start daemon if not running, then add
+    "${CLI[@]}" torrent add "$source" &
+    osascript -e "display notification \"Adding torrent...\" with title \"AITorrent\"" 2>/dev/null
+}
+
+add_torrent_file() {
+    local filepath="$1"
+    log "Adding .torrent file: $filepath"
+
+    # Try the API first with filePath param
+    local response
+    response=$(curl -s -X POST "$API_URL/api/torrents" \
+        -H "Content-Type: application/json" \
+        -d "{\"filePath\": \"$filepath\"}" \
+        --connect-timeout 2 2>/dev/null)
+
+    if echo "$response" | grep -q '"ok":true'; then
+        log "Added file via API: $response"
+        osascript -e "display notification \"Torrent file added\" with title \"AITorrent\"" 2>/dev/null
+        return 0
+    fi
+
+    log "API not available, falling back to CLI"
+    "${CLI[@]}" torrent add "$filepath" &
+    osascript -e "display notification \"Adding torrent file...\" with title \"AITorrent\"" 2>/dev/null
+}
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+log "Handler invoked with args: $*"
+
+if [ $# -eq 0 ]; then
+    # No args — app was double-clicked. Open the web dashboard.
+    open "http://localhost:3000" 2>/dev/null || true
+    log "Opened dashboard"
+    exit 0
+fi
+
+for arg in "$@"; do
+    case "$arg" in
+        magnet:*)
+            add_torrent "$arg"
+            ;;
+        *.torrent)
+            if [ -f "$arg" ]; then
+                add_torrent_file "$arg"
+            else
+                log "File not found: $arg"
+            fi
+            ;;
+        *)
+            log "Unknown argument: $arg"
+            ;;
+    esac
+done

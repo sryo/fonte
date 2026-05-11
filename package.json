@@ -1,0 +1,25 @@
+{
+  "name": "aitorrent",
+  "version": "0.0.20",
+  "description": "AI-powered torrent download manager",
+  "workspaces": [
+    "packages/*"
+  ],
+  "bin": {
+    "aitorrent": "packages/cli/bin/aitorrent.mjs"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "dev": "concurrently -k -n core,server,main \"npm run dev -w @aitorrent/core\" \"npm run dev -w @aitorrent/server\" \"npm run dev -w @aitorrent/main\"",
+    "build:core": "npm run build -w @aitorrent/core",
+    "build:server": "npm run build -w @aitorrent/server",
+    "start": "npm run start -w @aitorrent/main",
+    "server": "npm run start -w @aitorrent/server"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.2",
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.1.9",
+    "typescript": "^5.9.3"
+  }
+}

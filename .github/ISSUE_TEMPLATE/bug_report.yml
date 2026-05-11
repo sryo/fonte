@@ -1,0 +1,92 @@
+name: Bug Report
+description: Report a bug to help us triage and fix issues quickly
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the sections below so we can reproduce and triage the issue.
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - "Critical - System crash / data loss / security issue"
+        - "High - Core feature broken, no workaround"
+        - "Medium - Feature broken but workaround exists"
+        - "Low - Minor issue / cosmetic"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of AITorrent is affected?
+      options:
+        - "Torrent engine (downloads, seeding)"
+        - "REST API"
+        - "CLI"
+        - "Web UI"
+        - "AI agent integration"
+        - "Configuration"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the bug.
+      placeholder: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to reproduce the behavior.
+      placeholder: |
+        1. Add torrent with ...
+        2. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs / Error Output
+      description: Paste any error messages or log output.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: AITorrent Version
+      description: Output of `aitorrent version` or the release you're using.
+      placeholder: e.g., 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - "macOS"
+        - "Linux"
+        - "Windows (WSL)"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other information that might help (screenshots, related issues, etc.).
