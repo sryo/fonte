@@ -31,14 +31,14 @@ import {
   type Schedule,
 } from "@/lib/api";
 import {
-  CalendarDays,
-  CalendarIcon,
+  CalendarDots,
+  Calendar as CalendarIcon,
   Clock,
-  Loader2,
-  RefreshCw,
-  Trash2,
+  SpinnerGap,
+  ArrowsClockwise,
+  Trash,
   X,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
 function cronNextOccurrences(cron: string, count: number): Date[] {
@@ -313,7 +313,7 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <SpinnerGap className="h-4 w-4 animate-spin" />
           Loading schedules...
         </div>
       </div>
@@ -345,7 +345,7 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
                   className="h-4 w-4 p-0 ml-1"
                   onClick={() => handleDelete(s.id)}
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash className="h-3 w-3" />
                 </Button>
               </Badge>
             ))}
@@ -390,7 +390,7 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
               {/* Repeat */}
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <RefreshCw className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <ArrowsClockwise className="h-4 w-4 text-muted-foreground shrink-0" />
                   <Select value={formRepeat} onValueChange={(v) => setFormRepeat(v as RepeatMode)}>
                     <SelectTrigger className="flex-1">
                       <SelectValue />
@@ -484,7 +484,7 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
                 {/* Time picker for recurring */}
                 {formRepeat !== "custom" && formRepeat !== "once" && (
                   <div className="flex items-center gap-3">
-                    <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <CalendarDots className="h-4 w-4 text-muted-foreground shrink-0" />
                     {formRepeat === "hourly" ? (
                       <div className="flex items-center gap-2 flex-1">
                         <span className="text-sm text-muted-foreground">Every</span>
@@ -649,7 +649,7 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
                   disabled={formSaving || !formMessage.trim() || (formRepeat === "custom" && !formCustomCron.trim()) || (formRepeat === "once" && !formRunAtDate)}
                 >
                   {formSaving ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <SpinnerGap className="h-3.5 w-3.5 animate-spin" />
                   ) : (
                     "Save"
                   )}
@@ -671,7 +671,7 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
       ) : (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center text-muted-foreground">
-            <CalendarDays className="h-8 w-8 mx-auto mb-3 opacity-30" />
+            <CalendarDots className="h-8 w-8 mx-auto mb-3 opacity-30" />
             <p className="text-sm">No schedules configured</p>
             <p className="text-xs mt-1 mb-4">
               Schedules send recurring tasks to this agent on a cron interval

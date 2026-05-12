@@ -20,7 +20,7 @@ import {
   PromptInputTextarea,
 } from "@/components/ui/prompt-input";
 import { Markdown } from "@/components/ui/markdown";
-import { Bot, ArrowUp, Square } from "lucide-react";
+import { Robot, ArrowUp, Square } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
 interface AgentChatItem {
@@ -161,7 +161,7 @@ export function AgentChatView({
       {/* Messages */}
       {messages.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <Bot className="h-8 w-8 text-muted-foreground/30 mb-3" />
+          <Robot className="h-8 w-8 text-muted-foreground/30 mb-3" />
           <p className="text-sm text-muted-foreground">
             Send a message to {agentName} to get started
           </p>
@@ -224,7 +224,7 @@ export function AgentChatView({
                 onClick={handleSend}
               >
                 {sending ? (
-                  <Square className="size-5 fill-current" />
+                  <Square className="size-5" weight="fill" />
                 ) : (
                   <ArrowUp className="size-5" />
                 )}

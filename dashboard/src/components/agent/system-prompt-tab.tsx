@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { FileText, FolderOpen, Loader2, Save, Check } from "lucide-react";
+import { FileText, FolderOpen, SpinnerGap, FloppyDisk, Check } from "@phosphor-icons/react";
 
 export function SystemPromptTab({
   content,
@@ -48,7 +48,7 @@ export function SystemPromptTab({
 
           {!loaded ? (
             <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <SpinnerGap className="h-4 w-4 animate-spin" />
               <span className="text-sm">Loading...</span>
             </div>
           ) : (
@@ -75,11 +75,11 @@ export function SystemPromptTab({
                 </span>
                 <Button onClick={onSave} disabled={saving} size="sm" className="gap-2">
                   {saving ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <SpinnerGap className="h-3.5 w-3.5 animate-spin" />
                   ) : saved ? (
                     <Check className="h-3.5 w-3.5" />
                   ) : (
-                    <Save className="h-3.5 w-3.5" />
+                    <FloppyDisk className="h-3.5 w-3.5" />
                   )}
                   {saved ? "Saved" : "Save"}
                 </Button>

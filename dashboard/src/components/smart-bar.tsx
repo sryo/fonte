@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Search, Loader2, Plus, Send, Check } from "lucide-react";
+import { MagnifyingGlass, SpinnerGap, Plus, PaperPlaneTilt, Check } from "@phosphor-icons/react";
 import { addTorrent, sendMessage } from "@/lib/api";
 
 interface SearchResult {
@@ -139,9 +139,9 @@ export function SmartBar({ onOpenChat }: SmartBarProps) {
         <div className="flex items-center gap-3 rounded-xl border bg-card shadow-sm px-4 py-3 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all">
           {/* Left icon */}
           {loading ? (
-            <Loader2 className="h-[18px] w-[18px] text-muted-foreground animate-spin shrink-0" />
+            <SpinnerGap className="h-[18px] w-[18px] text-muted-foreground animate-spin shrink-0" />
           ) : (
-            <Search className="h-[18px] w-[18px] text-muted-foreground shrink-0" />
+            <MagnifyingGlass className="h-[18px] w-[18px] text-muted-foreground shrink-0" />
           )}
 
           {/* Input */}
@@ -166,7 +166,7 @@ export function SmartBar({ onOpenChat }: SmartBarProps) {
               className="flex items-center justify-center h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 shrink-0"
               aria-label="Submit"
             >
-              <Send className="h-4 w-4" />
+              <PaperPlaneTilt className="h-4 w-4" />
             </button>
           )}
         </div>

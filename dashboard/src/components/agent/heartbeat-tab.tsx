@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { HeartPulse, Loader2, Save, Check } from "lucide-react";
+import { Heartbeat, SpinnerGap, FloppyDisk, Check } from "@phosphor-icons/react";
 
 export function HeartbeatTab({
   content,
@@ -39,7 +39,7 @@ export function HeartbeatTab({
       <Card>
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
-            <HeartPulse className="h-4 w-4 text-primary" />
+            <Heartbeat className="h-4 w-4 text-primary" />
             Heartbeat Monitor
           </CardTitle>
         </CardHeader>
@@ -98,7 +98,7 @@ export function HeartbeatTab({
                 </p>
                 {!loaded ? (
                   <div className="flex items-center gap-2 py-4 justify-center text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <SpinnerGap className="h-4 w-4 animate-spin" />
                     <span className="text-sm">Loading...</span>
                   </div>
                 ) : (
@@ -131,11 +131,11 @@ export function HeartbeatTab({
                   </div>
                   <Button onClick={onSave} disabled={saving} size="sm" className="gap-2">
                     {saving ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <SpinnerGap className="h-3.5 w-3.5 animate-spin" />
                     ) : saved ? (
                       <Check className="h-3.5 w-3.5" />
                     ) : (
-                      <Save className="h-3.5 w-3.5" />
+                      <FloppyDisk className="h-3.5 w-3.5" />
                     )}
                     {saved ? "Saved" : "Save"}
                   </Button>

@@ -17,10 +17,10 @@ import {
   startOfWeek,
 } from "date-fns"
 import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  PlusCircleIcon,
-} from "lucide-react"
+  CaretLeft,
+  CaretRight,
+  PlusCircle,
+} from "@phosphor-icons/react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -124,7 +124,7 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
               size="icon"
               aria-label="Navigate to previous month"
             >
-              <ChevronLeftIcon size={16} strokeWidth={2} aria-hidden="true" />
+              <CaretLeft size={16} aria-hidden="true" />
             </Button>
             <Button
               onClick={goToToday}
@@ -140,7 +140,7 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
               size="icon"
               aria-label="Navigate to next month"
             >
-              <ChevronRightIcon size={16} strokeWidth={2} aria-hidden="true" />
+              <CaretRight size={16} aria-hidden="true" />
             </Button>
           </div>
 
@@ -153,7 +153,7 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
               />
 
               <Button className="w-full gap-2 md:w-auto" onClick={onNewEvent}>
-                <PlusCircleIcon size={16} strokeWidth={2} aria-hidden="true" />
+                <PlusCircle size={16} aria-hidden="true" />
                 <span>{newEventLabel || "New Schedule"}</span>
               </Button>
             </>

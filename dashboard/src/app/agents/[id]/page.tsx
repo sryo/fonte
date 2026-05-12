@@ -21,12 +21,12 @@ import {
   HeartbeatTab,
 } from "@/components/agent";
 import {
-  Bot,
+  Robot,
   FileText,
-  HeartPulse,
-  CalendarDays,
+  Heartbeat,
+  CalendarDots,
   ArrowLeft,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 
 const AGENT_COLORS = [
   "bg-blue-500", "bg-emerald-500", "bg-purple-500", "bg-orange-500",
@@ -44,11 +44,11 @@ import Link from "next/link";
 
 type TabId = "chat" | "schedule" | "system-prompt" | "heartbeat";
 
-const TABS: { id: TabId; label: string; icon: typeof Bot }[] = [
-  { id: "chat", label: "Chat", icon: Bot },
-  { id: "schedule", label: "Schedule", icon: CalendarDays },
+const TABS: { id: TabId; label: string; icon: typeof Robot }[] = [
+  { id: "chat", label: "Chat", icon: Robot },
+  { id: "schedule", label: "Schedule", icon: CalendarDots },
   { id: "system-prompt", label: "System Prompt", icon: FileText },
-  { id: "heartbeat", label: "Heartbeat", icon: HeartPulse },
+  { id: "heartbeat", label: "Heartbeat", icon: Heartbeat },
 ];
 
 export default function AgentConfigPage({
@@ -155,7 +155,7 @@ export default function AgentConfigPage({
       <div className="p-8">
         <Card>
           <CardContent className="p-12 text-center">
-            <Bot className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+            <Robot className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
             <p className="text-lg font-medium">Agent not found</p>
             <p className="text-sm text-muted-foreground mt-1">
               No agent with ID &quot;{agentId}&quot; exists

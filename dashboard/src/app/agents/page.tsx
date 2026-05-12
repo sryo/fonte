@@ -10,9 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
-  Bot, Cpu, FileText, Plus, Pencil, Trash2,
-  X, Check, Loader2,
-} from "lucide-react";
+  Robot, Cpu, FileText, Plus, Pencil, Trash,
+  X, Check, SpinnerGap,
+} from "@phosphor-icons/react";
 import Link from "next/link";
 import { agentColor } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -102,7 +102,7 @@ export default function AgentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Bot className="h-5 w-5 text-primary" />
+            <Robot className="h-5 w-5 text-primary" />
             Agents
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -152,7 +152,7 @@ export default function AgentsPage() {
       ) : !editing ? (
         <Card>
           <CardContent className="p-12 text-center">
-            <Bot className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+            <Robot className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
             <p className="text-lg font-medium">No agents configured</p>
             <p className="text-sm text-muted-foreground mt-1">
               Click &quot;Add Agent&quot; to create your first agent
@@ -251,7 +251,7 @@ function AgentEditor({
 
         <div className="flex items-center gap-2 pt-2">
           <Button onClick={onSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+            {saving ? <SpinnerGap className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             {isNew ? "Create Agent" : "Save Changes"}
           </Button>
           <Button variant="ghost" onClick={onCancel} disabled={saving}>
@@ -304,7 +304,7 @@ function AgentCard({
                     disabled={deleting}
                     className="h-8 text-xs"
                   >
-                    {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : "Delete"}
+                    {deleting ? <SpinnerGap className="h-3 w-3 animate-spin" /> : "Delete"}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={(e) => { e.preventDefault(); setConfirmDelete(false); }} className="h-8 text-xs">
                     No
@@ -312,7 +312,7 @@ function AgentCard({
                 </div>
               ) : (
                 <Button variant="ghost" size="icon" onClick={(e) => { e.preventDefault(); setConfirmDelete(true); }} className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash className="h-3.5 w-3.5" />
                 </Button>
               )}
             </div>

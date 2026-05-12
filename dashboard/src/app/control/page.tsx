@@ -27,22 +27,22 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Bot,
+  Robot,
   Cpu,
   Square,
-  Loader2,
-  Activity,
-  RefreshCw,
+  SpinnerGap,
+  Pulse,
+  ArrowsClockwise,
   X,
-  Trash2,
+  Trash,
   Plus,
-  ChevronDown,
-  ChevronRight,
-  ScrollText,
-  WifiOff,
-  Wifi,
+  CaretDown,
+  CaretRight,
+  Scroll,
+  WifiSlash,
+  WifiHigh,
   Pencil,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 
 const TABS = ["Overview", "Services", "Logs"] as const;
 type Tab = (typeof TABS)[number];
@@ -122,7 +122,7 @@ function DisconnectedSplash({ onReconnect }: { onReconnect: () => void }) {
         <div className="text-center space-y-2">
           <div className="flex justify-center">
             <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-              <WifiOff className="h-6 w-6 text-muted-foreground" />
+              <WifiSlash className="h-6 w-6 text-muted-foreground" />
             </div>
           </div>
           <h2 className="text-lg font-semibold">Cannot connect to AITorrent</h2>
@@ -146,7 +146,7 @@ function DisconnectedSplash({ onReconnect }: { onReconnect: () => void }) {
               className="px-4 py-2 text-sm bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50 rounded"
             >
               {checking ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <SpinnerGap className="h-4 w-4 animate-spin" />
               ) : (
                 "Connect"
               )}
@@ -229,7 +229,7 @@ function OverviewTab() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Bot className="h-3.5 w-3.5 text-primary" />
+            <Robot className="h-3.5 w-3.5 text-primary" />
             Agents
           </CardTitle>
         </CardHeader>
@@ -311,7 +311,7 @@ function ApiConnectionSection() {
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Wifi className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+            <WifiHigh className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
             <p className="text-sm font-semibold">API Connection</p>
             {!editingUrl && (
               <p className="text-xs text-muted-foreground">{getApiBase()}</p>
@@ -348,7 +348,7 @@ function ApiConnectionSection() {
               disabled={checking || !apiUrl}
               className="px-3 py-1.5 text-xs bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50 rounded"
             >
-              {checking ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+              {checking ? <SpinnerGap className="h-3 w-3 animate-spin" /> : "Save"}
             </button>
           </div>
         )}
@@ -404,7 +404,7 @@ function DaemonSection() {
             className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 rounded"
             title="Restart daemon"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${restarting ? "animate-spin" : ""}`} />
+            <ArrowsClockwise className={`h-3.5 w-3.5 ${restarting ? "animate-spin" : ""}`} />
           </button>
         </div>
       </CardContent>
@@ -481,9 +481,9 @@ function BuiltinProviders() {
                 {!p.hasKey && !p.hasOauth && <CredBadge color="zinc">Not configured</CredBadge>}
               </div>
               {editing === p.id ? (
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                <CaretDown className="h-3.5 w-3.5 text-muted-foreground" />
               ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                <CaretRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
               )}
             </div>
             {editing === p.id && (
@@ -586,7 +586,7 @@ function CustomProviders() {
               className="p-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all rounded"
               title="Remove"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash className="h-3 w-3" />
             </button>
           </div>
         ))}
@@ -664,7 +664,7 @@ function LogsTab() {
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
-            <ScrollText className="h-3 w-3 inline mr-1" />
+            <Scroll className="h-3 w-3 inline mr-1" />
             Queue Logs
           </button>
           <button
@@ -675,7 +675,7 @@ function LogsTab() {
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
-            <Activity className="h-3 w-3 inline mr-1" />
+            <Pulse className="h-3 w-3 inline mr-1" />
             Live Events
             {events.length > 0 && (
               <span className="ml-1 text-[10px] opacity-60">{events.length}</span>
@@ -688,7 +688,7 @@ function LogsTab() {
             className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded"
             title="Refresh"
           >
-            <RefreshCw className="h-3.5 w-3.5" />
+            <ArrowsClockwise className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
@@ -829,7 +829,7 @@ function AgentSessionRow({ msg, onKill }: { msg: ProcessingMessage; onKill: () =
           className="p-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all rounded"
           title="Kill session"
         >
-          {killing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Square className="h-3 w-3" />}
+          {killing ? <SpinnerGap className="h-3 w-3 animate-spin" /> : <Square className="h-3 w-3" />}
         </button>
       </div>
     </div>

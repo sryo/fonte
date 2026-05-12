@@ -7,18 +7,18 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import {
-  Zap, Download, Eye, SlidersVertical,
-  Settings, Sun, Moon,
-} from "lucide-react";
+  Lightning, DownloadSimple, Eye, SlidersHorizontal,
+  Gear, Sun, Moon,
+} from "@phosphor-icons/react";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 
 const NAV_ITEMS = [
-  { href: "/automations", label: "Automations", icon: Zap, accent: "bg-automation text-automation-foreground" },
-  { href: "/torrents", label: "Torrents", icon: Download, accent: "bg-torrent text-torrent-foreground" },
+  { href: "/automations", label: "Automations", icon: Lightning, accent: "bg-automation text-automation-foreground" },
+  { href: "/torrents", label: "Torrents", icon: DownloadSimple, accent: "bg-torrent text-torrent-foreground" },
   { href: "/watchlist", label: "Watchlist", icon: Eye, accent: "bg-watchlist text-watchlist-foreground" },
-  { href: "/control", label: "Control", icon: SlidersVertical, accent: "bg-secondary text-foreground" },
+  { href: "/control", label: "Control", icon: SlidersHorizontal, accent: "bg-secondary text-foreground" },
 ];
 
 export function Sidebar() {
@@ -78,7 +78,7 @@ export function Sidebar() {
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
               >
-                <Settings className="h-[18px] w-[18px]" />
+                <Gear className="h-[18px] w-[18px]" />
               </Link>
             </TooltipTrigger>
             <TooltipContent side="right" sideOffset={8}>

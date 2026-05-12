@@ -14,22 +14,22 @@ import {
   type ActionType,
 } from "@/lib/api";
 import {
-  Zap,
-  Download,
+  Lightning,
+  DownloadSimple,
   Eye,
   Clock,
-  AlertCircle,
+  WarningCircle,
   XCircle,
-  Subtitles,
+  ClosedCaptioning,
   Globe,
   Pause,
-  Trash2,
+  Trash,
   Plus,
   X,
-  ChevronRight,
+  CaretRight,
   Check,
   Play,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 
 // ── Label Maps ──────────────────────────────────────────────────────────
 
@@ -61,17 +61,17 @@ function triggerIcon(type: TriggerType) {
     case "torrent:added":
     case "torrent:error":
     case "torrent:stalled":
-      return Download;
+      return DownloadSimple;
     case "watchlist:match":
     case "watchlist:search":
       return Eye;
     case "subtitle:downloaded":
     case "subtitle:translated":
-      return Subtitles;
+      return ClosedCaptioning;
     case "schedule":
       return Clock;
     default:
-      return Zap;
+      return Lightning;
   }
 }
 
@@ -79,19 +79,19 @@ function actionIcon(type: ActionType) {
   switch (type) {
     case "add_torrent":
     case "resume_torrent":
-      return Download;
+      return DownloadSimple;
     case "pause_torrent":
       return Pause;
     case "remove_torrent":
-      return Trash2;
+      return Trash;
     case "fetch_subtitles":
-      return Subtitles;
+      return ClosedCaptioning;
     case "translate_subtitles":
       return Globe;
     case "notify_webhook":
-      return Zap;
+      return Lightning;
     default:
-      return Zap;
+      return Lightning;
   }
 }
 
@@ -299,7 +299,7 @@ export default function AutomationsPage() {
         </div>
       ) : rules.length === 0 ? (
         <div className="py-16 text-center">
-          <Zap className="h-12 w-12 text-automation mx-auto mb-4" />
+          <Lightning className="h-12 w-12 text-automation mx-auto mb-4" />
           <p className="text-lg font-medium">No automations yet</p>
           <p className="text-sm text-muted-foreground mt-1">
             Create your first automation to get started
@@ -360,7 +360,7 @@ function AutomationCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const TriggerIcon = triggerIcon(rule.triggerType);
   const firstAction = rule.actions[0];
-  const FirstActionIcon = firstAction ? actionIcon(firstAction.type) : Zap;
+  const FirstActionIcon = firstAction ? actionIcon(firstAction.type) : Lightning;
 
   return (
     <div
@@ -411,7 +411,7 @@ function AutomationCard({
                 title="Delete"
                 className="p-1.5 text-muted-foreground hover:text-destructive transition-colors rounded-lg hover:bg-destructive/10"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
@@ -425,7 +425,7 @@ function AutomationCard({
             {TRIGGER_LABELS[rule.triggerType] ?? rule.triggerType}
           </span>
 
-          <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+          <CaretRight className="h-3 w-3 text-muted-foreground shrink-0" />
 
           {/* Conditions pill */}
           {rule.conditions.length > 0 && (
@@ -433,7 +433,7 @@ function AutomationCard({
               <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-muted text-muted-foreground">
                 {rule.conditions.length} condition{rule.conditions.length !== 1 ? "s" : ""}
               </span>
-              <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+              <CaretRight className="h-3 w-3 text-muted-foreground shrink-0" />
             </>
           )}
 
@@ -720,7 +720,7 @@ function CreateAutomationModal({
 
               {conditions.length === 0 ? (
                 <div className="py-6 text-center border border-dashed rounded-lg">
-                  <AlertCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <WarningCircle className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
                   <p className="text-xs text-muted-foreground">
                     No conditions added. This automation will run for every matching event.
                   </p>
@@ -884,7 +884,7 @@ function CreateAutomationModal({
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-automation text-automation-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Next
-                <ChevronRight className="h-3.5 w-3.5" />
+                <CaretRight className="h-3.5 w-3.5" />
               </button>
             ) : (
               <button

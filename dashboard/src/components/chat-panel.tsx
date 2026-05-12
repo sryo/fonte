@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Bot, X, Send } from "lucide-react";
+import { Robot, X, PaperPlaneTilt } from "@phosphor-icons/react";
 import { getAgentMessages, sendMessage, type AgentMessage } from "@/lib/api";
 import { Markdown } from "@/components/ui/markdown";
 
@@ -104,7 +104,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
         <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-primary/10">
-              <Bot className="h-4 w-4 text-primary" />
+              <Robot className="h-4 w-4 text-primary" />
             </div>
             <span className="text-sm font-semibold">AITorrent Agent</span>
           </div>
@@ -122,7 +122,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="flex items-center justify-center h-12 w-12 rounded-2xl bg-primary/10 mb-3">
-                <Bot className="h-6 w-6 text-primary" />
+                <Robot className="h-6 w-6 text-primary" />
               </div>
               <p className="text-sm font-medium text-foreground">No messages yet</p>
               <p className="text-xs text-muted-foreground mt-1">
@@ -180,7 +180,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
             className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 shrink-0"
             aria-label="Send message"
           >
-            <Send className="h-4 w-4" />
+            <PaperPlaneTilt className="h-4 w-4" />
           </button>
         </div>
       </div>
