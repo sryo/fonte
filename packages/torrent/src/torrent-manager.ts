@@ -490,6 +490,17 @@ export class TorrentManager {
             }
         }
 
+        // Detect DB records missing from Transmission (removed externally)
+        const transmissionHashes = new Set(transmissionTorrents.map((t: any) => (t.hashString || '').toLowerCase()));
+        const activeDbRecords = getActiveTorrents();
+        for (const record of activeDbRecords) {
+            if (!transmissionHashes.has(record.infoHash.toLowerCase())) {
+                updateTorrent(record.id, { status: 'removed', downloadSpeed: 0, uploadSpeed: 0 });
+                this.transmissionIds.delete(record.id);
+                log('INFO', `Torrent missing from Transmission, marked removed: ${record.name || record.id}`);
+            }
+        }
+
         emitEvent(TORRENT_EVENTS.STATS, this.getStats() as unknown as Record<string, unknown>);
     }
 
