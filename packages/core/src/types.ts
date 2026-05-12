@@ -112,6 +112,10 @@ export const MODEL_ALIASES: Record<string, Record<string, string>> = {
         'sonnet': 'opencode/claude-sonnet-4-6',
         'opus': 'opencode/claude-opus-4-6',
     },
+    gemini: {
+        'pro': 'gemini-2.5-pro',
+        'flash': 'gemini-2.5-flash',
+    },
 };
 
 // Schedule types

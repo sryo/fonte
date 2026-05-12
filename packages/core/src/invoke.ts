@@ -249,6 +249,8 @@ export async function invokeAgent(
             envOverrides.ANTHROPIC_API_KEY = settings.models.anthropic.api_key;
         } else if (provider === 'openai' && settings.models?.openai?.api_key) {
             envOverrides.OPENAI_API_KEY = settings.models.openai.api_key;
+        } else if (provider === 'gemini' && (settings.models as any)?.gemini?.api_key) {
+            envOverrides.GOOGLE_API_KEY = (settings.models as any).gemini.api_key;
         }
     }
 
