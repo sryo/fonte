@@ -26,7 +26,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
       try {
         const data = await getAgentMessages("aitorrent", 50);
         if (mounted) {
-          setMessages(data);
+          setMessages([...data].reverse());
         }
       } catch {
         // silently fail polling
@@ -65,7 +65,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
       setInput("");
       // Immediately fetch to show the user message
       const data = await getAgentMessages("aitorrent", 50);
-      setMessages(data);
+      setMessages([...data].reverse());
     } catch {
       // Errors silently handled
     } finally {
@@ -108,7 +108,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
         </div>
 
         {/* Message list */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ overflowAnchor: "none" }}>
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="flex items-center justify-center h-12 w-12 rounded-2xl bg-primary/10 mb-3">
@@ -138,7 +138,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
             </div>
           ))}
 
-          <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} style={{ overflowAnchor: "auto" }} />
         </div>
 
         {/* Input */}
