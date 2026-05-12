@@ -23,6 +23,18 @@ export function SmartBar({ onOpenChat }: SmartBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  // Cmd+K global shortcut to focus the smart bar
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   // Dismiss results dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -141,7 +153,7 @@ export function SmartBar({ onOpenChat }: SmartBarProps) {
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSubmit();
             }}
-            placeholder="Search, paste a magnet link, or ask anything..."
+            placeholder="Search, paste a magnet link, or ask anything... (⌘K)"
             disabled={loading}
             className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground disabled:opacity-60"
           />

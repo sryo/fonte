@@ -12,6 +12,7 @@ import {
   type TorrentStatus,
   type TorrentStats,
 } from "@/lib/api";
+import { formatBytes, formatSpeed, formatEta } from "@/lib/format";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -24,18 +25,6 @@ const TABS: { key: TabFilter; label: string }[] = [
   { key: "completed", label: "Completed" },
   { key: "paused", label: "Paused" },
 ];
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  const value = bytes / Math.pow(1024, i);
-  return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-}
-
-function formatSpeed(bytesPerSec: number): string {
-  return `${formatBytes(bytesPerSec)}/s`;
-}
 
 function statusLabel(status: TorrentStatus): string {
   switch (status) {
@@ -412,6 +401,20 @@ function TorrentCard({
               <span>{formatBytes(torrent.downloaded)} / {formatBytes(torrent.size)}</span>
             )}
           </div>
+
+          {/* ETA for active downloads */}
+          {torrent.status === "downloading" && torrent.downloadSpeed > 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              ETA: {formatEta(torrent.size - torrent.downloaded, torrent.downloadSpeed)}
+            </p>
+          )}
+
+          {/* Ratio for completed/seeding torrents */}
+          {(torrent.status === "seeding" || torrent.status === "completed") && (
+            <p className="text-[11px] text-muted-foreground">
+              Ratio: {torrent.downloaded > 0 ? (torrent.uploaded / torrent.downloaded).toFixed(2) : "0.00"}
+            </p>
+          )}
         </div>
       </div>
 

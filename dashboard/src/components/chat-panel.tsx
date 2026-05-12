@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Bot, X, Send } from "lucide-react";
 import { getAgentMessages, sendMessage, type AgentMessage } from "@/lib/api";
+import { Markdown } from "@/components/ui/markdown";
 
 interface ChatPanelProps {
   open: boolean;
@@ -13,6 +14,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [thinking, setThinking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
 
@@ -26,7 +28,13 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
       try {
         const data = await getAgentMessages("aitorrent", 50);
         if (mounted) {
-          setMessages([...data].reverse());
+          const reversed = [...data].reverse();
+          setMessages((prev) => {
+            if (reversed.length > prev.length) {
+              setThinking(false);
+            }
+            return reversed;
+          });
         }
       } catch {
         // silently fail polling
@@ -55,6 +63,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     if (!value || sending) return;
 
     setSending(true);
+    setThinking(true);
     try {
       await sendMessage({
         message: value,
@@ -67,6 +76,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
       const data = await getAgentMessages("aitorrent", 50);
       setMessages([...data].reverse());
     } catch {
+      setThinking(false);
       // Errors silently handled
     } finally {
       setSending(false);
@@ -127,16 +137,26 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`px-3 py-2 text-sm max-w-[80%] whitespace-pre-wrap break-words ${
+                className={`px-3 py-2 text-sm max-w-[80%] break-words ${
                   msg.role === "user"
-                    ? "bg-muted rounded-xl rounded-br-sm ml-auto"
-                    : "bg-card border rounded-xl rounded-bl-sm"
+                    ? "bg-muted rounded-xl rounded-br-sm ml-auto whitespace-pre-wrap"
+                    : "bg-card border rounded-xl rounded-bl-sm prose prose-sm dark:prose-invert max-w-none"
                 }`}
               >
-                {msg.content}
+                {msg.role === "user" ? msg.content : <Markdown>{msg.content}</Markdown>}
               </div>
             </div>
           ))}
+
+          {thinking && (
+            <div className="flex justify-start">
+              <div className="bg-card border rounded-xl rounded-bl-sm px-3 py-2 text-sm text-muted-foreground flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground animate-pulse" />
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground animate-pulse" style={{animationDelay: "0.2s"}} />
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground animate-pulse" style={{animationDelay: "0.4s"}} />
+              </div>
+            </div>
+          )}
 
           <div ref={messagesEndRef} style={{ overflowAnchor: "auto" }} />
         </div>

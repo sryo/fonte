@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",
-    "@aitorrent/core": "*",
-    "open": "^10.0.0"
+    "@aitorrent/core": "*"
   }
 }
