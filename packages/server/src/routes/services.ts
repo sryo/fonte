@@ -2,7 +2,6 @@ import { Hono } from 'hono';
 import { log } from '@aitorrent/core';
 
 export interface ServiceHandlers {
-    getHeartbeatStatus?: () => { running: boolean; interval: number; lastSent: Record<string, number> };
     restart?: () => void;
 }
 

@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import {
-  Zap, Download, Eye, Bot, SlidersVertical,
+  Zap, Download, Eye, SlidersVertical,
   Settings, Sun, Moon,
 } from "lucide-react";
 import {
@@ -17,7 +17,6 @@ const NAV_ITEMS = [
   { href: "/automations", label: "Automations", icon: Zap, accent: "bg-automation text-automation-foreground" },
   { href: "/torrents", label: "Torrents", icon: Download, accent: "bg-torrent text-torrent-foreground" },
   { href: "/watchlist", label: "Watchlist", icon: Eye, accent: "bg-watchlist text-watchlist-foreground" },
-  { href: "/agents", label: "Agents", icon: Bot, accent: "bg-agent text-agent-foreground" },
   { href: "/control", label: "Control", icon: SlidersVertical, accent: "bg-secondary text-foreground" },
 ];
 

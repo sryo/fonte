@@ -267,9 +267,9 @@ function OverviewTab() {
 
 function MiniStat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
   return (
-    <div className="border bg-card px-4 py-3">
+    <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
       <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
-      <p className={`text-2xl font-bold tabular-nums mt-0.5 ${accent ? "text-primary" : ""}`}>{value}</p>
+      <p className={`text-2xl font-bold tabular-nums mt-0.5 ${accent ? "text-torrent" : ""}`}>{value}</p>
     </div>
   );
 }

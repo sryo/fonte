@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   getTorrents,
-  addTorrent,
   pauseTorrent,
   resumeTorrent,
   removeTorrent,
@@ -107,10 +106,7 @@ export default function TorrentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabFilter>("all");
   const [actionError, setActionError] = useState<string | null>(null);
-  const [inputValue, setInputValue] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const mountedRef = useRef(true);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -148,33 +144,6 @@ export default function TorrentsPage() {
       clearInterval(id);
     };
   }, [fetchData]);
-
-  const handleInputSubmit = useCallback(
-    async () => {
-      const value = inputValue.trim();
-      if (!value) return;
-      setSubmitting(true);
-      setActionError(null);
-      try {
-        if (value.startsWith("magnet:")) {
-          await addTorrent({ magnetUri: value });
-          setInputValue("");
-          fetchData();
-        } else {
-          // For non-magnet input, still try adding as magnet
-          // (future: integrate search API)
-          await addTorrent({ magnetUri: value });
-          setInputValue("");
-          fetchData();
-        }
-      } catch (err) {
-        setActionError((err as Error).message);
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    [inputValue, fetchData],
-  );
 
   const handlePause = useCallback(
     async (id: string) => {
@@ -222,31 +191,6 @@ export default function TorrentsPage() {
 
   return (
     <div className="p-6 md:p-8 space-y-6">
-      {/* Input bar */}
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-          {submitting ? (
-            <div className="h-5 w-5 animate-spin border-2 border-torrent border-t-transparent rounded-full" />
-          ) : (
-            <svg className="h-5 w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-            </svg>
-          )}
-        </div>
-        <input
-          ref={inputRef}
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !submitting) handleInputSubmit();
-          }}
-          placeholder="Paste a magnet link or search for content..."
-          disabled={submitting}
-          className="w-full h-12 pl-12 pr-4 rounded-xl border bg-card shadow-sm text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-torrent/40 focus:border-torrent/50 transition-all disabled:opacity-60"
-        />
-      </div>
-
       {/* Stats row */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -379,7 +323,7 @@ export default function TorrentsPage() {
           </p>
           <p className="text-sm text-muted-foreground mt-1">
             {tab === "all"
-              ? "Paste a magnet link above to get started"
+              ? "Use the search bar above to add a torrent"
               : "Try a different filter"}
           </p>
         </div>

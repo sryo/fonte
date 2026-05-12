@@ -25,7 +25,6 @@ import {
 } from '@aitorrent/core';
 import { startApiServer } from '@aitorrent/server';
 import { createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted, createAutomationEngine } from '@aitorrent/torrent';
-import { startHeartbeat, stopHeartbeat, getHeartbeatStatus } from './heartbeat';
 
 // Ensure directories exist
 [FILES_DIR, path.dirname(LOG_FILE)].forEach(dir => {
@@ -204,7 +203,6 @@ if (startupRecovered > 0) {
 }
 
 const apiServer = startApiServer({
-    getHeartbeatStatus,
     restart() {
         log('INFO', 'Restart requested via API');
         shutdown(75);
@@ -236,9 +234,6 @@ const maintenanceInterval = setInterval(() => {
 
 // Start in-process cron scheduler
 startScheduler();
-
-// Start heartbeat
-startHeartbeat();
 
 // Start torrent manager
 const torrentManager = createTorrentManager(getSettings().torrent);
@@ -273,7 +268,6 @@ log('INFO', `Agents: ${Object.keys(getAgents(getSettings())).join(', ')}`);
 // Graceful shutdown. Exit code 75 signals "restart" to the Docker entrypoint loop.
 function shutdown(exitCode = 0): void {
     log('INFO', exitCode === 75 ? 'Restarting queue processor...' : 'Shutting down queue processor...');
-    stopHeartbeat();
     stopScheduler();
     stopWatchlistRunner();
     automationEngine.stop();

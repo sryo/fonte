@@ -60,12 +60,10 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
 
     // GET /api/status — overall system status
     app.get('/api/status', (c) => {
-        const heartbeatStatus = services?.getHeartbeatStatus?.() ?? { running: false, interval: 0, lastSent: {} };
         return c.json({
             ok: true,
             uptime: Math.floor((Date.now() - startedAt) / 1000),
             server: { running: true, port: API_PORT },
-            heartbeat: heartbeatStatus,
         });
     });
 
