@@ -6,10 +6,10 @@
 #   1. Homebrew (if missing)
 #   2. Node.js (if missing)
 #   3. Transmission (torrent backend)
-#   4. bitmagnet (DHT crawler + torrent indexer)
+#   4. Jackett (torrent indexer)
 #   5. npm dependencies + build
 #   6. AITorrent.app (magnet: and .torrent file handler)
-#   7. Write default settings
+#   7. Write default settings with Jackett API key
 #
 
 set -e
@@ -100,94 +100,50 @@ else
     echo "  Transmission already running."
 fi
 
-# ── Step 4: bitmagnet (DHT crawler + torrent indexer) ────────────────────────
+# ── Step 4: Jackett ──────────────────────────────────────────────────────────
 
 echo ""
-echo "[4/7] Checking bitmagnet..."
+echo "[4/7] Checking Jackett..."
 
-# bitmagnet needs Docker (for PostgreSQL)
-if ! command -v docker &>/dev/null; then
-    echo "  Docker not found. Installing Docker via Homebrew..."
-    brew install --cask docker
-    echo "  Docker installed. Please open Docker Desktop to start the daemon."
-    echo "  Then re-run this installer."
-    exit 1
-fi
-
-# Check if Docker daemon is running
-if ! docker info &>/dev/null 2>&1; then
-    echo "  Docker daemon not running. Starting Docker Desktop..."
-    open -a Docker
-    echo "  Waiting for Docker to start..."
-    for i in $(seq 1 30); do
-        if docker info &>/dev/null 2>&1; then break; fi
-        sleep 2
-    done
-    if ! docker info &>/dev/null 2>&1; then
-        echo "  Error: Docker failed to start. Open Docker Desktop manually, then re-run."
-        exit 1
-    fi
-fi
-
-# Write docker-compose for bitmagnet + postgres
-BITMAGNET_DIR="$CONFIG_DIR/bitmagnet"
-mkdir -p "$BITMAGNET_DIR"
-
-if [ ! -f "$BITMAGNET_DIR/docker-compose.yml" ]; then
-    cat > "$BITMAGNET_DIR/docker-compose.yml" <<'DCEOF'
-services:
-  bitmagnet:
-    image: ghcr.io/bitmagnet-io/bitmagnet:latest
-    restart: unless-stopped
-    environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PASSWORD=bitmagnet
-    ports:
-      - "3333:3333"
-      - "3334:3334/tcp"
-      - "3334:3334/udp"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command:
-      - worker
-      - run
-      - --all
-
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      - POSTGRES_PASSWORD=bitmagnet
-      - POSTGRES_DB=bitmagnet
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    shm_size: 1g
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  postgres-data:
-DCEOF
-    echo "  Docker Compose config written."
-fi
-
-# Start bitmagnet
-echo "  Starting bitmagnet..."
-(cd "$BITMAGNET_DIR" && docker compose up -d 2>&1 | tail -3)
-sleep 5
-
-# Verify
-if curl -s http://localhost:3333/status &>/dev/null; then
-    echo "  bitmagnet running on port 3333."
-    echo "  Web UI: http://localhost:3333"
-    echo "  DHT crawler is building index (may take a few hours for initial crawl)."
+if command -v jackett &>/dev/null || [ -f /opt/homebrew/bin/jackett ]; then
+    echo "  Jackett already installed."
 else
-    echo "  Warning: bitmagnet not ready yet. It may take a minute to initialize."
-    echo "  Check: cd $BITMAGNET_DIR && docker compose logs"
+    echo "  Installing Jackett via Homebrew..."
+    brew install jackett
+    echo "  Jackett installed."
+fi
+
+if ! pgrep -x jackett &>/dev/null; then
+    echo "  Starting Jackett..."
+    brew services start jackett 2>/dev/null
+    sleep 5
+    if pgrep -x jackett &>/dev/null; then
+        echo "  Jackett running on port 9117."
+    else
+        echo "  Warning: Jackett failed to start. Run: brew services start jackett"
+    fi
+else
+    echo "  Jackett already running."
+fi
+
+# Read Jackett API key
+JACKETT_API_KEY=""
+for config_path in \
+    "$HOME/Library/Application Support/Jackett/ServerConfig.json" \
+    "/opt/homebrew/var/jackett/ServerConfig.json" \
+    "$HOME/.config/Jackett/ServerConfig.json"; do
+    if [ -f "$config_path" ]; then
+        JACKETT_API_KEY=$(python3 -c "import json; print(json.load(open('$config_path')).get('APIKey',''))" 2>/dev/null)
+        break
+    fi
+done
+
+if [ -n "$JACKETT_API_KEY" ]; then
+    echo "  Jackett API key: ${JACKETT_API_KEY:0:8}..."
+    echo "  Configuring public indexers..."
+    bash "$SCRIPT_DIR/scripts/setup-jackett-indexers.sh" "$JACKETT_API_KEY" 2>/dev/null
+else
+    echo "  Warning: Could not read Jackett API key. Configure manually in settings."
 fi
 
 # ── Step 5: Build AITorrent ──────────────────────────────────────────────────
@@ -259,7 +215,8 @@ if [ ! -f "$CONFIG_DIR/settings.json" ]; then
     "check_interval_minutes": 30,
     "auto_add": true,
     "preferred_quality": "1080p",
-    "bitmagnet_url": "http://localhost:3333"
+    "jackett_url": "http://localhost:9117",
+    "jackett_api_key": "$JACKETT_API_KEY"
   },
   "subtitles": {
     "enabled": true,
@@ -271,6 +228,18 @@ if [ ! -f "$CONFIG_DIR/settings.json" ]; then
 EOF
     echo "  Settings written to $CONFIG_DIR/settings.json"
 else
+    # Update Jackett API key if we found one and settings exist
+    if [ -n "$JACKETT_API_KEY" ]; then
+        python3 -c "
+import json
+with open('$CONFIG_DIR/settings.json') as f:
+    s = json.load(f)
+s.setdefault('watchlist', {})['jackett_api_key'] = '$JACKETT_API_KEY'
+s.setdefault('watchlist', {})['jackett_url'] = 'http://localhost:9117'
+with open('$CONFIG_DIR/settings.json', 'w') as f:
+    json.dump(s, f, indent=2)
+" 2>/dev/null && echo "  Updated Jackett API key in existing settings."
+    fi
     echo "  Settings already exist, preserved."
 fi
 
@@ -291,5 +260,5 @@ echo "File associations:"
 echo "  - magnet: links → AITorrent"
 echo "  - .torrent files → AITorrent"
 echo ""
-echo "bitmagnet UI: http://localhost:3333"
+echo "Manage Jackett indexers: http://localhost:9117"
 echo ""

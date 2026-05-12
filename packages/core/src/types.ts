@@ -66,7 +66,8 @@ export interface Settings {
         check_interval_minutes?: number;
         auto_add?: boolean;
         preferred_quality?: string;
-        bitmagnet_url?: string;
+        jackett_url?: string;
+        jackett_api_key?: string;
     };
     subtitles?: {
         enabled?: boolean;
