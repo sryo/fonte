@@ -21,6 +21,7 @@ import { createQueueRoutes } from './routes/queue';
 import logsRoutes from './routes/logs';
 import { createServicesRoutes, type ServiceHandlers } from './routes/services';
 export type { ServiceHandlers } from './routes/services';
+import agentMessagesRoutes from './routes/agent-messages';
 import schedulesRoutes from './routes/schedules';
 import torrentsRoutes from './routes/torrents';
 import watchlistRoutes from './routes/watchlist';
@@ -48,6 +49,7 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
     app.route('/', settingsRoutes);
     app.route('/', createQueueRoutes());
     app.route('/', logsRoutes);
+    app.route('/', agentMessagesRoutes);
     app.route('/', createServicesRoutes(services));
     app.route('/', schedulesRoutes);
     app.route('/', torrentsRoutes);
