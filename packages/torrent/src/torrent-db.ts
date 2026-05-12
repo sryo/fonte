@@ -91,6 +91,35 @@ export function initTorrentDb(): void {
             FOREIGN KEY (torrent_id) REFERENCES torrents(id) ON DELETE CASCADE
         );
         CREATE INDEX IF NOT EXISTS idx_subtitles_torrent ON torrent_subtitles(torrent_id);
+
+        CREATE TABLE IF NOT EXISTS automation_rules (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            trigger_type TEXT NOT NULL,
+            trigger_config TEXT DEFAULT '{}',
+            conditions TEXT DEFAULT '[]',
+            actions TEXT DEFAULT '[]',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            last_triggered_at INTEGER,
+            trigger_count INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_automation_enabled ON automation_rules(enabled);
+        CREATE INDEX IF NOT EXISTS idx_automation_trigger ON automation_rules(trigger_type);
+
+        CREATE TABLE IF NOT EXISTS automation_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rule_id TEXT NOT NULL,
+            trigger_event TEXT NOT NULL,
+            conditions_met INTEGER NOT NULL DEFAULT 1,
+            actions_executed TEXT DEFAULT '[]',
+            error_message TEXT,
+            executed_at INTEGER NOT NULL,
+            FOREIGN KEY (rule_id) REFERENCES automation_rules(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_auto_logs_rule ON automation_logs(rule_id);
     `);
 }
 

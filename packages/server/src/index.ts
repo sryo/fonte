@@ -26,6 +26,7 @@ import schedulesRoutes from './routes/schedules';
 import torrentsRoutes from './routes/torrents';
 import watchlistRoutes from './routes/watchlist';
 import subtitlesRoutes from './routes/subtitles';
+import automationsRoutes from './routes/automations';
 
 const API_PORT = parseInt(process.env.AITORRENT_API_PORT || '3777', 10);
 
@@ -55,6 +56,7 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
     app.route('/', torrentsRoutes);
     app.route('/', watchlistRoutes);
     app.route('/', subtitlesRoutes);
+    app.route('/', automationsRoutes);
 
     // GET /api/status — overall system status
     app.get('/api/status', (c) => {

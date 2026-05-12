@@ -14,7 +14,7 @@ import {
   X, Check, Loader2,
 } from "lucide-react";
 import Link from "next/link";
-import { agentColor } from "@/components/sidebar";
+import { agentColor } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 type FormData = {

@@ -24,7 +24,7 @@ import {
     startScheduler, stopScheduler,
 } from '@aitorrent/core';
 import { startApiServer } from '@aitorrent/server';
-import { createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted } from '@aitorrent/torrent';
+import { createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted, createAutomationEngine } from '@aitorrent/torrent';
 import { startHeartbeat, stopHeartbeat, getHeartbeatStatus } from './heartbeat';
 
 // Ensure directories exist
@@ -253,6 +253,10 @@ if (watchlistSettings?.enabled) {
     startWatchlistRunner(intervalMinutes);
 }
 
+// Start automation engine
+const automationEngine = createAutomationEngine();
+automationEngine.start();
+
 // Auto-fetch subtitles when a torrent completes
 onEvent((type, data) => {
     if (type === 'torrent:completed' && data.torrentId) {
@@ -272,6 +276,7 @@ function shutdown(exitCode = 0): void {
     stopHeartbeat();
     stopScheduler();
     stopWatchlistRunner();
+    automationEngine.stop();
     torrentManager.stop().catch(() => {});
     clearInterval(pollInterval);
     clearInterval(maintenanceInterval);
