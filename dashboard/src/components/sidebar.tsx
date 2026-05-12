@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -23,6 +24,8 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   return (
     <TooltipProvider>
@@ -89,7 +92,7 @@ export function Sidebar() {
                 onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
                 className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >
-                {resolvedTheme === "dark" ? (
+                {mounted && resolvedTheme === "dark" ? (
                   <Sun className="h-[18px] w-[18px]" />
                 ) : (
                   <Moon className="h-[18px] w-[18px]" />
@@ -97,7 +100,7 @@ export function Sidebar() {
               </button>
             </TooltipTrigger>
             <TooltipContent side="right" sideOffset={8}>
-              {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
+              {mounted && resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
             </TooltipContent>
           </Tooltip>
         </div>

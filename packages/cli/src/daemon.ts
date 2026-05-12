@@ -242,8 +242,8 @@ export async function openOffice(): Promise<void> {
     console.log('');
     log(GREEN, `Opening AITorrent Dashboard: ${PORTAL_URL}`);
     try {
-        const open = (await import('open')).default;
-        await open(PORTAL_URL);
+        const { exec } = await import('child_process');
+        exec(`open "${PORTAL_URL}"`);
     } catch {
         log(YELLOW, `Could not open browser. Visit ${PORTAL_URL} manually.`);
     }

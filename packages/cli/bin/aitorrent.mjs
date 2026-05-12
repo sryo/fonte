@@ -89,6 +89,12 @@ switch (command) {
         runCliScript('subtitle.js', restArgs);
         break;
 
+    // ── WhatsApp ─────────────────────────────────────────────────────────────
+
+    case 'whatsapp':
+        runCliScript('whatsapp.js', restArgs);
+        break;
+
     // ── Logs ────────────────────────────────────────────────────────────────
 
     case 'logs':
@@ -239,6 +245,9 @@ switch (command) {
         console.log('  agent remove <id>        Remove an agent');
         console.log('  agent show <id>          Show agent config');
         console.log('  agent reset <id>         Reset agent conversation');
+        console.log('');
+        console.log('Channels:');
+        console.log('  whatsapp                 Start WhatsApp channel (scan QR to pair)');
         console.log('');
         console.log('Other:');
         console.log('  ui                       Start web dashboard (http://localhost:3000)');

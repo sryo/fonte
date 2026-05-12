@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",
-    "@aitorrent/core": "*"
+    "@aitorrent/core": "*",
+    "whatsapp-web.js": "^1.26.1",
+    "qrcode-terminal": "^0.12.0"
   }
 }
