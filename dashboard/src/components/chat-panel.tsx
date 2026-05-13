@@ -61,14 +61,6 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     }
   }, [open]);
 
-  // Auto-scroll on new messages
-  useEffect(() => {
-    if (messages.length > prevCountRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-    prevCountRef.current = messages.length;
-  }, [messages]);
-
   const handleSend = useCallback(async () => {
     const value = input.trim();
     if (!value || sending) return;
@@ -129,7 +121,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
         </div>
 
         {/* Message list */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3" style={{ overflowAnchor: "none" }}>
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="flex items-center justify-center h-12 w-12 rounded-2xl bg-primary/10 mb-3">
@@ -146,6 +138,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
             <div
               key={msg.id}
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              style={{ overflowAnchor: "none" }}
             >
               <div
                 className={`px-3 py-2 text-sm max-w-[80%] break-words ${
