@@ -24,7 +24,7 @@ import {
     startScheduler, stopScheduler,
 } from '@aitorrent/core';
 import { startApiServer } from '@aitorrent/server';
-import { createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted, createAutomationEngine } from '@aitorrent/torrent';
+import { createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted, createAutomationEngine, getWhatsAppService } from '@aitorrent/torrent';
 
 // Ensure directories exist
 [FILES_DIR, path.dirname(LOG_FILE)].forEach(dir => {
@@ -271,6 +271,7 @@ function shutdown(exitCode = 0): void {
     stopScheduler();
     stopWatchlistRunner();
     automationEngine.stop();
+    getWhatsAppService().stop().catch(() => {});
     torrentManager.stop().catch(() => {});
     clearInterval(pollInterval);
     clearInterval(maintenanceInterval);

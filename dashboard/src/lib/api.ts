@@ -591,6 +591,19 @@ export async function saveSoul(content: string): Promise<{ ok: boolean }> {
   return apiFetch("/api/soul", { method: "PUT", body: JSON.stringify({ content }) });
 }
 
+// ── WhatsApp ─────────────────────────────────────────────────────────
+export async function startWhatsApp(): Promise<{ ok: boolean; status: string }> {
+  return apiFetch("/api/whatsapp/start", { method: "POST" });
+}
+
+export async function getWhatsAppStatus(): Promise<{ ok: boolean; status: string; qr?: string }> {
+  return apiFetch("/api/whatsapp/status");
+}
+
+export async function stopWhatsApp(): Promise<{ ok: boolean }> {
+  return apiFetch("/api/whatsapp/disconnect", { method: "POST" });
+}
+
 // ── SSE ───────────────────────────────────────────────────────────────────
 
 export function subscribeToEvents(

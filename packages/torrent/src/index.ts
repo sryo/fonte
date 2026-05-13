@@ -19,3 +19,4 @@ export * from './subtitle-manager';
 export * from './automation-events';
 export * from './automation-db';
 export * from './automation-engine';
+export * from './whatsapp-service';

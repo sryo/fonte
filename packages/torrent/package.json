@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@aitorrent/core": "*",
-    "better-sqlite3": "^12.6.2"
+    "better-sqlite3": "^12.6.2",
+    "whatsapp-web.js": "^1.26.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13"

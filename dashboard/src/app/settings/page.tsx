@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   getSettings,
   updateSettings,
@@ -8,6 +8,9 @@ import {
   updateTorrentConfig,
   getSoul,
   saveSoul,
+  startWhatsApp,
+  getWhatsAppStatus,
+  stopWhatsApp,
   type Settings,
   type TorrentConfig,
 } from "@/lib/api";
@@ -230,26 +233,7 @@ export default function SettingsPage() {
       )}
 
       {/* WhatsApp Channel */}
-      <div className="rounded-xl border bg-card shadow-sm">
-        <div className="p-5 space-y-3">
-          <div>
-            <h3 className="text-sm font-semibold">WhatsApp Channel</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Control AITorrent from your phone via WhatsApp
-            </p>
-          </div>
-          <div className="rounded-lg bg-muted/50 p-4 text-sm space-y-2">
-            <p>To connect WhatsApp, run this command in your terminal:</p>
-            <code className="block bg-background border rounded-lg px-3 py-2 font-mono text-xs select-all">
-              aitorrent whatsapp
-            </code>
-            <p className="text-xs text-muted-foreground">
-              A QR code will appear. Scan it with WhatsApp (Settings → Linked Devices → Link a Device).
-              Once connected, message yourself to control torrents, search, and manage downloads remotely.
-            </p>
-          </div>
-        </div>
-      </div>
+      <WhatsAppSection />
 
       {/* Advanced: Raw JSON */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
@@ -300,6 +284,130 @@ export default function SettingsPage() {
                 </span>
               )}
             </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── WhatsApp Section ────────────────────────────────────────────────────
+
+function WhatsAppSection() {
+  const [status, setStatus] = useState<string>("disconnected");
+  const [qr, setQr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Poll status every 2s
+  useEffect(() => {
+    let mounted = true;
+    const poll = async () => {
+      try {
+        const data = await getWhatsAppStatus();
+        if (!mounted) return;
+        setStatus(data.status);
+        if (data.qr) setQr(data.qr);
+        else setQr(null);
+      } catch {
+        if (mounted) setStatus("disconnected");
+      }
+    };
+    poll();
+    const id = setInterval(poll, 2000);
+    return () => { mounted = false; clearInterval(id); };
+  }, []);
+
+  // Render QR to canvas
+  useEffect(() => {
+    if (qr && canvasRef.current) {
+      import("qrcode").then((QRCode) => {
+        QRCode.toCanvas(canvasRef.current, qr, {
+          width: 240,
+          margin: 2,
+          color: { dark: "#000000", light: "#ffffff" },
+        });
+      });
+    }
+  }, [qr]);
+
+  const handleConnect = async () => {
+    setLoading(true);
+    try {
+      await startWhatsApp();
+    } catch {}
+    setLoading(false);
+  };
+
+  const handleDisconnect = async () => {
+    setLoading(true);
+    try {
+      await stopWhatsApp();
+      setStatus("disconnected");
+      setQr(null);
+    } catch {}
+    setLoading(false);
+  };
+
+  return (
+    <div className="rounded-xl border bg-card shadow-sm">
+      <div className="p-5 space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold">WhatsApp</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Control AITorrent from your phone
+          </p>
+        </div>
+
+        {status === "disconnected" && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Connect WhatsApp to manage torrents and get notifications on your phone.
+            </p>
+            <button
+              onClick={handleConnect}
+              disabled={loading}
+              className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              {loading ? "Connecting..." : "Connect WhatsApp"}
+            </button>
+          </div>
+        )}
+
+        {status === "connecting" && (
+          <div className="text-center py-4">
+            <div className="h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-sm text-muted-foreground mt-2">Initializing WhatsApp...</p>
+          </div>
+        )}
+
+        {status === "waiting_qr" && (
+          <div className="text-center space-y-3">
+            <div className="inline-block rounded-xl border bg-white p-3">
+              <canvas ref={canvasRef} />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Scan this QR code</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Open WhatsApp &rarr; Settings &rarr; Linked Devices &rarr; Link a Device
+              </p>
+            </div>
+          </div>
+        )}
+
+        {status === "connected" && (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-sm font-medium">Connected</span>
+            </div>
+            <button
+              onClick={handleDisconnect}
+              disabled={loading}
+              className="px-3 py-1.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+            >
+              Disconnect
+            </button>
           </div>
         )}
       </div>
