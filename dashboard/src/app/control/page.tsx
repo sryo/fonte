@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePolling, useSSE, timeAgo } from "@/lib/hooks";
+import { formatDuration, formatSeconds } from "@/lib/format";
 import {
   getQueueStatus,
   getProcessingMessages,
@@ -55,7 +56,7 @@ export default function ControlPlanePage() {
       <StatsRow />
 
       {/* Daemon */}
-      <DaemonSection />
+      <DaemonSection status={status} refresh={refresh} />
 
       {/* API Connection */}
       <ApiConnectionSection />
@@ -174,8 +175,7 @@ function MiniStat({ label, value, accent }: { label: string; value: number; acce
 
 // ── Daemon ─────────────────────────────────────────────────────────────────
 
-function DaemonSection() {
-  const { data: status, refresh } = usePolling(getSystemStatus, 3000);
+function DaemonSection({ status, refresh }: { status: any; refresh: () => void }) {
   const [restarting, setRestarting] = useState(false);
 
   const handleRestart = async () => {
@@ -192,13 +192,7 @@ function DaemonSection() {
     }
   };
 
-  const uptime = status?.uptime ?? 0;
-  const uptimeStr =
-    uptime < 60
-      ? `${uptime}s`
-      : uptime < 3600
-        ? `${Math.floor(uptime / 60)}m ${uptime % 60}s`
-        : `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`;
+  const uptimeStr = formatSeconds(status?.uptime ?? 0);
 
   return (
     <Card>
@@ -471,14 +465,6 @@ function LogLine({ line }: { line: string }) {
   );
 }
 
-function formatDuration(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ${s % 60}s`;
-  const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
-}
 
 function EventDot({ type }: { type: string }) {
   const colors: Record<string, string> = {
