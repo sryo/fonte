@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { Hono } from 'hono';
 import { Settings } from '@aitorrent/core';
-import { SETTINGS_FILE, AITORRENT_HOME, getSettings, ensureAgentDirectory, copyDirSync, SCRIPT_DIR } from '@aitorrent/core';
+import { SETTINGS_FILE, AITORRENT_HOME, getSettings, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@aitorrent/core';
 import { log } from '@aitorrent/core';
 
 /** Read, mutate, and persist settings.json atomically. */
@@ -95,6 +95,28 @@ app.post('/api/setup', async (c) => {
 
     log('INFO', '[API] Setup complete');
     return c.json({ ok: true, settings });
+});
+
+// GET /api/soul — read soul personality file
+app.get('/api/soul', (c) => {
+    let content = '';
+    try {
+        if (fs.existsSync(SOUL_PATH)) {
+            content = fs.readFileSync(SOUL_PATH, 'utf8');
+        }
+    } catch { /* ignore */ }
+    return c.json({ ok: true, content, path: SOUL_PATH });
+});
+
+// PUT /api/soul — write soul personality file
+app.put('/api/soul', async (c) => {
+    try {
+        const body = await c.req.json() as { content: string };
+        fs.writeFileSync(SOUL_PATH, body.content, 'utf8');
+        return c.json({ ok: true });
+    } catch (err) {
+        return c.json({ ok: false, error: (err as Error).message }, 500);
+    }
 });
 
 export default app;

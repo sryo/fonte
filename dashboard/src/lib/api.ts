@@ -605,6 +605,16 @@ export async function triggerAutomation(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/automations/${encodeURIComponent(id)}/trigger`, { method: "POST" });
 }
 
+// ── Soul ─────────────────────────────────────────────────────────────────
+
+export async function getSoul(): Promise<{ ok: boolean; content: string; path: string }> {
+  return apiFetch("/api/soul");
+}
+
+export async function saveSoul(content: string): Promise<{ ok: boolean }> {
+  return apiFetch("/api/soul", { method: "PUT", body: JSON.stringify({ content }) });
+}
+
 // ── SSE ───────────────────────────────────────────────────────────────────
 
 export function subscribeToEvents(

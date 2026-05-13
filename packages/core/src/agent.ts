@@ -2,9 +2,17 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { AgentConfig, TeamConfig } from './types';
-import { SCRIPT_DIR } from './config';
+import { SCRIPT_DIR, AITORRENT_HOME } from './config';
 import { loadMemoryIndex } from './memory';
 import { log } from './logging';
+
+/** Path to the global SOUL.md personality file. */
+export const SOUL_PATH = path.join(AITORRENT_HOME, 'SOUL.md');
+
+const DEFAULT_SOUL = `# Soul
+
+You are AITorrent's assistant. Be direct and concise. Act immediately on requests — don't ask unnecessary questions. Report results briefly. If something fails, say what went wrong and what you'll try next.
+`;
 
 /**
  * Built-in agent instructions read from the AGENTS.md template at SCRIPT_DIR.
@@ -112,6 +120,11 @@ export function ensureAgentDirectory(agentDir: string): void {
         }
     }
 
+    // Ensure global SOUL.md exists with default content
+    if (!fs.existsSync(SOUL_PATH)) {
+        fs.writeFileSync(SOUL_PATH, DEFAULT_SOUL, 'utf8');
+    }
+
     // Create memory directory for hierarchical memory system
     fs.mkdirSync(path.join(agentDir, 'memory'), { recursive: true });
 
@@ -195,6 +208,14 @@ export function buildSystemPrompt(
         prompt = prompt.substring(0, memStartIdx + memStartMarker.length) + memBlock + prompt.substring(memEndIdx);
     }
 
+    // Inject soul/personality
+    if (fs.existsSync(SOUL_PATH)) {
+        const soulContent = fs.readFileSync(SOUL_PATH, 'utf8').trim();
+        if (soulContent) {
+            prompt += '\n\n' + soulContent;
+        }
+    }
+
     // Append torrent management API documentation
     prompt += `
 
@@ -249,11 +270,19 @@ When they ask about download status, query the torrent list and report progress.
         prompt += '\n\n' + configSystemPrompt;
     }
 
+    let soulCacheContent = '';
+    try {
+        if (fs.existsSync(SOUL_PATH)) {
+            soulCacheContent = fs.readFileSync(SOUL_PATH, 'utf8');
+        }
+    } catch { /* ignore */ }
+
     const cacheInput = JSON.stringify({
         agentId,
         builtin: BUILTIN_AGENT_INSTRUCTIONS_HASH,
         teammateBlock: block,
         memoryTree,
+        soulContent: soulCacheContent,
         userContent,
         promptFileContent,
         configSystemPrompt: configSystemPrompt || '',
