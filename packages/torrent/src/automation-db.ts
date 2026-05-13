@@ -11,7 +11,8 @@ export type TriggerType =
 export type ActionType =
     | 'add_torrent' | 'pause_torrent' | 'remove_torrent' | 'resume_torrent'
     | 'fetch_subtitles' | 'translate_subtitles'
-    | 'notify_webhook';
+    | 'notify_webhook'
+    | 'rename_files' | 'move_to_folder' | 'organize_by_type';
 
 export interface AutomationCondition {
     field: string;

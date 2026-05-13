@@ -282,7 +282,7 @@ async function callAnthropicTranslate(apiKey: string, text: string, sourceLang: 
 
 // ── Name Parsing ──────────────────────────────────────────────────────────────
 
-function parseTorrentName(name: string): { title: string; year?: number; isTv: boolean } {
+export function parseTorrentName(name: string): { title: string; year?: number; isTv: boolean } {
     // Remove common suffixes and quality markers
     let cleaned = name
         .replace(/\.(mkv|mp4|avi|m4v)$/i, '')

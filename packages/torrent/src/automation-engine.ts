@@ -1,8 +1,10 @@
+import fs from 'fs';
+import path from 'path';
 import { log, emitEvent, onEvent } from '@aitorrent/core';
 import { getAutomationRules, updateAutomationRule, insertAutomationLog } from './automation-db';
 import { getTorrentManager } from './torrent-manager';
-import { fetchSubtitlesForTorrent, translateSubtitle } from './subtitle-manager';
-import { getTorrent } from './torrent-db';
+import { fetchSubtitlesForTorrent, translateSubtitle, parseTorrentName } from './subtitle-manager';
+import { getTorrent, getTorrentFiles, updateTorrent } from './torrent-db';
 import { AUTOMATION_EVENTS } from './automation-events';
 import type { AutomationRule, AutomationCondition, AutomationAction } from './automation-db';
 
@@ -159,6 +161,66 @@ export class AutomationEngine {
                     });
                 }
                 break;
+            case 'rename_files': {
+                if (!torrentId) break;
+                const torrent = getTorrent(torrentId);
+                if (!torrent) break;
+                const files = getTorrentFiles(torrentId);
+                const parsed = parseTorrentName(torrent.name);
+                for (const file of files) {
+                    const oldPath = path.join(torrent.savePath, file.path);
+                    if (!fs.existsSync(oldPath)) continue;
+                    const ext = path.extname(file.name);
+                    const epMatch = torrent.name.match(/S\d{2}E\d{2}/i);
+                    const cleanName = parsed.isTv
+                        ? `${parsed.title}${epMatch ? ' ' + epMatch[0] : ''}${ext}`
+                        : `${parsed.title}${parsed.year ? ' (' + parsed.year + ')' : ''}${ext}`;
+                    const newPath = path.join(path.dirname(oldPath), cleanName.trim());
+                    if (oldPath !== newPath) {
+                        fs.renameSync(oldPath, newPath);
+                        log('INFO', `Renamed: ${file.name} → ${cleanName.trim()}`);
+                    }
+                }
+                break;
+            }
+
+            case 'move_to_folder': {
+                if (!torrentId || !action.config.targetFolder) break;
+                const torrent = getTorrent(torrentId);
+                if (!torrent) break;
+                const target = action.config.targetFolder as string;
+                if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
+                const files = getTorrentFiles(torrentId);
+                for (const file of files) {
+                    const oldPath = path.join(torrent.savePath, file.path);
+                    if (!fs.existsSync(oldPath)) continue;
+                    const newPath = path.join(target, file.name);
+                    fs.renameSync(oldPath, newPath);
+                    log('INFO', `Moved: ${file.name} → ${target}`);
+                }
+                break;
+            }
+
+            case 'organize_by_type': {
+                if (!torrentId) break;
+                const torrent = getTorrent(torrentId);
+                if (!torrent) break;
+                const parsed = parseTorrentName(torrent.name);
+                const baseDir = (action.config.baseDir as string) || path.dirname(torrent.savePath);
+                const typeFolder = parsed.isTv ? 'TV' : 'Movies';
+                const target = path.join(baseDir, typeFolder);
+                if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
+                const files = getTorrentFiles(torrentId);
+                for (const file of files) {
+                    const oldPath = path.join(torrent.savePath, file.path);
+                    if (!fs.existsSync(oldPath)) continue;
+                    const newPath = path.join(target, file.name);
+                    fs.renameSync(oldPath, newPath);
+                }
+                log('INFO', `Organized "${torrent.name}" → ${typeFolder}/`);
+                break;
+            }
+
             default:
                 log('WARN', `Unknown action type: ${action.type}`);
         }

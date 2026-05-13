@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -65,6 +65,20 @@ function relativeTime(ts: number): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
+}
+
+function actionLabel(type: string): string {
+  const labels: Record<string, string> = {
+    fetch_subtitles: "Fetch subs",
+    translate_subtitles: "Translate",
+    rename_files: "Clean names",
+    move_to_folder: "Move",
+    organize_by_type: "Sort by type",
+    pause_torrent: "Pause",
+    remove_torrent: "Remove",
+    notify_webhook: "Webhook",
+  };
+  return labels[type] || type.replace(/_/g, " ");
 }
 
 // ── CardAction (hover action button) ────────────────────────────────────
@@ -216,7 +230,11 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [showAddWatchlist, setShowAddWatchlist] = useState(false);
   const [showAddAutomation, setShowAddAutomation] = useState(false);
-  const [autoForm, setAutoForm] = useState({ name: "", triggerType: "torrent:completed" as string, actionType: "fetch_subtitles" as string });
+  const [autoForm, setAutoForm] = useState({
+    name: "",
+    triggerType: "torrent:completed",
+    actions: [{ type: "fetch_subtitles", config: {} as Record<string, string> }],
+  });
   const [wlForm, setWlForm] = useState({ title: "", mediaType: "movie" as "movie" | "tv", year: "", quality: "1080p" });
 
   const fetchAll = useCallback(async () => {
@@ -466,15 +484,18 @@ export default function HomePage() {
               className="w-56 rounded-xl shadow-sm border bg-card p-4"
             >
               <p className="text-sm font-medium leading-tight line-clamp-1">{rule.name}</p>
-              <div className="mt-2 flex items-center gap-1.5 text-[10px]">
+              <div className="mt-2 flex items-center gap-1.5 text-[10px] flex-wrap">
                 <span className="bg-automation/15 text-automation px-1.5 py-0.5 rounded-md">
                   {rule.triggerType.replace(":", " ")}
                 </span>
                 <CaretRight className="h-3 w-3 text-muted-foreground" />
-                {rule.actions.slice(0, 1).map((action, i) => (
-                  <span key={i} className="bg-muted px-1.5 py-0.5 rounded-md text-muted-foreground">
-                    {action.type.replace(/_/g, " ")}
-                  </span>
+                {rule.actions.map((action, i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 && <CaretRight className="h-3 w-3 text-muted-foreground" />}
+                    <span className="bg-muted px-1.5 py-0.5 rounded-md text-muted-foreground">
+                      {actionLabel(action.type)}
+                    </span>
+                  </React.Fragment>
                 ))}
               </div>
               <p className="mt-2 text-[11px] text-muted-foreground">
@@ -556,7 +577,7 @@ export default function HomePage() {
       {/* Add Automation Modal */}
       {showAddAutomation && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onClick={() => setShowAddAutomation(false)}>
-          <div className="bg-card rounded-xl shadow-lg border p-6 w-full max-w-sm space-y-4 animate-card-enter" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card rounded-xl shadow-lg border p-6 w-full max-w-md space-y-4 animate-card-enter max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold">Create Automation</h3>
             <input
               placeholder="Rule name"
@@ -580,18 +601,111 @@ export default function HomePage() {
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Then do this...</label>
-              <select
-                value={autoForm.actionType}
-                onChange={(e) => setAutoForm({ ...autoForm, actionType: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1"
+              <label className="text-xs text-muted-foreground">Then do these steps...</label>
+              <div className="mt-2 space-y-3">
+                {autoForm.actions.map((action, idx) => (
+                  <div key={idx} className="border rounded-lg p-3 space-y-2 bg-background">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Step {idx + 1}</span>
+                      {autoForm.actions.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = autoForm.actions.filter((_, i) => i !== idx);
+                            setAutoForm({ ...autoForm, actions: next });
+                          }}
+                          className="h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          title="Remove step"
+                        >
+                          <X className="h-3 w-3" weight="bold" />
+                        </button>
+                      )}
+                    </div>
+                    <select
+                      value={action.type}
+                      onChange={(e) => {
+                        const next = [...autoForm.actions];
+                        next[idx] = { type: e.target.value, config: {} };
+                        setAutoForm({ ...autoForm, actions: next });
+                      }}
+                      className="w-full px-3 py-2 text-sm rounded-lg border bg-card"
+                    >
+                      <option value="fetch_subtitles">Fetch subtitles</option>
+                      <option value="translate_subtitles">Translate subtitles</option>
+                      <option value="rename_files">Clean file names</option>
+                      <option value="move_to_folder">Move to folder</option>
+                      <option value="organize_by_type">Sort by type (Movies/TV)</option>
+                      <option value="pause_torrent">Pause torrent</option>
+                      <option value="remove_torrent">Remove torrent</option>
+                      <option value="notify_webhook">Send webhook</option>
+                    </select>
+                    {action.type === "translate_subtitles" && (
+                      <input
+                        placeholder="es"
+                        value={action.config.language ?? ""}
+                        onChange={(e) => {
+                          const next = [...autoForm.actions];
+                          next[idx] = { ...next[idx], config: { ...next[idx].config, language: e.target.value } };
+                          setAutoForm({ ...autoForm, actions: next });
+                        }}
+                        className="w-full px-3 py-2 text-sm rounded-lg border bg-card"
+                      />
+                    )}
+                    {action.type === "move_to_folder" && (
+                      <input
+                        placeholder="/media/downloads"
+                        value={action.config.targetFolder ?? ""}
+                        onChange={(e) => {
+                          const next = [...autoForm.actions];
+                          next[idx] = { ...next[idx], config: { ...next[idx].config, targetFolder: e.target.value } };
+                          setAutoForm({ ...autoForm, actions: next });
+                        }}
+                        className="w-full px-3 py-2 text-sm rounded-lg border bg-card"
+                      />
+                    )}
+                    {action.type === "organize_by_type" && (
+                      <input
+                        placeholder="/media"
+                        value={action.config.baseDir ?? ""}
+                        onChange={(e) => {
+                          const next = [...autoForm.actions];
+                          next[idx] = { ...next[idx], config: { ...next[idx].config, baseDir: e.target.value } };
+                          setAutoForm({ ...autoForm, actions: next });
+                        }}
+                        className="w-full px-3 py-2 text-sm rounded-lg border bg-card"
+                      />
+                    )}
+                    {action.type === "notify_webhook" && (
+                      <input
+                        placeholder="https://..."
+                        value={action.config.url ?? ""}
+                        onChange={(e) => {
+                          const next = [...autoForm.actions];
+                          next[idx] = { ...next[idx], config: { ...next[idx].config, url: e.target.value } };
+                          setAutoForm({ ...autoForm, actions: next });
+                        }}
+                        className="w-full px-3 py-2 text-sm rounded-lg border bg-card"
+                      />
+                    )}
+                    {!["translate_subtitles", "move_to_folder", "organize_by_type", "notify_webhook"].includes(action.type) && (
+                      <p className="text-xs text-muted-foreground">No configuration needed</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setAutoForm({
+                    ...autoForm,
+                    actions: [...autoForm.actions, { type: "fetch_subtitles", config: {} }],
+                  })
+                }
+                className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg px-2.5 py-1.5 hover:bg-muted"
               >
-                <option value="fetch_subtitles">Fetch subtitles</option>
-                <option value="translate_subtitles">Translate subtitles</option>
-                <option value="pause_torrent">Pause torrent</option>
-                <option value="remove_torrent">Remove torrent</option>
-                <option value="notify_webhook">Send webhook</option>
-              </select>
+                <Plus className="h-3.5 w-3.5" />
+                Add step
+              </button>
             </div>
             <div className="flex gap-2 pt-1">
               <button
@@ -600,9 +714,12 @@ export default function HomePage() {
                   await createAutomation({
                     name: autoForm.name.trim(),
                     triggerType: autoForm.triggerType as any,
-                    actions: [{ type: autoForm.actionType as any, config: {} }],
+                    actions: autoForm.actions.map((a) => ({
+                      type: a.type as any,
+                      config: a.config,
+                    })),
                   });
-                  setAutoForm({ name: "", triggerType: "torrent:completed", actionType: "fetch_subtitles" });
+                  setAutoForm({ name: "", triggerType: "torrent:completed", actions: [{ type: "fetch_subtitles", config: {} }] });
                   setShowAddAutomation(false);
                   fetchAll();
                 }}
