@@ -223,6 +223,13 @@ export function getAgentMessages(agentId: string, limit = 100): any[] {
     ).all(agentId, limit);
 }
 
+export function getLastAssistantMessageByMessageIdPrefix(prefix: string): any | null {
+    const row = getDb().prepare(
+        `SELECT * FROM agent_messages WHERE message_id LIKE ? AND role='assistant' ORDER BY created_at DESC LIMIT 1`
+    ).get(prefix + '%');
+    return row || null;
+}
+
 export function getAllAgentMessages(limit = 100): any[] {
     return getDb().prepare(
         `SELECT * FROM agent_messages ORDER BY created_at DESC LIMIT ?`

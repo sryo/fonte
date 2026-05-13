@@ -243,6 +243,38 @@ curl http://localhost:3777/api/torrents
 
 When users ask to download something, help them find the magnet link and add it via the API.
 When they ask about download status, query the torrent list and report progress.
+
+## Automations API
+
+Automations are rules that trigger AI actions when something happens (a torrent finishes, a watchlist match, on a schedule, etc.). Each rule has a \`triggerType\`, a free-text \`prompt\` (what to do when fired), an optional \`triggerConfig\` object, and a human-readable \`name\`.
+
+**Valid triggerType values:**
+\`torrent:completed\` | \`torrent:added\` | \`torrent:error\` | \`torrent:stalled\` | \`watchlist:match\` | \`schedule\`
+
+**Create an automation:**
+\`\`\`
+curl -X POST http://localhost:3777/api/automations \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Notify when download finishes",
+    "triggerType": "torrent:completed",
+    "prompt": "Send a notification: download of {{name}} is complete."
+  }'
+\`\`\`
+
+**For \`schedule\` triggers**, include \`triggerConfig\` with a \`cron\` string:
+\`\`\`
+{"name": "Nightly check", "triggerType": "schedule", "triggerConfig": {"cron": "0 3 * * *"}, "prompt": "Check watchlist for new matches."}
+\`\`\`
+
+**Other endpoints:**
+- \`GET /api/automations\` — list all rules (optional \`?enabled=true&trigger=…\`)
+- \`GET /api/automations/:id\` — rule + recent logs
+- \`PUT /api/automations/:id\` — update fields
+- \`DELETE /api/automations/:id\` — remove
+- \`POST /api/automations/:id/run\` — fire manually for testing
+
+When the user asks you to create one or more automations, call POST /api/automations once per rule and confirm by including the returned \`id\` in your reply. Don't suggest "I'll create one" without actually calling the API.
 `;
 
     // Append user's custom AGENTS.md from agent workspace (if non-empty)

@@ -6,7 +6,7 @@ import {
     getAutomationEngine,
 } from '@aitorrent/torrent';
 import type { TriggerType } from '@aitorrent/torrent';
-import { log, genId } from '@aitorrent/core';
+import { log, genId, getLastAssistantMessageByMessageIdPrefix } from '@aitorrent/core';
 
 const app = new Hono();
 
@@ -62,7 +62,7 @@ app.post('/api/automations', async (c) => {
     }
 });
 
-// GET /api/automations/:id — get rule + recent logs
+// GET /api/automations/:id — get rule + recent logs + last assistant response
 app.get('/api/automations/:id', (c) => {
     const id = c.req.param('id');
     const rule = getAutomationRule(id);
@@ -70,7 +70,9 @@ app.get('/api/automations/:id', (c) => {
         return c.json({ ok: false, error: 'Automation rule not found' }, 404);
     }
     const logs = getAutomationLogs(id, 20);
-    return c.json({ ok: true, rule, logs });
+    const last = getLastAssistantMessageByMessageIdPrefix(`auto_${id}_`);
+    const lastResponse = last ? { text: last.content as string, ts: last.created_at as number } : null;
+    return c.json({ ok: true, rule, logs, lastResponse });
 });
 
 // PUT /api/automations/:id — update rule

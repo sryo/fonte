@@ -415,6 +415,17 @@ export async function getTorrentFiles(id: string): Promise<{ ok: boolean; files:
   return apiFetch(`/api/torrents/${encodeURIComponent(id)}/files`);
 }
 
+export async function setTorrentFilesWanted(
+  id: string,
+  wanted: number[],
+  unwanted: number[],
+): Promise<{ ok: boolean; files: TorrentFileRecord[] }> {
+  return apiFetch(`/api/torrents/${encodeURIComponent(id)}/files/wanted`, {
+    method: "POST",
+    body: JSON.stringify({ wanted, unwanted }),
+  });
+}
+
 export async function getTorrentStats(): Promise<{ ok: boolean } & TorrentStats> {
   return apiFetch("/api/torrents/stats");
 }
@@ -579,6 +590,25 @@ export async function toggleAutomation(id: string): Promise<{ ok: boolean; rule:
 
 export async function triggerAutomation(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/automations/${encodeURIComponent(id)}/trigger`, { method: "POST" });
+}
+
+export async function updateAutomation(
+  id: string,
+  patch: { name?: string; prompt?: string; triggerType?: string; triggerConfig?: Record<string, unknown>; enabled?: boolean },
+): Promise<{ ok: boolean; rule: AutomationRule }> {
+  return apiFetch(`/api/automations/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function getAutomation(id: string): Promise<{
+  ok: boolean;
+  rule: AutomationRule;
+  logs: AutomationLog[];
+  lastResponse: { text: string; ts: number } | null;
+}> {
+  return apiFetch(`/api/automations/${encodeURIComponent(id)}`);
 }
 
 // ── Soul ─────────────────────────────────────────────────────────────────

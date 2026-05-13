@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -15,7 +15,7 @@ import type {
   AutomationRule,
   TorrentStats,
 } from "@/lib/api";
-import { formatBytes, formatSpeed } from "@/lib/format";
+import { formatBytes, formatSpeed, formatRelativeTime } from "@/lib/format";
 import {
   DownloadSimple,
   Eye,
@@ -27,7 +27,6 @@ import {
   Pause,
   Stop,
   MagnifyingGlass,
-  X,
   Play,
 } from "@phosphor-icons/react";
 import {
@@ -35,6 +34,11 @@ import {
   removeTorrent,
   deleteWatchlistEntry,
   createAutomation,
+  updateAutomation,
+  getAutomation,
+  triggerAutomation,
+  deleteAutomation,
+  type AutomationLog,
   pauseTorrent,
   resumeTorrent,
   triggerWatchlistSearch,
@@ -99,6 +103,7 @@ function MediaCard({
   actions,
   onClick,
   children,
+  progress,
 }: {
   posterUrl?: string;
   title: string;
@@ -106,7 +111,9 @@ function MediaCard({
   actions?: React.ReactNode;
   onClick?: () => void;
   children?: React.ReactNode;
+  progress?: { value: number; stalled?: boolean };
 }) {
+  const showBar = progress && progress.value < 1;
   return (
     <div
       onClick={onClick}
@@ -138,6 +145,17 @@ function MediaCard({
         <p className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-foreground">{title}</p>
         {children}
       </div>
+      {showBar && (
+        <div className="h-1 bg-muted">
+          <div
+            className={cn(
+              "h-full bg-torrent transition-all duration-500",
+              progress!.stalled ? "opacity-40" : "animate-xp-stripes"
+            )}
+            style={{ width: `${Math.min(100, progress!.value * 100)}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -220,7 +238,21 @@ export default function HomePage() {
     triggerType: "torrent:completed",
     prompt: "",
   });
+  const [editAutoId, setEditAutoId] = useState<string | null>(null);
+  const [editAutoForm, setEditAutoForm] = useState({
+    name: "",
+    triggerType: "torrent:completed",
+    cron: "",
+    prompt: "",
+  });
+  const [runningAutoId, setRunningAutoId] = useState<string | null>(null);
+  const [editAutoLogs, setEditAutoLogs] = useState<AutomationLog[]>([]);
+  const [editAutoLastResponse, setEditAutoLastResponse] = useState<{ text: string; ts: number } | null>(null);
   const [wlForm, setWlForm] = useState({ title: "", mediaType: "movie" as "movie" | "tv" | "music" | "game" | "book" | "app" | "other", year: "", quality: "1080p" });
+
+  // Per-torrent progress history: id → { progress: 0-1, ts: ms since epoch when last changed }
+  const progressHistoryRef = useRef<Map<string, { progress: number; ts: number }>>(new Map());
+  const STALL_MS = 30_000;
 
   const fetchAll = useCallback(async () => {
     try {
@@ -230,7 +262,21 @@ export default function HomePage() {
         getAutomations(),
         getTorrentStats(),
       ]);
-      setTorrents(torrentsRes.torrents);
+      const newTorrents = torrentsRes.torrents;
+      const now = Date.now();
+      const history = progressHistoryRef.current;
+      const seen = new Set<string>();
+      for (const t of newTorrents) {
+        seen.add(t.id);
+        const prev = history.get(t.id);
+        if (!prev || t.progress > prev.progress) {
+          history.set(t.id, { progress: t.progress, ts: now });
+        }
+      }
+      for (const id of history.keys()) {
+        if (!seen.has(id)) history.delete(id);
+      }
+      setTorrents(newTorrents);
       setWatchlist(watchlistRes.entries);
       setAutomations(automationsRes.rules);
       setStats(statsRes);
@@ -239,6 +285,14 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  const isStalled = useCallback((torrent: TorrentRecord): boolean => {
+    if (torrent.status !== "downloading") return false;
+    if (torrent.progress >= 1) return false;
+    const entry = progressHistoryRef.current.get(torrent.id);
+    if (!entry) return false;
+    return Date.now() - entry.ts > STALL_MS;
   }, []);
 
   useEffect(() => {
@@ -315,6 +369,7 @@ export default function HomePage() {
               key={torrent.id}
               title={torrent.name}
               onClick={() => router.push(`/torrents/${torrent.id}`)}
+              progress={{ value: torrent.progress, stalled: isStalled(torrent) }}
               badges={
                 <>
                   <StatusBadge status={torrent.status} />
@@ -334,7 +389,7 @@ export default function HomePage() {
                   {torrent.status === "paused" && (
                     <CardAction icon={Play} label="Resume" onClick={() => { resumeTorrent(torrent.id); fetchAll(); }} />
                   )}
-                  <CardAction icon={X} label="Remove" destructive onClick={() => {
+                  <CardAction icon={Trash} label="Remove" destructive onClick={() => {
                     if (confirm(`Remove "${torrent.name}"?`)) { removeTorrent(torrent.id); fetchAll(); }
                   }} />
                 </>
@@ -383,8 +438,12 @@ export default function HomePage() {
               }
               actions={
                 <>
-                  <CardAction icon={MagnifyingGlass} label="Search now" onClick={() => { triggerWatchlistSearch(entry.id); fetchAll(); }} />
-                  <CardAction icon={X} label="Remove" destructive onClick={() => {
+                  <CardAction
+                    icon={MagnifyingGlass}
+                    label={entry.lastCheckedAt ? `Search now\nLast searched: ${formatRelativeTime(entry.lastCheckedAt)}` : "Search now\nNever searched"}
+                    onClick={() => { triggerWatchlistSearch(entry.id); fetchAll(); }}
+                  />
+                  <CardAction icon={Trash} label="Remove" destructive onClick={() => {
                     if (confirm(`Remove "${entry.title}" from watchlist?`)) { deleteWatchlistEntry(entry.id); fetchAll(); }
                   }} />
                 </>
@@ -409,10 +468,7 @@ export default function HomePage() {
           action={completedTorrents.length > 0 ? (
             <button
               onClick={async () => {
-                if (!confirm(`Remove ${completedTorrents.length} completed torrents from list?`)) return;
-                for (const t of completedTorrents) {
-                  await removeTorrent(t.id);
-                }
+                await Promise.all(completedTorrents.map((t) => removeTorrent(t.id)));
                 fetchAll();
               }}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-lg px-2.5 py-1.5 hover:bg-muted"
@@ -433,7 +489,7 @@ export default function HomePage() {
                 </span>
               }
               actions={
-                <CardAction icon={X} label="Remove" destructive onClick={() => { removeTorrent(torrent.id); fetchAll(); }} />
+                <CardAction icon={Trash} label="Remove" destructive onClick={() => { removeTorrent(torrent.id); fetchAll(); }} />
               }
             >
               <p className="text-[11px] text-muted-foreground">
@@ -463,22 +519,72 @@ export default function HomePage() {
             </button>
           }
         >
-          {enabledAutomations.map((rule) => (
-            <div key={rule.id} className="w-56 rounded-xl shadow-sm border bg-card p-4">
-              <p className="text-sm font-medium leading-tight line-clamp-1">{rule.name}</p>
-              <div className="mt-2">
-                <span className="text-[10px] bg-automation/15 text-automation px-1.5 py-0.5 rounded-full">
-                  {rule.triggerType.replace(":", " ")}
-                </span>
+          {enabledAutomations.map((rule) => {
+            const onRun = async () => {
+              setRunningAutoId(rule.id);
+              try { await triggerAutomation(rule.id); await fetchAll(); }
+              catch {}
+              setRunningAutoId(null);
+            };
+            const onEdit = () => {
+              setEditAutoId(rule.id);
+              setEditAutoForm({
+                name: rule.name,
+                triggerType: rule.triggerType,
+                cron: (rule.triggerConfig as { cron?: string })?.cron || "",
+                prompt: rule.prompt,
+              });
+              setEditAutoLogs([]);
+              setEditAutoLastResponse(null);
+              getAutomation(rule.id)
+                .then((res) => {
+                  setEditAutoLogs(res.logs || []);
+                  setEditAutoLastResponse(res.lastResponse);
+                })
+                .catch(() => {});
+            };
+            const onDelete = async () => {
+              if (!confirm(`Delete "${rule.name}"?`)) return;
+              await deleteAutomation(rule.id);
+              await fetchAll();
+            };
+            return (
+              <div
+                key={rule.id}
+                role="button"
+                tabIndex={0}
+                onClick={onEdit}
+                onKeyDown={(e) => { if (e.key === "Enter") onEdit(); }}
+                className="w-56 rounded-xl shadow-sm border bg-card p-4 flex flex-col text-left hover:bg-accent/50 transition-colors group cursor-pointer relative overflow-hidden"
+              >
+                <p className="text-sm font-medium leading-tight line-clamp-1 group-hover:text-foreground">{rule.name}</p>
+                <div className="mt-2">
+                  <span className="text-[10px] bg-automation/15 text-automation px-1.5 py-0.5 rounded-full">
+                    {rule.triggerType.replace(":", " ")}
+                  </span>
+                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground line-clamp-3 flex-1">
+                  {rule.prompt}
+                </p>
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  Triggered {rule.triggerCount} time{rule.triggerCount !== 1 ? "s" : ""}
+                </p>
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2 gap-1.5">
+                  <CardAction
+                    icon={Play}
+                    label={runningAutoId === rule.id ? "Running…" : "Run now"}
+                    onClick={onRun}
+                  />
+                  <CardAction
+                    icon={Trash}
+                    label="Delete"
+                    destructive
+                    onClick={onDelete}
+                  />
+                </div>
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground line-clamp-3">
-                {rule.prompt}
-              </p>
-              <p className="mt-2 text-[10px] text-muted-foreground">
-                Triggered {rule.triggerCount} time{rule.triggerCount !== 1 ? "s" : ""}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </ContentRow>
       )}
 
@@ -579,6 +685,7 @@ export default function HomePage() {
                 <option value="torrent:error">Torrent error</option>
                 <option value="torrent:stalled">Torrent stalled</option>
                 <option value="watchlist:match">Watchlist match found</option>
+                <option value="schedule">On a schedule</option>
               </select>
             </div>
             <div>
@@ -615,6 +722,128 @@ export default function HomePage() {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Automation Modal */}
+      {editAutoId && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onClick={() => setEditAutoId(null)}>
+          <div className="bg-card rounded-xl shadow-lg border p-6 w-full max-w-md space-y-4 animate-card-enter" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold">Edit Automation</h3>
+            <input
+              placeholder="Rule name"
+              value={editAutoForm.name}
+              onChange={(e) => setEditAutoForm({ ...editAutoForm, name: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-lg border bg-background"
+              autoFocus
+            />
+            <div>
+              <label className="text-xs text-muted-foreground">Trigger</label>
+              <select
+                value={editAutoForm.triggerType}
+                onChange={(e) => setEditAutoForm({ ...editAutoForm, triggerType: e.target.value })}
+                className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1"
+              >
+                <option value="torrent:completed">Torrent completes</option>
+                <option value="torrent:added">Torrent added</option>
+                <option value="torrent:error">Torrent error</option>
+                <option value="torrent:stalled">Torrent stalled</option>
+                <option value="watchlist:match">Watchlist match found</option>
+                <option value="schedule">On a schedule</option>
+              </select>
+            </div>
+            {editAutoForm.triggerType === "schedule" && (
+              <div>
+                <label className="text-xs text-muted-foreground">Cron expression</label>
+                <input
+                  placeholder="0 9 * * 1   (e.g. Mondays at 9am)"
+                  value={editAutoForm.cron}
+                  onChange={(e) => setEditAutoForm({ ...editAutoForm, cron: e.target.value })}
+                  className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1 font-mono"
+                />
+              </div>
+            )}
+            <div>
+              <label className="text-xs text-muted-foreground">Prompt</label>
+              <textarea
+                placeholder="What should happen when this fires"
+                value={editAutoForm.prompt}
+                onChange={(e) => setEditAutoForm({ ...editAutoForm, prompt: e.target.value })}
+                rows={5}
+                className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1 resize-y"
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={async () => {
+                  if (!editAutoId || !editAutoForm.name.trim()) return;
+                  const patch: Parameters<typeof updateAutomation>[1] = {
+                    name: editAutoForm.name.trim(),
+                    prompt: editAutoForm.prompt.trim(),
+                    triggerType: editAutoForm.triggerType,
+                  };
+                  if (editAutoForm.triggerType === "schedule") {
+                    patch.triggerConfig = editAutoForm.cron.trim() ? { cron: editAutoForm.cron.trim() } : {};
+                  } else {
+                    patch.triggerConfig = {};
+                  }
+                  await updateAutomation(editAutoId, patch);
+                  setEditAutoId(null);
+                  fetchAll();
+                }}
+                disabled={!editAutoForm.name.trim()}
+                className="flex-1 px-4 py-2 text-sm bg-automation text-automation-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditAutoId(null)}
+                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted"
+              >
+                Cancel
+              </button>
+            </div>
+
+            {/* History — last response + trigger log */}
+            <div className="pt-3 border-t space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Last response</label>
+                {editAutoLastResponse ? (
+                  <div className="mt-1.5 rounded-md border bg-muted/30 px-3 py-2 max-h-40 overflow-y-auto">
+                    <p className="text-[10px] text-muted-foreground">
+                      {formatRelativeTime(editAutoLastResponse.ts)}
+                    </p>
+                    <p className="mt-1 text-xs whitespace-pre-wrap leading-relaxed">
+                      {editAutoLastResponse.text}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-1.5 text-xs text-muted-foreground italic">No responses yet.</p>
+                )}
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Recent triggers ({editAutoLogs.length})
+                </label>
+                {editAutoLogs.length === 0 ? (
+                  <p className="mt-1.5 text-xs text-muted-foreground italic">Never triggered.</p>
+                ) : (
+                  <ul className="mt-1.5 space-y-1 max-h-32 overflow-y-auto">
+                    {editAutoLogs.slice(0, 10).map((log) => (
+                      <li key={log.id} className="flex items-center justify-between gap-2 text-[11px]">
+                        <span className={log.conditionsMet ? "text-foreground" : "text-destructive"}>
+                          {log.triggerEvent}{log.errorMessage ? ` — ${log.errorMessage}` : ""}
+                        </span>
+                        <span className="text-muted-foreground tabular-nums shrink-0">
+                          {formatRelativeTime(log.executedAt)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
         </div>

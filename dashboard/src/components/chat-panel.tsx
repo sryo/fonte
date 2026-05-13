@@ -15,20 +15,42 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [thinking, setThinking] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [closing, setClosing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const prevCountRef = useRef(0);
+
+  // Mount-on-open / animated unmount on close
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      setClosing(false);
+    } else if (mounted) {
+      setClosing(true);
+      const t = setTimeout(() => {
+        setMounted(false);
+        setClosing(false);
+      }, 200);
+      return () => clearTimeout(t);
+    }
+  }, [open, mounted]);
+
+  const handleClose = useCallback(() => {
+    setClosing(true);
+    setTimeout(() => onClose(), 200);
+  }, [onClose]);
 
   // Poll for messages when panel is open
   useEffect(() => {
     if (!open) return;
 
-    let mounted = true;
+    let active = true;
 
     const fetchMessages = async () => {
       try {
         const data = await getAgentMessages("aitorrent", 50);
-        if (mounted) {
+        if (active) {
           const reversed = [...data].reverse();
           setMessages((prev) => {
             if (reversed.length > prev.length) {
@@ -46,7 +68,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     const id = setInterval(fetchMessages, 3000);
 
     return () => {
-      mounted = false;
+      active = false;
       clearInterval(id);
     };
   }, [open]);
@@ -86,20 +108,20 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     }
   }, [input, sending]);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   return (
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/20 transition-opacity"
-        onClick={onClose}
+        className={`fixed inset-0 z-40 bg-black/20 ${closing ? "animate-chat-backdrop-out" : "animate-chat-backdrop-in"}`}
+        onClick={handleClose}
         aria-hidden="true"
       />
 
       {/* Panel */}
       <div
-        className="fixed right-0 top-0 h-full w-96 z-50 bg-card border-l shadow-xl flex flex-col animate-in slide-in-from-right duration-200"
+        className={`fixed right-0 top-0 h-full w-96 z-50 bg-card border-l shadow-xl flex flex-col ${closing ? "animate-chat-panel-out" : "animate-chat-panel-in"}`}
         role="dialog"
         aria-label="AITorrent Agent Chat"
       >
@@ -112,7 +134,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
             <span className="text-sm font-semibold">AITorrent Agent</span>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="flex items-center justify-center h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             aria-label="Close chat panel"
           >

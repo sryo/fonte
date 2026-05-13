@@ -33,3 +33,9 @@ export function formatRatio(uploaded: number, downloaded: number): string {
   if (downloaded === 0) return uploaded > 0 ? "\u221e" : "0.00";
   return (uploaded / downloaded).toFixed(2);
 }
+
+import { formatDistanceToNow } from "date-fns";
+
+export function formatRelativeTime(ts: number): string {
+  return formatDistanceToNow(ts, { addSuffix: true });
+}

@@ -49,7 +49,7 @@ export class WhatsAppService {
     private recentSentTexts = new Map<string, number>();  // text → ts, for self-send dedup
     private SEND_DEDUPE_MS = 15_000;
     private readyWatchdog: ReturnType<typeof setTimeout> | null = null;
-    private READY_TIMEOUT_MS = 30_000;
+    private READY_TIMEOUT_MS = 60_000;
 
     get status(): WhatsAppStatus { return this._status; }
     get qr(): string | null { return this._qr; }
@@ -328,8 +328,7 @@ export class WhatsAppService {
         this.clearReadyWatchdog();
         this.readyWatchdog = setTimeout(() => {
             if (this._status === 'connected') return;
-            log('ERROR', `WhatsApp: ready event never fired after authenticated. Wiping session and re-pairing.`);
-            this.recoverByWipe().catch(err => log('ERROR', `WhatsApp recover failed: ${(err as Error).message}`));
+            log('WARN', `WhatsApp: ready event did not fire ${this.READY_TIMEOUT_MS / 1000}s after authenticated. Session kept; disconnect manually from the dashboard if messages aren't flowing.`);
         }, this.READY_TIMEOUT_MS);
     }
 
@@ -338,16 +337,6 @@ export class WhatsAppService {
             clearTimeout(this.readyWatchdog);
             this.readyWatchdog = null;
         }
-    }
-
-    private async recoverByWipe(): Promise<void> {
-        try { if (this.client) await this.client.destroy(); } catch {}
-        this.client = null;
-        this._status = 'disconnected';
-        this._qr = null;
-        try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); } catch {}
-        log('INFO', 'WhatsApp: session wiped, starting fresh');
-        await this.start();
     }
 }
 

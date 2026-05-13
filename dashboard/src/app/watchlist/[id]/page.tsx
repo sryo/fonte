@@ -14,6 +14,7 @@ import {
   Television,
   Plus,
   CheckCircle,
+  PencilSimple,
 } from "@phosphor-icons/react";
 import {
   getWatchlistEntry,
@@ -75,6 +76,15 @@ export default function WatchlistDetailPage() {
   const [searching, setSearching] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    title: string;
+    mediaType: WatchlistRecord["mediaType"];
+    year: string;
+    quality: string;
+    seasonPattern: string;
+    posterUrl: string;
+  }>({ title: "", mediaType: "movie", year: "", quality: "1080p", seasonPattern: "", posterUrl: "" });
   const mountedRef = useRef(true);
 
   const fetchData = useCallback(async () => {
@@ -154,12 +164,47 @@ export default function WatchlistDetailPage() {
     }
   }, [id, entry, fetchData]);
 
+  const openEdit = useCallback(() => {
+    if (!entry) return;
+    setEditForm({
+      title: entry.title,
+      mediaType: entry.mediaType,
+      year: entry.year ? String(entry.year) : "",
+      quality: entry.quality,
+      seasonPattern: entry.seasonPattern || "",
+      posterUrl: entry.posterUrl || "",
+    });
+    setShowEdit(true);
+  }, [entry]);
+
+  const handleEditSave = useCallback(async () => {
+    if (!editForm.title.trim()) return;
+    setActionLoading(true);
+    try {
+      await updateWatchlistEntry(id, {
+        title: editForm.title.trim(),
+        mediaType: editForm.mediaType,
+        year: editForm.year ? parseInt(editForm.year) : undefined,
+        quality: editForm.quality,
+        seasonPattern: editForm.seasonPattern.trim() || undefined,
+        posterUrl: editForm.posterUrl.trim() || undefined,
+      });
+      setActionError(null);
+      setShowEdit(false);
+      await fetchData();
+    } catch (err) {
+      setActionError((err as Error).message);
+    } finally {
+      if (mountedRef.current) setActionLoading(false);
+    }
+  }, [id, editForm, fetchData]);
+
   const handleDelete = useCallback(async () => {
     if (!confirm("Remove this watchlist entry? This cannot be undone.")) return;
     setActionLoading(true);
     try {
       await deleteWatchlistEntry(id);
-      router.push("/watchlist");
+      router.push("/");
     } catch (err) {
       setActionError((err as Error).message);
       if (mountedRef.current) setActionLoading(false);
@@ -189,7 +234,7 @@ export default function WatchlistDetailPage() {
           <p className="text-sm text-muted-foreground mt-1">
             {error || `No watchlist entry with ID "${id}" exists.`}
           </p>
-          <Link href="/watchlist">
+          <Link href="/">
             <button className="mt-4 inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors">
               <ArrowLeft className="h-4 w-4" />
               Back to Watchlist
@@ -208,7 +253,7 @@ export default function WatchlistDetailPage() {
       {/* ── Header bar ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <Link
-          href="/watchlist"
+          href="/"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -249,6 +294,15 @@ export default function WatchlistDetailPage() {
               )}
             </button>
           )}
+
+          <button
+            onClick={openEdit}
+            disabled={actionLoading}
+            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            <PencilSimple className="h-4 w-4" />
+            Edit
+          </button>
 
           <button
             onClick={handleDelete}
@@ -427,6 +481,80 @@ export default function WatchlistDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Watchlist Modal */}
+      {showEdit && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-slide-up" onClick={() => setShowEdit(false)}>
+          <div className="bg-card rounded-xl p-5 max-w-md w-full space-y-3 shadow-xl border" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold">Edit Watchlist Entry</h3>
+            <input
+              type="text"
+              placeholder="Title"
+              value={editForm.title}
+              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-md border bg-background"
+            />
+            <div className="flex gap-2">
+              <select
+                value={editForm.mediaType}
+                onChange={(e) => setEditForm({ ...editForm, mediaType: e.target.value as WatchlistRecord["mediaType"] })}
+                className="flex-1 px-3 py-2 text-sm rounded-md border bg-background"
+              >
+                <option value="movie">Movie</option>
+                <option value="tv">TV Show</option>
+                <option value="music">Music</option>
+                <option value="game">Game</option>
+                <option value="book">Book</option>
+                <option value="app">App</option>
+                <option value="other">Other</option>
+              </select>
+              <input
+                type="number"
+                placeholder="Year"
+                value={editForm.year}
+                onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
+                className="w-24 px-3 py-2 text-sm rounded-md border bg-background"
+              />
+            </div>
+            <input
+              type="text"
+              placeholder="Quality (e.g. 1080p)"
+              value={editForm.quality}
+              onChange={(e) => setEditForm({ ...editForm, quality: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-md border bg-background"
+            />
+            <input
+              type="text"
+              placeholder="Season pattern (e.g. S01) — optional"
+              value={editForm.seasonPattern}
+              onChange={(e) => setEditForm({ ...editForm, seasonPattern: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-md border bg-background"
+            />
+            <input
+              type="text"
+              placeholder="Poster URL — optional"
+              value={editForm.posterUrl}
+              onChange={(e) => setEditForm({ ...editForm, posterUrl: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-md border bg-background"
+            />
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setShowEdit(false)}
+                className="flex-1 px-4 py-2 text-sm rounded-md border hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSave}
+                disabled={actionLoading || !editForm.title.trim()}
+                className="flex-1 px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {actionLoading ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -119,4 +119,20 @@ app.get('/api/torrents/:id/files', (c) => {
     return c.json({ ok: true, files });
 });
 
+// POST /api/torrents/:id/files/wanted — set wanted/unwanted file indices
+app.post('/api/torrents/:id/files/wanted', async (c) => {
+    const id = c.req.param('id');
+    const manager = getTorrentManager();
+    if (!manager.getTorrent(id)) {
+        return c.json({ ok: false, error: 'Torrent not found' }, 404);
+    }
+    try {
+        const body = await c.req.json() as { wanted?: number[]; unwanted?: number[] };
+        await manager.setFilesWanted(id, body.wanted || [], body.unwanted || []);
+        return c.json({ ok: true, files: manager.getTorrentFiles(id) });
+    } catch (err) {
+        return c.json({ ok: false, error: (err as Error).message }, 500);
+    }
+});
+
 export default app;

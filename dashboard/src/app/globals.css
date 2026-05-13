@@ -210,3 +210,60 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-download-bounce { animation: none; }
 }
+
+/* Chat panel slide-in / slide-out */
+@keyframes chat-panel-in {
+  from { transform: translateX(100%); opacity: 0.6; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes chat-panel-out {
+  from { transform: translateX(0);    opacity: 1; }
+  to   { transform: translateX(100%); opacity: 0.6; }
+}
+@keyframes chat-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes chat-backdrop-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+.animate-chat-panel-in {
+  animation: chat-panel-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.animate-chat-panel-out {
+  animation: chat-panel-out 0.18s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+.animate-chat-backdrop-in {
+  animation: chat-backdrop-in 0.22s ease-out;
+}
+.animate-chat-backdrop-out {
+  animation: chat-backdrop-out 0.18s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-chat-panel-in, .animate-chat-panel-out,
+  .animate-chat-backdrop-in, .animate-chat-backdrop-out { animation: none; }
+}
+
+/* XP-style copy progress stripes — diagonal hatching scrolling across the bar */
+@keyframes xp-stripes {
+  from { background-position: 0 0; }
+  to   { background-position: 16px 0; }
+}
+.animate-xp-stripes {
+  background-image: linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.45) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.45) 50%,
+    rgba(255, 255, 255, 0.45) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 16px 16px;
+  animation: xp-stripes 0.8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-xp-stripes { animation: none; }
+}

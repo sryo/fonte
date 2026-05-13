@@ -251,7 +251,7 @@ export function insertTorrentFiles(torrentId: string, files: { name: string; pat
 }
 
 export function getTorrentFiles(torrentId: string): TorrentFileRecord[] {
-    const rows = getDb().prepare('SELECT * FROM torrent_files WHERE torrent_id = ?').all(torrentId) as any[];
+    const rows = getDb().prepare('SELECT * FROM torrent_files WHERE torrent_id = ? ORDER BY id').all(torrentId) as any[];
     return rows.map(r => ({
         name: r.name,
         path: r.path,

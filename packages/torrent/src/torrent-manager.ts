@@ -8,7 +8,7 @@ import {
     initTorrentDb, closeTorrentDb,
     insertTorrent, updateTorrent, updateTorrentInfoHash, getTorrent, getTorrentByHash,
     getTorrents, getActiveTorrents, deleteTorrent,
-    insertTorrentFiles, getTorrentFiles,
+    insertTorrentFiles, getTorrentFiles, updateTorrentFileProgress, setFileSelection,
 } from './torrent-db';
 
 const DEFAULT_CONFIG: TorrentConfig = {
@@ -313,6 +313,18 @@ export class TorrentManager {
         return getTorrentFiles(id);
     }
 
+    async setFilesWanted(id: string, wanted: number[], unwanted: number[]): Promise<void> {
+        if (!this.rpc) throw new Error('Transmission RPC not available');
+        const tId = this.transmissionIds.get(id);
+        if (!tId) throw new Error(`Torrent ${id} not mapped to Transmission`);
+        const args: any = { ids: [tId] };
+        if (wanted.length > 0) args['files-wanted'] = wanted;
+        if (unwanted.length > 0) args['files-unwanted'] = unwanted;
+        await this.rpc.call('torrent-set', args);
+        // Refresh file selection from Transmission so DB matches
+        await this.syncTorrentFiles(id, tId);
+    }
+
     getStats(): TorrentStats {
         const all = getTorrents();
         const active = all.filter(t => t.status === 'downloading' || t.status === 'seeding');
@@ -393,15 +405,32 @@ export class TorrentManager {
             const t = result.torrents?.[0];
             if (!t?.files) return;
 
-            const existingFiles = getTorrentFiles(recordId);
-            if (existingFiles.length > 0) return; // Already have files
+            let existingFiles = getTorrentFiles(recordId);
+            if (existingFiles.length === 0) {
+                const files = t.files.map((f: any) => ({
+                    name: path.basename(f.name),
+                    path: f.name,
+                    size: f.length || 0,
+                }));
+                insertTorrentFiles(recordId, files);
+                existingFiles = getTorrentFiles(recordId);
+            }
 
-            const files = t.files.map((f: any) => ({
-                name: path.basename(f.name),
-                path: f.name,
-                size: f.length || 0,
-            }));
-            insertTorrentFiles(recordId, files);
+            // Refresh per-file progress + wanted state from Transmission, but only write when changed
+            const byPath = new Map(existingFiles.map(f => [f.path, f]));
+            const fileStats: any[] = t.fileStats || [];
+            for (let i = 0; i < t.files.length; i++) {
+                const f = t.files[i];
+                const stats = fileStats[i];
+                const progress = f.length > 0 ? (f.bytesCompleted || 0) / f.length : 0;
+                const prev = byPath.get(f.name);
+                if (!prev || Math.abs(prev.progress - progress) > 0.0001) {
+                    updateTorrentFileProgress(recordId, f.name, progress);
+                }
+                if (stats && typeof stats.wanted === 'boolean' && (!prev || prev.selected !== stats.wanted)) {
+                    setFileSelection(recordId, f.name, stats.wanted);
+                }
+            }
         } catch {}
     }
 
@@ -469,8 +498,8 @@ export class TorrentManager {
 
             updateTorrent(record.id, updates);
 
-            // Completion detection
-            if (isDone && wasPending) {
+            // Completion detection — only fire once per torrent
+            if (isDone && wasPending && !record.completedAt) {
                 updateTorrent(record.id, { completedAt: Date.now() });
                 emitEvent(TORRENT_EVENTS.COMPLETED, { id: record.id, name: record.name || t.name });
                 log('INFO', `Torrent completed: ${t.name}`);

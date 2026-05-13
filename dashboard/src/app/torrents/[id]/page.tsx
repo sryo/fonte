@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   getTorrent,
   getTorrentFiles,
+  setTorrentFilesWanted,
   pauseTorrent,
   resumeTorrent,
   removeTorrent,
@@ -113,7 +114,7 @@ export default function TorrentDetailPage() {
     setActionLoading(true);
     try {
       await removeTorrent(id);
-      router.push("/torrents");
+      router.push("/");
     } catch (err) {
       setError((err as Error).message);
       setActionLoading(false);
@@ -143,7 +144,7 @@ export default function TorrentDetailPage() {
           <p className="text-sm text-muted-foreground mt-1">
             {error || `No torrent with ID "${id}" exists.`}
           </p>
-          <Link href="/torrents">
+          <Link href="/">
             <button className="mt-4 inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors">
               Back to Torrents
             </button>
@@ -166,7 +167,7 @@ export default function TorrentDetailPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
-            href="/torrents"
+            href="/"
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <svg
@@ -294,13 +295,39 @@ export default function TorrentDetailPage() {
             <div className="space-y-2">
               {files.map((file, idx) => {
                 const filePct = Math.round(file.progress * 100);
+                const onToggle = async () => {
+                  // Optimistic flip
+                  setFiles((prev) =>
+                    prev.map((f, i) => (i === idx ? { ...f, selected: !f.selected } : f)),
+                  );
+                  try {
+                    const res = await setTorrentFilesWanted(
+                      id,
+                      file.selected ? [] : [idx],
+                      file.selected ? [idx] : [],
+                    );
+                    if (res.ok && res.files) setFiles(res.files);
+                  } catch {
+                    // Revert on failure
+                    setFiles((prev) =>
+                      prev.map((f, i) => (i === idx ? { ...f, selected: file.selected } : f)),
+                    );
+                  }
+                };
                 return (
                   <div
                     key={idx}
-                    className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm"
+                    className={`flex items-center gap-3 rounded-md border px-3 py-2 text-sm transition-opacity ${file.selected ? "" : "opacity-50"}`}
                   >
+                    <input
+                      type="checkbox"
+                      checked={file.selected}
+                      onChange={onToggle}
+                      title={file.selected ? "Skip this file" : "Download this file"}
+                      className="h-4 w-4 shrink-0 cursor-pointer accent-primary"
+                    />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-mono text-xs">
+                      <p className={`truncate font-mono text-xs ${file.selected ? "" : "line-through"}`}>
                         {file.name}
                       </p>
                       <div className="mt-1 flex items-center gap-2">
