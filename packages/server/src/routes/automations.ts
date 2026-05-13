@@ -29,11 +29,9 @@ app.post('/api/automations', async (c) => {
     try {
         const body = await c.req.json() as {
             name: string;
+            prompt: string;
             triggerType: TriggerType;
             triggerConfig?: Record<string, unknown>;
-            conditions?: any[];
-            actions?: any[];
-            description?: string;
         };
 
         if (!body.name) {
@@ -42,16 +40,17 @@ app.post('/api/automations', async (c) => {
         if (!body.triggerType) {
             return c.json({ ok: false, error: 'triggerType is required' }, 400);
         }
+        if (!body.prompt) {
+            return c.json({ ok: false, error: 'prompt is required' }, 400);
+        }
 
         const id = genId('auto');
         insertAutomationRule({
             id,
             name: body.name,
-            description: body.description,
+            prompt: body.prompt,
             triggerType: body.triggerType,
             triggerConfig: body.triggerConfig,
-            conditions: body.conditions,
-            actions: body.actions,
         });
 
         const rule = getAutomationRule(id);

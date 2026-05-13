@@ -538,30 +538,12 @@ export type TriggerType =
   | "subtitle:downloaded" | "subtitle:translated"
   | "schedule";
 
-export type ActionType =
-  | "add_torrent" | "pause_torrent" | "remove_torrent" | "resume_torrent"
-  | "fetch_subtitles" | "translate_subtitles"
-  | "notify_webhook";
-
-export interface AutomationCondition {
-  field: string;
-  operator: string;
-  value: string | number;
-}
-
-export interface AutomationAction {
-  type: ActionType;
-  config: Record<string, unknown>;
-}
-
 export interface AutomationRule {
   id: string;
   name: string;
-  description: string;
+  prompt: string;
   triggerType: TriggerType;
   triggerConfig: Record<string, unknown>;
-  conditions: AutomationCondition[];
-  actions: AutomationAction[];
   enabled: boolean;
   lastTriggeredAt?: number;
   triggerCount: number;
@@ -583,13 +565,7 @@ export async function getAutomations(): Promise<{ ok: boolean; rules: Automation
   return apiFetch("/api/automations");
 }
 
-export async function createAutomation(data: {
-  name: string;
-  triggerType: TriggerType;
-  conditions?: AutomationCondition[];
-  actions?: AutomationAction[];
-  description?: string;
-}): Promise<{ ok: boolean; rule: AutomationRule }> {
+export async function createAutomation(data: { name: string; prompt: string; triggerType: string }): Promise<{ ok: boolean; rule: AutomationRule }> {
   return apiFetch("/api/automations", { method: "POST", body: JSON.stringify(data) });
 }
 

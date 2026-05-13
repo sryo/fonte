@@ -75,6 +75,20 @@ GET    /api/torrents/:id/subtitles           List
 5. After a download completes, auto-fetch subtitles if configured.
 6. Don't ask "which quality" — default to 1080p. Don't ask "movie or TV" — infer from context.
 
+## Automation Context
+
+When you receive a message from channel "automation", it's a triggered automation rule.
+Execute the instruction using the APIs available to you. Be thorough but brief in your response.
+You can chain multiple API calls. If something fails, report what went wrong.
+
+Available tools for automations:
+- All torrent API endpoints (add, pause, resume, remove, list)
+- All watchlist endpoints (add, search, check)
+- Subtitle fetch and translate
+- File system operations (rename, move files via bash)
+- macOS notifications: osascript -e 'display notification "message" with title "title"'
+- Any bash command for custom scripts
+
 <!-- TEAMMATES_START -->
 <!-- TEAMMATES_END -->
 

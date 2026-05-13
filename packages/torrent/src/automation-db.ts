@@ -4,35 +4,14 @@ import { getDb } from './db-connection';
 
 export type TriggerType =
     | 'torrent:completed' | 'torrent:added' | 'torrent:error' | 'torrent:stalled'
-    | 'watchlist:match' | 'watchlist:search'
-    | 'subtitle:downloaded' | 'subtitle:translated'
-    | 'schedule';
-
-export type ActionType =
-    | 'add_torrent' | 'pause_torrent' | 'remove_torrent' | 'resume_torrent'
-    | 'fetch_subtitles' | 'translate_subtitles'
-    | 'notify_webhook'
-    | 'rename_files' | 'move_to_folder' | 'organize_by_type';
-
-export interface AutomationCondition {
-    field: string;
-    operator: string;
-    value: string | number;
-}
-
-export interface AutomationAction {
-    type: ActionType;
-    config: Record<string, unknown>;
-}
+    | 'watchlist:match' | 'schedule';
 
 export interface AutomationRule {
     id: string;
     name: string;
-    description: string;
+    prompt: string;
     triggerType: TriggerType;
     triggerConfig: Record<string, unknown>;
-    conditions: AutomationCondition[];
-    actions: AutomationAction[];
     enabled: boolean;
     lastTriggeredAt?: number;
     triggerCount: number;
@@ -55,24 +34,20 @@ export interface AutomationLog {
 export function insertAutomationRule(rule: {
     id: string;
     name: string;
-    description?: string;
+    prompt: string;
     triggerType: TriggerType;
     triggerConfig?: Record<string, unknown>;
-    conditions?: AutomationCondition[];
-    actions?: AutomationAction[];
 }): void {
     const now = Date.now();
     getDb().prepare(`
-        INSERT INTO automation_rules (id, name, description, trigger_type, trigger_config, conditions, actions, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO automation_rules (id, name, prompt, trigger_type, trigger_config, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
         rule.id,
         rule.name,
-        rule.description ?? '',
+        rule.prompt,
         rule.triggerType,
         JSON.stringify(rule.triggerConfig ?? {}),
-        JSON.stringify(rule.conditions ?? []),
-        JSON.stringify(rule.actions ?? []),
         now,
         now,
     );
@@ -80,11 +55,9 @@ export function insertAutomationRule(rule: {
 
 export function updateAutomationRule(id: string, fields: Partial<{
     name: string;
-    description: string;
+    prompt: string;
     triggerType: TriggerType;
     triggerConfig: Record<string, unknown>;
-    conditions: AutomationCondition[];
-    actions: AutomationAction[];
     enabled: boolean;
     lastTriggeredAt: number;
     triggerCount: number;
@@ -93,11 +66,9 @@ export function updateAutomationRule(id: string, fields: Partial<{
     const values: any[] = [];
 
     if (fields.name !== undefined) { sets.push('name = ?'); values.push(fields.name); }
-    if (fields.description !== undefined) { sets.push('description = ?'); values.push(fields.description); }
+    if (fields.prompt !== undefined) { sets.push('prompt = ?'); values.push(fields.prompt); }
     if (fields.triggerType !== undefined) { sets.push('trigger_type = ?'); values.push(fields.triggerType); }
     if (fields.triggerConfig !== undefined) { sets.push('trigger_config = ?'); values.push(JSON.stringify(fields.triggerConfig)); }
-    if (fields.conditions !== undefined) { sets.push('conditions = ?'); values.push(JSON.stringify(fields.conditions)); }
-    if (fields.actions !== undefined) { sets.push('actions = ?'); values.push(JSON.stringify(fields.actions)); }
     if (fields.enabled !== undefined) { sets.push('enabled = ?'); values.push(fields.enabled ? 1 : 0); }
     if (fields.lastTriggeredAt !== undefined) { sets.push('last_triggered_at = ?'); values.push(fields.lastTriggeredAt); }
     if (fields.triggerCount !== undefined) { sets.push('trigger_count = ?'); values.push(fields.triggerCount); }
@@ -185,11 +156,9 @@ function rowToAutomationRule(row: any): AutomationRule {
     return {
         id: row.id,
         name: row.name,
-        description: row.description ?? '',
+        prompt: row.prompt ?? '',
         triggerType: row.trigger_type as TriggerType,
         triggerConfig: JSON.parse(row.trigger_config || '{}'),
-        conditions: JSON.parse(row.conditions || '[]'),
-        actions: JSON.parse(row.actions || '[]'),
         enabled: !!row.enabled,
         lastTriggeredAt: row.last_triggered_at ?? undefined,
         triggerCount: row.trigger_count,
