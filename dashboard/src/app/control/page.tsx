@@ -59,7 +59,7 @@ export default function ControlPlanePage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
+    <div className="max-w-6xl mx-auto px-6 py-6 space-y-6 animate-card-enter">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Control Plane</h1>
         <p className="text-sm text-muted-foreground mt-0.5">

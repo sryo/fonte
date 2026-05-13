@@ -153,7 +153,7 @@ export default function WatchlistDetailPage() {
   const badge = statusBadge(entry.status);
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
+    <div className="max-w-6xl mx-auto px-6 py-6 space-y-6 animate-card-enter">
       {/* Back link + Header */}
       <div>
         <Link
