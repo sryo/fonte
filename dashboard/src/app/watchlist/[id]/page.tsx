@@ -415,9 +415,9 @@ export default function WatchlistDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {results.map((result) => (
+                {results.map((result, idx) => (
                   <ResultRow
-                    key={result.id}
+                    key={result.id ?? idx}
                     result={result}
                     onAdd={handleAddResult}
                   />
