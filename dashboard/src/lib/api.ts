@@ -604,6 +604,29 @@ export async function stopWhatsApp(): Promise<{ ok: boolean }> {
   return apiFetch("/api/whatsapp/disconnect", { method: "POST" });
 }
 
+export interface WhatsAppChat {
+  id: string;
+  name: string;
+  isGroup: boolean;
+  unread: number;
+  lastTimestamp?: number;
+}
+
+export async function getWhatsAppChats(): Promise<{ ok: boolean; chats: WhatsAppChat[] }> {
+  return apiFetch("/api/whatsapp/chats");
+}
+
+export async function getAllowedChat(): Promise<{ ok: boolean; allowed_chat: string | null }> {
+  return apiFetch("/api/whatsapp/allowed-chat");
+}
+
+export async function setAllowedChat(allowed_chat: string | null): Promise<{ ok: boolean; allowed_chat: string | null }> {
+  return apiFetch("/api/whatsapp/allowed-chat", {
+    method: "POST",
+    body: JSON.stringify({ allowed_chat }),
+  });
+}
+
 // ── SSE ───────────────────────────────────────────────────────────────────
 
 export function subscribeToEvents(

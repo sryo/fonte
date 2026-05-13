@@ -11,6 +11,10 @@ import {
   startWhatsApp,
   getWhatsAppStatus,
   stopWhatsApp,
+  getWhatsAppChats,
+  getAllowedChat,
+  setAllowedChat,
+  type WhatsAppChat,
   getAgents,
   saveAgent,
   deleteAgent,
@@ -415,21 +419,86 @@ function WhatsAppSection() {
         )}
 
         {status === "connected" && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-sm font-medium">Connected</span>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-sm font-medium">Connected</span>
+              </div>
+              <button
+                onClick={handleDisconnect}
+                disabled={loading}
+                className="px-3 py-1.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+              >
+                Disconnect
+              </button>
             </div>
-            <button
-              onClick={handleDisconnect}
-              disabled={loading}
-              className="px-3 py-1.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-            >
-              Disconnect
-            </button>
+            <WhatsAppChatPicker />
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── WhatsApp Chat Picker ────────────────────────────────────────────────
+
+function WhatsAppChatPicker() {
+  const [chats, setChats] = useState<WhatsAppChat[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [chatsRes, allowedRes] = await Promise.all([
+          getWhatsAppChats(),
+          getAllowedChat(),
+        ]);
+        if (!mounted) return;
+        setChats(chatsRes.chats || []);
+        setSelected(allowedRes.allowed_chat ?? null);
+      } catch {}
+      if (mounted) setLoading(false);
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const handleChange = async (value: string) => {
+    const next = value === "" ? null : value;
+    setSelected(next);
+    setSaving(true);
+    try { await setAllowedChat(next); } catch {}
+    setSaving(false);
+  };
+
+  return (
+    <div className="space-y-2 pt-3 border-t">
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium">Monitored chat</label>
+        {saving && <span className="text-xs text-muted-foreground">Saving…</span>}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Only messages from this chat will be sent to the agent. Defaults to none — pick a chat to enable.
+      </p>
+      {loading ? (
+        <div className="h-9 rounded-lg border bg-muted/30 animate-pulse" />
+      ) : (
+        <select
+          value={selected ?? ""}
+          onChange={(e) => handleChange(e.target.value)}
+          className="w-full h-9 px-3 text-sm rounded-lg border bg-background"
+        >
+          <option value="">— Ignore everything —</option>
+          {chats.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.isGroup ? "👥 " : ""}{c.name}{c.unread > 0 ? ` (${c.unread})` : ""}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 }

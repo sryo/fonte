@@ -238,14 +238,14 @@ export async function restartDaemon(): Promise<void> {
 }
 
 export async function openOffice(): Promise<void> {
-    const PORTAL_URL = 'https://office.aitorrent.com';
+    const DASHBOARD_URL = 'http://localhost:3000';
     console.log('');
-    log(GREEN, `Opening AITorrent Dashboard: ${PORTAL_URL}`);
+    log(GREEN, `Opening AITorrent Dashboard: ${DASHBOARD_URL}`);
     try {
         const { exec } = await import('child_process');
-        exec(`open "${PORTAL_URL}"`);
+        exec(`open "${DASHBOARD_URL}"`);
     } catch {
-        log(YELLOW, `Could not open browser. Visit ${PORTAL_URL} manually.`);
+        log(YELLOW, `Could not open browser. Visit ${DASHBOARD_URL} manually.`);
     }
 }
 
@@ -257,7 +257,7 @@ const flags = process.argv.slice(3);
 switch (command) {
     case 'start':
         await startDaemon();
-        if (flags.includes('--open')) await openOffice();
+        if (flags.includes('--open') && !process.env.AITORRENT_NO_OPEN) await openOffice();
         break;
     case 'stop':
         stopDaemon();

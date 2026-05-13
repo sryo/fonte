@@ -94,10 +94,9 @@ async function processMessage(dbMsg: any): Promise<void> {
             log('INFO', `Agent ${agentId}: ${text}`);
             insertAgentMessage({ agentId, role: 'assistant', channel, sender: agentId, messageId, content: text });
             emitEvent('agent:progress', { agentId, agentName: agent.name, text, messageId });
-            sendDirectResponse(text, {
-                channel, sender, senderId: data.senderId,
-                messageId, originalMessage: rawMessage, agentId,
-            });
+            // NOTE: Don't send intermediate chunks to the channel. Some adapters emit the full response
+            // as a single chunk, which would duplicate the final send below. Only the final response
+            // (line ~122) goes to the channel.
         });
     } catch (error) {
         const provider = agent.provider || 'anthropic';
@@ -251,6 +250,15 @@ if (watchlistSettings?.enabled) {
 // Start automation engine
 const automationEngine = createAutomationEngine();
 automationEngine.start();
+
+// Auto-restore WhatsApp session if previously paired
+const waSessionDir = path.join(AITORRENT_HOME, 'whatsapp-session', 'session', 'Default');
+if (fs.existsSync(waSessionDir)) {
+    log('INFO', 'WhatsApp: restoring previous session...');
+    getWhatsAppService().start().catch(err => {
+        log('ERROR', `WhatsApp auto-start failed: ${(err as Error).message}`);
+    });
+}
 
 // Auto-fetch subtitles when a torrent completes
 onEvent((type, data) => {

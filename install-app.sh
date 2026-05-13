@@ -10,6 +10,7 @@
 #   5. npm dependencies + build
 #   6. AITorrent.app (magnet: and .torrent file handler)
 #   7. Write default settings with Jackett API key
+#   8. LaunchAgent so the daemon auto-starts at login
 #
 
 set -e
@@ -29,7 +30,7 @@ echo ""
 
 # ── Step 1: Homebrew ─────────────────────────────────────────────────────────
 
-echo "[1/7] Checking Homebrew..."
+echo "[1/8] Checking Homebrew..."
 
 if command -v brew &>/dev/null; then
     echo "  Homebrew already installed."
@@ -53,7 +54,7 @@ fi
 # ── Step 2: Node.js ──────────────────────────────────────────────────────────
 
 echo ""
-echo "[2/7] Checking Node.js..."
+echo "[2/8] Checking Node.js..."
 
 if command -v node &>/dev/null; then
     NODE_VERSION=$(node -v)
@@ -77,7 +78,7 @@ fi
 # ── Step 3: Transmission ─────────────────────────────────────────────────────
 
 echo ""
-echo "[3/7] Checking Transmission..."
+echo "[3/8] Checking Transmission..."
 
 if command -v transmission-daemon &>/dev/null; then
     echo "  Transmission already installed."
@@ -103,7 +104,7 @@ fi
 # ── Step 4: Jackett ──────────────────────────────────────────────────────────
 
 echo ""
-echo "[4/7] Checking Jackett..."
+echo "[4/8] Checking Jackett..."
 
 if command -v jackett &>/dev/null || [ -f /opt/homebrew/bin/jackett ]; then
     echo "  Jackett already installed."
@@ -149,7 +150,7 @@ fi
 # ── Step 5: Build AITorrent ──────────────────────────────────────────────────
 
 echo ""
-echo "[5/7] Installing dependencies and building..."
+echo "[5/8] Installing dependencies and building..."
 cd "$SCRIPT_DIR"
 npm install 2>&1 | tail -1
 npm run build 2>&1 | tail -1
@@ -158,7 +159,7 @@ echo "  Built successfully."
 # ── Step 6: Install AITorrent.app ────────────────────────────────────────────
 
 echo ""
-echo "[6/7] Installing AITorrent.app..."
+echo "[6/8] Installing AITorrent.app..."
 
 if [ ! -d "$APP_SOURCE" ]; then
     echo "  Error: AITorrent.app not found at $APP_SOURCE"
@@ -177,7 +178,7 @@ echo "  Installed to $APP_DEST"
 # ── Step 7: Write settings ───────────────────────────────────────────────────
 
 echo ""
-echo "[7/7] Writing settings..."
+echo "[7/8] Writing settings..."
 
 mkdir -p "$CONFIG_DIR/logs"
 mkdir -p "$HOME/Downloads/aitorrent"
@@ -243,6 +244,108 @@ with open('$CONFIG_DIR/settings.json', 'w') as f:
     echo "  Settings already exist, preserved."
 fi
 
+# ── Step 8: Auto-start LaunchAgent ───────────────────────────────────────────
+
+echo ""
+echo "[8/8] Configuring auto-start at login..."
+
+NODE_BIN="$(command -v node)"
+NPM_BIN="$(command -v npm)"
+AITORRENT_BIN="$SCRIPT_DIR/packages/cli/bin/aitorrent.mjs"
+DASHBOARD_DIR="$SCRIPT_DIR/dashboard"
+DAEMON_PLIST="$HOME/Library/LaunchAgents/com.aitorrent.daemon.plist"
+DASHBOARD_PLIST="$HOME/Library/LaunchAgents/com.aitorrent.dashboard.plist"
+
+mkdir -p "$HOME/Library/LaunchAgents"
+
+# Daemon LaunchAgent (API on :3777) — one-shot launcher; daemon self-detaches
+if [ -f "$DAEMON_PLIST" ]; then
+    launchctl unload "$DAEMON_PLIST" 2>/dev/null || true
+fi
+
+cat > "$DAEMON_PLIST" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.aitorrent.daemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$NODE_BIN</string>
+        <string>$AITORRENT_BIN</string>
+        <string>start</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>$CONFIG_DIR/logs/launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>$CONFIG_DIR/logs/launchd.err</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>$HOME</string>
+        <key>AITORRENT_NO_OPEN</key>
+        <string>1</string>
+    </dict>
+</dict>
+</plist>
+EOF
+
+launchctl load "$DAEMON_PLIST" 2>/dev/null && \
+    echo "  Daemon (port 3777) will auto-start at login." || \
+    echo "  Warning: failed to load daemon LaunchAgent. Run: launchctl load $DAEMON_PLIST"
+
+# Dashboard LaunchAgent (Next.js on :3000) — long-running; launchd keeps it alive
+if [ -f "$DASHBOARD_PLIST" ]; then
+    launchctl unload "$DASHBOARD_PLIST" 2>/dev/null || true
+fi
+
+cat > "$DASHBOARD_PLIST" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.aitorrent.dashboard</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$NPM_BIN</string>
+        <string>run</string>
+        <string>start</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>$DASHBOARD_DIR</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>$CONFIG_DIR/logs/dashboard.log</string>
+    <key>StandardErrorPath</key>
+    <string>$CONFIG_DIR/logs/dashboard.err</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>$HOME</string>
+        <key>NODE_ENV</key>
+        <string>production</string>
+    </dict>
+</dict>
+</plist>
+EOF
+
+launchctl load "$DASHBOARD_PLIST" 2>/dev/null && \
+    echo "  Dashboard (port 3000) will auto-start at login." || \
+    echo "  Warning: failed to load dashboard LaunchAgent. Run: launchctl load $DASHBOARD_PLIST"
+
 # ── Done ─────────────────────────────────────────────────────────────────────
 
 echo ""
@@ -259,6 +362,13 @@ echo ""
 echo "File associations:"
 echo "  - magnet: links → AITorrent"
 echo "  - .torrent files → AITorrent"
+echo ""
+echo "Auto-start at login:"
+echo "  - Daemon  → http://localhost:3777"
+echo "  - Dashboard → http://localhost:3000"
+echo "  - Transmission, Jackett (via brew services)"
+echo "  Disable: launchctl unload $DAEMON_PLIST"
+echo "           launchctl unload $DASHBOARD_PLIST"
 echo ""
 echo "Manage Jackett indexers: http://localhost:9117"
 echo ""
