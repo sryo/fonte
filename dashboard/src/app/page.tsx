@@ -24,7 +24,15 @@ import {
   FilmStrip,
   CaretRight,
   Television,
+  Plus,
+  Trash,
 } from "@phosphor-icons/react";
+import {
+  addWatchlistEntry,
+  removeTorrent,
+  deleteWatchlistEntry,
+  createAutomation,
+} from "@/lib/api";
 
 // ── Filter types ─────────────────────────────────────────────────────────
 
@@ -121,6 +129,7 @@ function ContentRow({
   children,
   emptyMessage,
   isEmpty,
+  action,
 }: {
   title: string;
   count: number;
@@ -128,6 +137,7 @@ function ContentRow({
   children: React.ReactNode;
   emptyMessage: string;
   isEmpty: boolean;
+  action?: React.ReactNode;
 }) {
   return (
     <section className="space-y-3 animate-card-enter">
@@ -139,6 +149,7 @@ function ContentRow({
             <span className="text-sm font-normal text-muted-foreground">({count})</span>
           )}
         </h2>
+        {action}
       </div>
       {isEmpty ? (
         <p className="text-sm text-muted-foreground py-6 text-center">{emptyMessage}</p>
@@ -160,6 +171,8 @@ export default function HomePage() {
   const [automations, setAutomations] = useState<AutomationRule[]>([]);
   const [stats, setStats] = useState<TorrentStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAddWatchlist, setShowAddWatchlist] = useState(false);
+  const [wlForm, setWlForm] = useState({ title: "", mediaType: "movie" as "movie" | "tv", year: "", quality: "1080p" });
 
   const fetchAll = useCallback(async () => {
     try {
@@ -282,6 +295,15 @@ export default function HomePage() {
           icon={Eye}
           emptyMessage="Nothing on your watchlist"
           isEmpty={watchingEntries.length === 0}
+          action={
+            <button
+              onClick={() => setShowAddWatchlist(true)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg px-2.5 py-1.5 hover:bg-muted"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add
+            </button>
+          }
         >
           {watchingEntries.map((entry) => (
             <button
@@ -327,6 +349,21 @@ export default function HomePage() {
           icon={Check}
           emptyMessage="No completed downloads yet"
           isEmpty={completedTorrents.length === 0}
+          action={completedTorrents.length > 0 ? (
+            <button
+              onClick={async () => {
+                if (!confirm(`Remove ${completedTorrents.length} completed torrents from list?`)) return;
+                for (const t of completedTorrents) {
+                  await removeTorrent(t.id);
+                }
+                fetchAll();
+              }}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-lg px-2.5 py-1.5 hover:bg-muted"
+            >
+              <Trash className="h-3.5 w-3.5" />
+              Clear
+            </button>
+          ) : undefined}
         >
           {completedTorrents.map((torrent) => (
             <button
@@ -391,6 +428,74 @@ export default function HomePage() {
             </div>
           ))}
         </ContentRow>
+      )}
+
+      {/* Add to Watchlist Modal */}
+      {showAddWatchlist && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onClick={() => setShowAddWatchlist(false)}>
+          <div className="bg-card rounded-xl shadow-lg border p-6 w-full max-w-sm space-y-4 animate-card-enter" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold">Add to Watchlist</h3>
+            <input
+              placeholder="Title (e.g. Kika)"
+              value={wlForm.title}
+              onChange={(e) => setWlForm({ ...wlForm, title: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-lg border bg-background"
+              autoFocus
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <select
+                value={wlForm.mediaType}
+                onChange={(e) => setWlForm({ ...wlForm, mediaType: e.target.value as "movie" | "tv" })}
+                className="px-3 py-2 text-sm rounded-lg border bg-background"
+              >
+                <option value="movie">Movie</option>
+                <option value="tv">TV Show</option>
+              </select>
+              <input
+                placeholder="Year"
+                type="number"
+                value={wlForm.year}
+                onChange={(e) => setWlForm({ ...wlForm, year: e.target.value })}
+                className="px-3 py-2 text-sm rounded-lg border bg-background"
+              />
+            </div>
+            <select
+              value={wlForm.quality}
+              onChange={(e) => setWlForm({ ...wlForm, quality: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-lg border bg-background"
+            >
+              <option value="720p">720p</option>
+              <option value="1080p">1080p</option>
+              <option value="4K">4K</option>
+            </select>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={async () => {
+                  if (!wlForm.title.trim()) return;
+                  await addWatchlistEntry({
+                    title: wlForm.title.trim(),
+                    mediaType: wlForm.mediaType,
+                    year: wlForm.year ? parseInt(wlForm.year) : undefined,
+                    quality: wlForm.quality,
+                  });
+                  setWlForm({ title: "", mediaType: "movie", year: "", quality: "1080p" });
+                  setShowAddWatchlist(false);
+                  fetchAll();
+                }}
+                disabled={!wlForm.title.trim()}
+                className="flex-1 px-4 py-2 text-sm bg-watchlist text-watchlist-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
+              >
+                Add
+              </button>
+              <button
+                onClick={() => setShowAddWatchlist(false)}
+                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

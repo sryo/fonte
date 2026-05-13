@@ -28,7 +28,7 @@ function ProgressArc({ progress, children }: { progress: number; children: React
   const offset = circumference - (progress / 100) * circumference;
 
   return (
-    <div className="relative flex items-center justify-center animate-download-bounce">
+    <div className="relative flex items-center justify-center">
       <svg
         width={size}
         height={size}
