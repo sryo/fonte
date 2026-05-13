@@ -264,7 +264,8 @@ export function TopBar({ onOpenChat }: TopBarProps) {
 
   /* ---- Render ---- */
   return (
-    <header className="flex items-center gap-3 px-4 py-2 border-b bg-card shrink-0">
+    <header className="border-b bg-card shrink-0">
+      <div className="max-w-6xl mx-auto flex items-center gap-3 px-4 py-2">
       {/* ===== Left: Nav buttons ===== */}
       <nav className="flex items-center gap-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
@@ -428,6 +429,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         >
           <Robot className="h-[18px] w-[18px]" />
         </button>
+      </div>
       </div>
     </header>
   );

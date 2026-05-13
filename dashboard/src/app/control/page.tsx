@@ -59,7 +59,7 @@ export default function ControlPlanePage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Control Plane</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -280,7 +280,7 @@ function MiniStat({ label, value, accent }: { label: string; value: number; acce
 
 function ServicesTab() {
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6">
       <ApiConnectionSection />
       <DaemonSection />
       <BuiltinProviders />

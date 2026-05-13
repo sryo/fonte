@@ -161,9 +161,9 @@ export default function TorrentDetailPage() {
     torrent.status === "paused";
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
       {/* ── Header bar ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-6 py-4 border-b bg-card">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
             href="/torrents"
@@ -213,7 +213,7 @@ export default function TorrentDetailPage() {
       </div>
 
       {/* ── Content ────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-auto p-6 space-y-6">
+
         {/* Error banner */}
         {(error || torrent.errorMessage) && (
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
@@ -394,7 +394,6 @@ export default function TorrentDetailPage() {
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }

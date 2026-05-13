@@ -173,9 +173,9 @@ export default function AgentConfigPage({
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b bg-card">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
             href="/agents"
@@ -204,7 +204,7 @@ export default function AgentConfigPage({
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center border-b bg-card px-6">
+      <div className="flex items-center border-b">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
@@ -231,7 +231,7 @@ export default function AgentConfigPage({
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-auto">
+      <div>
         {activeTab === "chat" && (
           <div className="h-full min-h-0">
             <AgentChatView agentId={agentId} agentName={agent.name} />
