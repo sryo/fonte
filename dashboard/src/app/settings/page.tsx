@@ -229,6 +229,28 @@ export default function SettingsPage() {
         />
       )}
 
+      {/* WhatsApp Channel */}
+      <div className="rounded-xl border bg-card shadow-sm">
+        <div className="p-5 space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold">WhatsApp Channel</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Control AITorrent from your phone via WhatsApp
+            </p>
+          </div>
+          <div className="rounded-lg bg-muted/50 p-4 text-sm space-y-2">
+            <p>To connect WhatsApp, run this command in your terminal:</p>
+            <code className="block bg-background border rounded-lg px-3 py-2 font-mono text-xs select-all">
+              aitorrent whatsapp
+            </code>
+            <p className="text-xs text-muted-foreground">
+              A QR code will appear. Scan it with WhatsApp (Settings → Linked Devices → Link a Device).
+              Once connected, message yourself to control torrents, search, and manage downloads remotely.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Advanced: Raw JSON */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
         <button

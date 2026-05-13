@@ -254,9 +254,9 @@ automationEngine.start();
 
 // Auto-fetch subtitles when a torrent completes
 onEvent((type, data) => {
-    if (type === 'torrent:completed' && data.torrentId) {
-        handleTorrentCompleted(data.torrentId as string).catch(err => {
-            log('ERROR', `Subtitle auto-fetch failed for ${data.torrentId}: ${(err as Error).message}`);
+    if (type === 'torrent:completed' && data.id) {
+        handleTorrentCompleted(data.id as string).catch(err => {
+            log('ERROR', `Subtitle auto-fetch failed for ${data.id}: ${(err as Error).message}`);
         });
     }
 });
