@@ -151,11 +151,11 @@ export async function runWatchlistCheck(): Promise<void> {
                                 markResultSelected(allResults[0].id);
                             }
 
-                            const isTv = entry.mediaType === 'tv' && !entry.seasonPattern;
+                            const isOngoing = (entry.mediaType === 'tv' || entry.mediaType === 'music') && !entry.seasonPattern;
                             updateWatchlistEntry(entry.id, {
                                 lastMatchAt: now,
                                 matchedTorrentId: torrent.id,
-                                status: isTv ? 'watching' : 'fulfilled',
+                                status: isOngoing ? 'watching' : 'fulfilled',
                             });
 
                             emitEvent(WATCHLIST_EVENTS.MATCH, {

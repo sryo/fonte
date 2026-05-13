@@ -220,7 +220,7 @@ export default function HomePage() {
     triggerType: "torrent:completed",
     prompt: "",
   });
-  const [wlForm, setWlForm] = useState({ title: "", mediaType: "movie" as "movie" | "tv", year: "", quality: "1080p" });
+  const [wlForm, setWlForm] = useState({ title: "", mediaType: "movie" as "movie" | "tv" | "music" | "game" | "book" | "app" | "other", year: "", quality: "1080p" });
 
   const fetchAll = useCallback(async () => {
     try {
@@ -391,7 +391,7 @@ export default function HomePage() {
               }
             >
               <p className="text-[11px] text-muted-foreground">
-                {entry.year && `${entry.year} \u00B7 `}{entry.mediaType === "tv" ? "TV" : "Movie"}
+                {entry.year && `${entry.year} \u00B7 `}{entry.mediaType === "tv" ? "TV Show" : entry.mediaType.charAt(0).toUpperCase() + entry.mediaType.slice(1)}
               </p>
             </MediaCard>
           ))}
@@ -497,11 +497,16 @@ export default function HomePage() {
             <div className="grid grid-cols-2 gap-3">
               <select
                 value={wlForm.mediaType}
-                onChange={(e) => setWlForm({ ...wlForm, mediaType: e.target.value as "movie" | "tv" })}
+                onChange={(e) => setWlForm({ ...wlForm, mediaType: e.target.value as "movie" | "tv" | "music" | "game" | "book" | "app" | "other" })}
                 className="px-3 py-2 text-sm rounded-lg border bg-background"
               >
                 <option value="movie">Movie</option>
                 <option value="tv">TV Show</option>
+                <option value="music">Music</option>
+                <option value="game">Game</option>
+                <option value="book">Book</option>
+                <option value="app">App</option>
+                <option value="other">Other</option>
               </select>
               <input
                 placeholder="Year"

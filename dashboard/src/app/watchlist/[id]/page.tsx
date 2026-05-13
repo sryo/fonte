@@ -291,13 +291,13 @@ export default function WatchlistDetailPage() {
             </h1>
 
             <div className="flex flex-wrap items-center gap-2 mt-3">
-              <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium bg-neutral-500/15 text-neutral-400 border-neutral-500/30">
+              <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium bg-neutral-500/15 text-neutral-400 border-neutral-500/30 capitalize">
                 {entry.mediaType === "tv" ? (
                   <Television className="h-3 w-3" weight="fill" />
                 ) : (
                   <FilmStrip className="h-3 w-3" weight="fill" />
                 )}
-                {entry.mediaType === "tv" ? "TV" : "Movie"}
+                {entry.mediaType === "tv" ? "TV Show" : entry.mediaType}
               </span>
               <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium bg-purple-500/15 text-purple-400 border-purple-500/30">
                 {entry.quality}

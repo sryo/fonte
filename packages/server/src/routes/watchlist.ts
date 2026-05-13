@@ -10,6 +10,16 @@ import {
 import type { WatchlistStatus, MediaType } from '@aitorrent/torrent';
 import { log, genId, getSettings } from '@aitorrent/core';
 
+const CATEGORY_MAP: Record<string, number> = {
+    movie: 2000,
+    tv: 5000,
+    music: 3000,
+    game: 4000,
+    book: 7000,
+    app: 4000,
+    other: 8000,
+};
+
 const app = new Hono();
 
 // ── Smart search: try multiple query strategies across all sources ────────
@@ -170,7 +180,7 @@ app.post('/api/search', async (c) => {
 
         const quality = body.quality || '1080p';
         const mediaType = body.mediaType || 'movie';
-        const category = mediaType === 'tv' ? 5000 : 2000;
+        const category = CATEGORY_MAP[mediaType] || 2000;
 
         const results = await multiSearch(query, body.year, quality, category);
 
@@ -215,7 +225,7 @@ app.post('/api/watchlist', async (c) => {
         if (quality) parts.push(quality);
         const searchQuery = parts.join(' ');
 
-        const category = mediaType === 'tv' ? 5000 : 2000;
+        const category = CATEGORY_MAP[mediaType] || 2000;
 
         const id = genId('wl');
         insertWatchlistEntry({
@@ -232,12 +242,12 @@ app.post('/api/watchlist', async (c) => {
         // Try to get poster from TMDB
         const settings = getSettings();
         const tmdbKey = settings.subtitles?.tmdb_api_key;
-        if (tmdbKey) {
+        if (tmdbKey && (mediaType === 'movie' || mediaType === 'tv')) {
             try {
                 const tmdbInfo = await searchTmdb({
                     title: body.title,
                     year: body.year,
-                    mediaType,
+                    mediaType: mediaType as 'movie' | 'tv',
                     apiKey: tmdbKey,
                 });
                 if (tmdbInfo?.posterUrl) {

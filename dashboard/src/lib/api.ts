@@ -430,7 +430,7 @@ export async function updateTorrentConfig(config: Partial<TorrentConfig>): Promi
 // ── Watchlist ────────────────────────────────────────────────────────────
 
 export type WatchlistStatus = "watching" | "fulfilled" | "paused";
-export type MediaType = "movie" | "tv";
+export type MediaType = "movie" | "tv" | "music" | "game" | "book" | "app" | "other";
 
 export interface WatchlistRecord {
   id: string;

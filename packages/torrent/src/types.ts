@@ -49,7 +49,7 @@ export interface TorrentStats {
 
 // Watchlist types
 export type WatchlistStatus = 'watching' | 'fulfilled' | 'paused';
-export type MediaType = 'movie' | 'tv';
+export type MediaType = 'movie' | 'tv' | 'music' | 'game' | 'book' | 'app' | 'other';
 
 export interface WatchlistRecord {
     id: string;

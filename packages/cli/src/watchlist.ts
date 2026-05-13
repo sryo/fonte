@@ -211,7 +211,7 @@ const arg1 = process.argv[3];
         switch (command) {
             case 'add':
                 if (!arg1) {
-                    p.log.error('Usage: aitorrent watchlist add <title> [--type movie|tv] [--year N] [--quality Q] [--season S03]');
+                    p.log.error('Usage: aitorrent watchlist add <title> [--type movie|tv|music|game|book|app|other] [--year N] [--quality Q] [--season S03]');
                     process.exit(1);
                 }
                 await watchlistAdd(arg1);
