@@ -76,6 +76,7 @@ export interface Settings {
         target_languages?: string[];
         tmdb_api_key?: string;
     };
+    libraries?: Record<string, string>;  // type → folder path, e.g. { "Movies": "/media/Movies", "TV": "/media/TV", "Music": "/media/Music" }
 }
 
 export interface MessageData {

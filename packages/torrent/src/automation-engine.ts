@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { log, emitEvent, onEvent } from '@aitorrent/core';
+import { log, emitEvent, onEvent, getSettings } from '@aitorrent/core';
 import { getAutomationRules, updateAutomationRule, insertAutomationLog } from './automation-db';
 import { getTorrentManager } from './torrent-manager';
 import { fetchSubtitlesForTorrent, translateSubtitle, parseTorrentName } from './subtitle-manager';
@@ -205,10 +205,18 @@ export class AutomationEngine {
                 if (!torrentId) break;
                 const torrent = getTorrent(torrentId);
                 if (!torrent) break;
-                const parsed = parseTorrentName(torrent.name);
-                const baseDir = (action.config.baseDir as string) || path.dirname(torrent.savePath);
-                const typeFolder = parsed.isTv ? 'TV' : 'Movies';
-                const target = path.join(baseDir, typeFolder);
+                const settings = getSettings();
+                const libraries = settings.libraries || {};
+                const contentType = detectContentType(torrent.name, getTorrentFiles(torrentId));
+
+                // Find the library folder for this content type
+                let target = libraries[contentType];
+                if (!target) {
+                    // Fallback: use baseDir config or create subfolder in download dir
+                    const baseDir = (action.config.baseDir as string) || path.dirname(torrent.savePath);
+                    target = path.join(baseDir, contentType);
+                }
+
                 if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
                 const files = getTorrentFiles(torrentId);
                 for (const file of files) {
@@ -217,7 +225,7 @@ export class AutomationEngine {
                     const newPath = path.join(target, file.name);
                     fs.renameSync(oldPath, newPath);
                 }
-                log('INFO', `Organized "${torrent.name}" → ${typeFolder}/`);
+                log('INFO', `Organized "${torrent.name}" → ${contentType}/ (${target})`);
                 break;
             }
 
@@ -225,6 +233,44 @@ export class AutomationEngine {
                 log('WARN', `Unknown action type: ${action.type}`);
         }
     }
+}
+
+// ── Content Type Detection ────────────────────────────────────────────────────
+
+import type { TorrentFileRecord } from './types';
+
+const VIDEO_EXTS = new Set(['.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv', '.flv', '.webm']);
+const AUDIO_EXTS = new Set(['.mp3', '.flac', '.ogg', '.wav', '.aac', '.m4a', '.wma', '.opus']);
+const BOOK_EXTS = new Set(['.epub', '.mobi', '.pdf', '.azw3', '.cbz', '.cbr']);
+const APP_EXTS = new Set(['.exe', '.dmg', '.app', '.msi', '.deb', '.rpm', '.apk', '.iso']);
+const GAME_EXTS = new Set(['.nsp', '.xci', '.pkg', '.vpk']);
+
+function detectContentType(torrentName: string, files: TorrentFileRecord[]): string {
+    // Check file extensions first
+    const extCounts: Record<string, number> = {};
+    for (const f of files) {
+        const ext = f.name.substring(f.name.lastIndexOf('.')).toLowerCase();
+        if (VIDEO_EXTS.has(ext)) extCounts['Video'] = (extCounts['Video'] || 0) + 1;
+        else if (AUDIO_EXTS.has(ext)) extCounts['Music'] = (extCounts['Music'] || 0) + 1;
+        else if (BOOK_EXTS.has(ext)) extCounts['Books'] = (extCounts['Books'] || 0) + 1;
+        else if (APP_EXTS.has(ext)) extCounts['Apps'] = (extCounts['Apps'] || 0) + 1;
+        else if (GAME_EXTS.has(ext)) extCounts['Games'] = (extCounts['Games'] || 0) + 1;
+    }
+
+    // Pick the dominant type
+    let bestType = 'Other';
+    let bestCount = 0;
+    for (const [type, count] of Object.entries(extCounts)) {
+        if (count > bestCount) { bestType = type; bestCount = count; }
+    }
+
+    // For video, distinguish Movies vs TV
+    if (bestType === 'Video') {
+        const parsed = parseTorrentName(torrentName);
+        return parsed.isTv ? 'TV' : 'Movies';
+    }
+
+    return bestType;
 }
 
 // Singleton
