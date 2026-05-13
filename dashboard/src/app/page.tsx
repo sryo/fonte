@@ -15,7 +15,7 @@ import type {
   AutomationRule,
   TorrentStats,
 } from "@/lib/api";
-import { formatBytes, formatSpeed, formatRatio } from "@/lib/format";
+import { formatBytes, formatSpeed } from "@/lib/format";
 import {
   DownloadSimple,
   Eye,
@@ -23,7 +23,6 @@ import {
   Check,
   FilmStrip,
   CaretRight,
-  Television,
   Plus,
   Trash,
 } from "@phosphor-icons/react";
@@ -60,43 +59,45 @@ function relativeTime(ts: number): string {
   return `${days}d ago`;
 }
 
-// ── Progress Ring ────────────────────────────────────────────────────────
+// ── MediaCard (unified card layout) ──────────────────────────────────────
 
-function ProgressRing({ progress, size = 48 }: { progress: number; size?: number }) {
-  const strokeWidth = 3;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (progress / 100) * circumference;
-
+function MediaCard({
+  posterUrl,
+  title,
+  badges,
+  onClick,
+  children,
+}: {
+  posterUrl?: string;
+  title: string;
+  badges?: React.ReactNode;
+  onClick?: () => void;
+  children?: React.ReactNode;
+}) {
   return (
-    <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="absolute -rotate-90">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          className="text-muted/30"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="text-torrent transition-all duration-500"
-        />
-      </svg>
-      <span className="text-[10px] font-semibold tabular-nums">
-        {Math.round(progress * 100) / 100 >= 100 ? "100" : (progress).toFixed(0)}%
-      </span>
-    </div>
+    <button
+      onClick={onClick}
+      className="w-44 rounded-xl shadow-sm border bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer"
+    >
+      <div className="aspect-[2/3] w-full bg-muted relative overflow-hidden">
+        {posterUrl ? (
+          <img src={posterUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+            <FilmStrip className="h-10 w-10 text-muted-foreground/30" weight="duotone" />
+          </div>
+        )}
+        {badges && (
+          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
+            {badges}
+          </div>
+        )}
+      </div>
+      <div className="p-3 space-y-1">
+        <p className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-foreground">{title}</p>
+        {children}
+      </div>
+    </button>
   );
 }
 
@@ -263,26 +264,24 @@ export default function HomePage() {
           isEmpty={activeTorrents.length === 0}
         >
           {activeTorrents.map((torrent) => (
-            <button
+            <MediaCard
               key={torrent.id}
+              title={torrent.name}
               onClick={() => router.push(`/torrents/${torrent.id}`)}
-              className="w-56 rounded-xl shadow-sm border bg-card p-4 text-left hover:bg-accent/50 transition-colors group cursor-pointer"
-            >
-              <div className="flex items-start gap-3">
-                <ProgressRing progress={torrent.progress * 100} />
-                <div className="flex-1 min-w-0 space-y-1">
-                  <p className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-foreground">
-                    {torrent.name}
-                  </p>
+              badges={
+                <>
                   <StatusBadge status={torrent.status} />
-                </div>
-              </div>
-              <div className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span className="text-torrent">&#8595; {formatSpeed(torrent.downloadSpeed)}</span>
-                <span>&bull;</span>
-                <span>{torrent.numPeers} peers</span>
-              </div>
-            </button>
+                  <span className="text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">
+                    {Math.round(torrent.progress * 100)}%
+                  </span>
+                </>
+              }
+            >
+              <p className="text-[11px] text-muted-foreground">
+                <span className="text-torrent">&darr; {formatSpeed(torrent.downloadSpeed)}</span>
+                {" \u00B7 "}{torrent.numPeers} peers
+              </p>
+            </MediaCard>
           ))}
         </ContentRow>
       )}
@@ -306,37 +305,24 @@ export default function HomePage() {
           }
         >
           {watchingEntries.map((entry) => (
-            <button
+            <MediaCard
               key={entry.id}
+              title={entry.title}
+              posterUrl={entry.posterUrl}
               onClick={() => router.push(`/watchlist/${entry.id}`)}
-              className="w-48 rounded-xl shadow-sm border bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer"
-            >
-              {/* Colored header */}
-              <div className="h-20 bg-watchlist/10 flex items-center justify-center">
-                {entry.mediaType === "tv" ? (
-                  <Television className="h-8 w-8 text-watchlist/60" weight="duotone" />
-                ) : (
-                  <FilmStrip className="h-8 w-8 text-watchlist/60" weight="duotone" />
-                )}
-              </div>
-              {/* Content */}
-              <div className="p-3 space-y-1.5">
-                <p className="text-sm font-medium leading-tight line-clamp-1 group-hover:text-foreground">
-                  {entry.title}
-                </p>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  {entry.year && (
-                    <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-md text-muted-foreground">
-                      {entry.year}
-                    </span>
-                  )}
-                  <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-md text-muted-foreground">
+              badges={
+                <>
+                  <StatusBadge status={entry.status} />
+                  <span className="text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">
                     {entry.quality}
                   </span>
-                  <StatusBadge status={entry.status} />
-                </div>
-              </div>
-            </button>
+                </>
+              }
+            >
+              <p className="text-[11px] text-muted-foreground">
+                {entry.year && `${entry.year} \u00B7 `}{entry.mediaType === "tv" ? "TV" : "Movie"}
+              </p>
+            </MediaCard>
           ))}
         </ContentRow>
       )}
@@ -366,32 +352,21 @@ export default function HomePage() {
           ) : undefined}
         >
           {completedTorrents.map((torrent) => (
-            <button
+            <MediaCard
               key={torrent.id}
+              title={torrent.name}
               onClick={() => router.push(`/torrents/${torrent.id}`)}
-              className="w-56 rounded-xl shadow-sm border bg-card p-4 text-left hover:bg-accent/50 transition-colors group cursor-pointer"
+              badges={
+                <span className="text-[10px] bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                  <Check className="h-2.5 w-2.5" weight="bold" /> Done
+                </span>
+              }
             >
-              <div className="flex items-start gap-2.5">
-                <div className="mt-0.5 h-5 w-5 rounded-full bg-green-500/15 flex items-center justify-center shrink-0">
-                  <Check className="h-3 w-3 text-green-600 dark:text-green-400" weight="bold" />
-                </div>
-                <p className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-foreground">
-                  {torrent.name}
-                </p>
-              </div>
-              <div className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span>{formatBytes(torrent.size)}</span>
-                {torrent.completedAt && (
-                  <>
-                    <span>&bull;</span>
-                    <span>{relativeTime(torrent.completedAt)}</span>
-                  </>
-                )}
-              </div>
-              <div className="mt-1 text-[11px] text-muted-foreground">
-                Ratio: {formatRatio(torrent.uploaded, torrent.downloaded)}
-              </div>
-            </button>
+              <p className="text-[11px] text-muted-foreground">
+                {formatBytes(torrent.size)}
+                {torrent.completedAt && ` \u00B7 ${relativeTime(torrent.completedAt)}`}
+              </p>
+            </MediaCard>
           ))}
         </ContentRow>
       )}

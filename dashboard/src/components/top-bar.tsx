@@ -18,7 +18,7 @@ import {
   Check,
   SpinnerGap,
 } from "@phosphor-icons/react";
-import { getTorrentStats, addTorrent, sendMessage } from "@/lib/api";
+import { addTorrent, sendMessage } from "@/lib/api";
 
 /* ---------- Types ---------- */
 
@@ -41,56 +41,6 @@ const NAV_ITEMS = [
   { href: "/settings", label: "Settings", icon: Gear, exact: false },
 ] as const;
 
-/* ---------- Progress arc (wraps the Home icon) ---------- */
-
-function ProgressArc({
-  progress,
-  children,
-}: {
-  progress: number;
-  children: React.ReactNode;
-}) {
-  const size = 36;
-  const strokeWidth = 2;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (progress / 100) * circumference;
-
-  return (
-    <div className="relative flex items-center justify-center">
-      <svg
-        width={size}
-        height={size}
-        className="absolute -rotate-90"
-        aria-hidden="true"
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          className="text-muted/40"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="text-torrent transition-all duration-500"
-        />
-      </svg>
-      {children}
-    </div>
-  );
-}
-
 /* ---------- Helpers ---------- */
 
 function formatBytes(bytes: number): string {
@@ -108,10 +58,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  // Download status polling (for progress arc on Home icon)
-  const [activeTorrents, setActiveTorrents] = useState(0);
-  const [avgProgress, setAvgProgress] = useState(0);
-
   // Smart-bar state
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -126,30 +72,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
 
   /* ---- Hydration guard ---- */
   useEffect(() => setMounted(true), []);
-
-  /* ---- Torrent stats polling (3 s) ---- */
-  const fetchStats = useCallback(async () => {
-    try {
-      const stats = await getTorrentStats();
-      setActiveTorrents(stats.activeTorrents);
-    } catch {
-      /* silently ignore when API is unreachable */
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 3000);
-    return () => clearInterval(interval);
-  }, [fetchStats]);
-
-  useEffect(() => {
-    if (activeTorrents > 0) {
-      setAvgProgress((prev) => Math.max(5, prev));
-    } else {
-      setAvgProgress(0);
-    }
-  }, [activeTorrents]);
 
   /* ---- Cmd+K global shortcut ---- */
   useEffect(() => {
@@ -273,20 +195,12 @@ export function TopBar({ onOpenChat }: TopBarProps) {
             ? pathname === href
             : pathname === href || pathname.startsWith(href + "/");
 
-          const isHome = href === "/";
-          const showArc = isHome && activeTorrents > 0;
-          const iconEl = <Icon className="h-[18px] w-[18px]" />;
-
           return (
             <Link
               key={href}
               href={href}
               aria-label={label}
-              title={
-                isHome && activeTorrents > 0
-                  ? `${label} (${activeTorrents} active)`
-                  : label
-              }
+              title={label}
               className={cn(
                 "h-9 w-9 rounded-lg flex items-center justify-center transition-colors",
                 active
@@ -294,11 +208,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               )}
             >
-              {showArc ? (
-                <ProgressArc progress={avgProgress}>{iconEl}</ProgressArc>
-              ) : (
-                iconEl
-              )}
+              <Icon className="h-[18px] w-[18px]" />
             </Link>
           );
         })}

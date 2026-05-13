@@ -121,6 +121,12 @@ export function initTorrentDb(): void {
         );
         CREATE INDEX IF NOT EXISTS idx_auto_logs_rule ON automation_logs(rule_id);
     `);
+
+    // Migration: add poster_url to watchlist
+    const wlCols = db.prepare("PRAGMA table_info(watchlist)").all() as { name: string }[];
+    if (!wlCols.some(c => c.name === 'poster_url')) {
+        db.exec('ALTER TABLE watchlist ADD COLUMN poster_url TEXT');
+    }
 }
 
 export function closeTorrentDb(): void {

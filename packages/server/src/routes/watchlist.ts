@@ -5,6 +5,7 @@ import {
     getWatchlistResults, markResultSelected,
     getTorrentManager,
     runWatchlistCheck, searchJackett, searchBt4g,
+    searchTmdb,
 } from '@aitorrent/torrent';
 import type { WatchlistStatus, MediaType } from '@aitorrent/torrent';
 import { log, genId, getSettings } from '@aitorrent/core';
@@ -227,6 +228,23 @@ app.post('/api/watchlist', async (c) => {
             searchQuery,
             category,
         });
+
+        // Try to get poster from TMDB
+        const settings = getSettings();
+        const tmdbKey = settings.subtitles?.tmdb_api_key;
+        if (tmdbKey) {
+            try {
+                const tmdbInfo = await searchTmdb({
+                    title: body.title,
+                    year: body.year,
+                    mediaType,
+                    apiKey: tmdbKey,
+                });
+                if (tmdbInfo?.posterUrl) {
+                    updateWatchlistEntry(id, { posterUrl: tmdbInfo.posterUrl });
+                }
+            } catch {}
+        }
 
         const entry = getWatchlistEntry(id);
         return c.json({ ok: true, entry });

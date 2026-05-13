@@ -65,6 +65,7 @@ export interface WatchlistRecord {
     lastCheckedAt?: number;
     lastMatchAt?: number;
     matchedTorrentId?: string;
+    posterUrl?: string;
     createdAt: number;
     updatedAt: number;
 }

@@ -443,6 +443,7 @@ export interface WatchlistRecord {
   category: number;
   enabled: boolean;
   status: WatchlistStatus;
+  posterUrl?: string;
   lastCheckedAt?: number;
   lastMatchAt?: number;
   matchedTorrentId?: string;

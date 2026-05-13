@@ -5,6 +5,7 @@ export interface TmdbMediaInfo {
     originalLanguage: string;
     year: number;
     mediaType: 'movie' | 'tv';
+    posterUrl?: string;
 }
 
 export async function searchTmdb(opts: {
@@ -42,5 +43,6 @@ export async function searchTmdb(opts: {
         originalLanguage: top.original_language || 'en',
         year: releaseDate ? parseInt(releaseDate.slice(0, 4), 10) : 0,
         mediaType,
+        posterUrl: top.poster_path ? `https://image.tmdb.org/t/p/w300${top.poster_path}` : undefined,
     };
 }

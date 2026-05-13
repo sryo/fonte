@@ -12,11 +12,12 @@ export function insertWatchlistEntry(record: {
     quality: string;
     searchQuery: string;
     category: number;
+    posterUrl?: string;
 }): void {
     const now = Date.now();
     getDb().prepare(`
-        INSERT INTO watchlist (id, title, media_type, year, season_pattern, quality, search_query, category, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO watchlist (id, title, media_type, year, season_pattern, quality, search_query, category, poster_url, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
         record.id,
         record.title,
@@ -26,6 +27,7 @@ export function insertWatchlistEntry(record: {
         record.quality,
         record.searchQuery,
         record.category,
+        record.posterUrl ?? null,
         now,
         now,
     );
@@ -44,6 +46,7 @@ export function updateWatchlistEntry(id: string, fields: Partial<{
     lastCheckedAt: number;
     lastMatchAt: number;
     matchedTorrentId: string;
+    posterUrl: string;
 }>): void {
     const sets: string[] = [];
     const values: any[] = [];
@@ -60,6 +63,7 @@ export function updateWatchlistEntry(id: string, fields: Partial<{
     if (fields.lastCheckedAt !== undefined) { sets.push('last_checked_at = ?'); values.push(fields.lastCheckedAt); }
     if (fields.lastMatchAt !== undefined) { sets.push('last_match_at = ?'); values.push(fields.lastMatchAt); }
     if (fields.matchedTorrentId !== undefined) { sets.push('matched_torrent_id = ?'); values.push(fields.matchedTorrentId); }
+    if (fields.posterUrl !== undefined) { sets.push('poster_url = ?'); values.push(fields.posterUrl); }
 
     if (sets.length === 0) return;
     sets.push('updated_at = ?');
@@ -167,6 +171,7 @@ function rowToWatchlistRecord(row: any): WatchlistRecord {
         lastCheckedAt: row.last_checked_at ?? undefined,
         lastMatchAt: row.last_match_at ?? undefined,
         matchedTorrentId: row.matched_torrent_id ?? undefined,
+        posterUrl: row.poster_url ?? undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
