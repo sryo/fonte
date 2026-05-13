@@ -144,7 +144,7 @@ function ContentRow({
     <section className="space-y-3 animate-card-enter">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold flex items-center gap-2">
-          <Icon className="h-5 w-5 text-muted-foreground" />
+          <Icon className="h-5 w-5 text-muted-foreground" weight="bold" />
           {title}
           {count > 0 && (
             <span className="text-sm font-normal text-muted-foreground">({count})</span>
@@ -383,7 +383,7 @@ export default function HomePage() {
           {enabledAutomations.map((rule) => (
             <div
               key={rule.id}
-              className="w-56 rounded-xl shadow-sm border bg-card p-4 border-t-3 border-t-automation"
+              className="w-56 rounded-xl shadow-sm border bg-card p-4"
             >
               <p className="text-sm font-medium leading-tight line-clamp-1">{rule.name}</p>
               <div className="mt-2 flex items-center gap-1.5 text-[10px]">

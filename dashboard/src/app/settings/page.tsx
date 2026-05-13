@@ -374,7 +374,7 @@ function AgentPersonalitySection() {
   if (loading) return null;
 
   return (
-    <div className="rounded-xl border shadow-sm bg-card border-t-[3px] border-t-agent">
+    <div className="rounded-xl border shadow-sm bg-card">
       <div className="p-4 pb-0">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <svg className="h-4 w-4 text-agent" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -443,7 +443,7 @@ function TorrentSettingsCard({
   };
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm overflow-hidden border-t-[3px] border-t-torrent">
+    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
       <div className="p-4 pb-0">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <svg className="h-4 w-4 text-torrent" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -568,7 +568,7 @@ function WatchlistSettingsCard({
   };
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm overflow-hidden border-t-[3px] border-t-watchlist">
+    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
       <div className="p-4 pb-0">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <svg className="h-4 w-4 text-watchlist" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -680,7 +680,7 @@ function SubtitleSettingsCard({
   };
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm overflow-hidden border-t-[3px] border-t-subtitle">
+    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
       <div className="p-4 pb-0">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <svg className="h-4 w-4 text-subtitle" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -769,7 +769,7 @@ function ProviderSettingsCard({
   };
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm overflow-hidden border-t-[3px] border-t-agent">
+    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
       <div className="p-4 pb-0">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <svg className="h-4 w-4 text-agent" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
