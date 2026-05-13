@@ -25,12 +25,20 @@ import {
   CaretRight,
   Plus,
   Trash,
+  Pause,
+  Stop,
+  MagnifyingGlass,
+  X,
+  Play,
 } from "@phosphor-icons/react";
 import {
   addWatchlistEntry,
   removeTorrent,
   deleteWatchlistEntry,
   createAutomation,
+  pauseTorrent,
+  resumeTorrent,
+  triggerWatchlistSearch,
 } from "@/lib/api";
 
 // ── Filter types ─────────────────────────────────────────────────────────
@@ -59,18 +67,44 @@ function relativeTime(ts: number): string {
   return `${days}d ago`;
 }
 
+// ── CardAction (hover action button) ────────────────────────────────────
+
+function CardAction({ icon: Icon, label, onClick, destructive }: {
+  icon: React.ElementType;
+  label: string;
+  onClick: (e: React.MouseEvent) => void;
+  destructive?: boolean;
+}) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick(e); }}
+      title={label}
+      className={cn(
+        "h-8 w-8 rounded-lg flex items-center justify-center backdrop-blur-sm transition-colors",
+        destructive
+          ? "bg-red-500/80 hover:bg-red-500 text-white"
+          : "bg-white/20 hover:bg-white/30 text-white"
+      )}
+    >
+      <Icon className="h-4 w-4" weight="bold" />
+    </button>
+  );
+}
+
 // ── MediaCard (unified card layout) ──────────────────────────────────────
 
 function MediaCard({
   posterUrl,
   title,
   badges,
+  actions,
   onClick,
   children,
 }: {
   posterUrl?: string;
   title: string;
   badges?: React.ReactNode;
+  actions?: React.ReactNode;
   onClick?: () => void;
   children?: React.ReactNode;
 }) {
@@ -90,6 +124,11 @@ function MediaCard({
         {badges && (
           <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
             {badges}
+          </div>
+        )}
+        {actions && (
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2 gap-1.5">
+            {actions}
           </div>
         )}
       </div>
@@ -276,6 +315,22 @@ export default function HomePage() {
                   </span>
                 </>
               }
+              actions={
+                <>
+                  {torrent.status === "downloading" && (
+                    <CardAction icon={Pause} label="Pause" onClick={() => { pauseTorrent(torrent.id); fetchAll(); }} />
+                  )}
+                  {torrent.status === "seeding" && (
+                    <CardAction icon={Stop} label="Stop seeding" onClick={() => { pauseTorrent(torrent.id); fetchAll(); }} />
+                  )}
+                  {torrent.status === "paused" && (
+                    <CardAction icon={Play} label="Resume" onClick={() => { resumeTorrent(torrent.id); fetchAll(); }} />
+                  )}
+                  <CardAction icon={X} label="Remove" destructive onClick={() => {
+                    if (confirm(`Remove "${torrent.name}"?`)) { removeTorrent(torrent.id); fetchAll(); }
+                  }} />
+                </>
+              }
             >
               <p className="text-[11px] text-muted-foreground">
                 <span className="text-torrent">&darr; {formatSpeed(torrent.downloadSpeed)}</span>
@@ -316,6 +371,14 @@ export default function HomePage() {
                   <span className="text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">
                     {entry.quality}
                   </span>
+                </>
+              }
+              actions={
+                <>
+                  <CardAction icon={MagnifyingGlass} label="Search now" onClick={() => { triggerWatchlistSearch(entry.id); fetchAll(); }} />
+                  <CardAction icon={X} label="Remove" destructive onClick={() => {
+                    if (confirm(`Remove "${entry.title}" from watchlist?`)) { deleteWatchlistEntry(entry.id); fetchAll(); }
+                  }} />
                 </>
               }
             >
@@ -360,6 +423,9 @@ export default function HomePage() {
                 <span className="text-[10px] bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                   <Check className="h-2.5 w-2.5" weight="bold" /> Done
                 </span>
+              }
+              actions={
+                <CardAction icon={X} label="Remove" destructive onClick={() => { removeTorrent(torrent.id); fetchAll(); }} />
               }
             >
               <p className="text-[11px] text-muted-foreground">
