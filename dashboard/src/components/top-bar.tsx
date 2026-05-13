@@ -208,7 +208,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
               )}
             >
-              <Icon className="h-[18px] w-[18px]" />
+              <Icon className="h-[18px] w-[18px]" weight={active ? "fill" : "bold"} />
             </Link>
           );
         })}
@@ -222,7 +222,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
           {loading ? (
             <SpinnerGap className="h-[18px] w-[18px] text-muted-foreground animate-spin shrink-0" />
           ) : (
-            <MagnifyingGlass className="h-[18px] w-[18px] text-muted-foreground shrink-0" />
+            <MagnifyingGlass className="h-[18px] w-[18px] text-muted-foreground shrink-0" weight="bold" />
           )}
 
           {/* Input */}
@@ -325,9 +325,9 @@ export function TopBar({ onOpenChat }: TopBarProps) {
           }
         >
           {mounted && resolvedTheme === "dark" ? (
-            <Sun className="h-[18px] w-[18px]" />
+            <Sun className="h-[18px] w-[18px]" weight="bold" />
           ) : (
-            <Moon className="h-[18px] w-[18px]" />
+            <Moon className="h-[18px] w-[18px]" weight="bold" />
           )}
         </button>
 
@@ -337,7 +337,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
           className="h-9 w-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label="Open chat"
         >
-          <Robot className="h-[18px] w-[18px]" />
+          <Robot className="h-[18px] w-[18px]" weight="bold" />
         </button>
       </div>
       </div>
