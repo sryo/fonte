@@ -84,7 +84,7 @@ function MediaCard({
           <img src={posterUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-            <FilmStrip className="h-10 w-10 text-muted-foreground/30" weight="duotone" />
+            <FilmStrip className="h-10 w-10 text-muted-foreground/30" />
           </div>
         )}
         {badges && (
@@ -144,7 +144,7 @@ function ContentRow({
     <section className="space-y-3 animate-card-enter">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold flex items-center gap-2">
-          <Icon className="h-5 w-5 text-muted-foreground" weight="duotone" />
+          <Icon className="h-5 w-5 text-muted-foreground" />
           {title}
           {count > 0 && (
             <span className="text-sm font-normal text-muted-foreground">({count})</span>
