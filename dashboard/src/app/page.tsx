@@ -109,8 +109,11 @@ function MediaCard({
   children?: React.ReactNode;
 }) {
   return (
-    <button
+    <div
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter") onClick?.(); }}
       className="w-44 rounded-xl shadow-sm border bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer"
     >
       <div className="aspect-[2/3] w-full bg-muted relative overflow-hidden">
@@ -136,7 +139,7 @@ function MediaCard({
         <p className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-foreground">{title}</p>
         {children}
       </div>
-    </button>
+    </div>
   );
 }
 
