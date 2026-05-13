@@ -255,9 +255,16 @@ export class TorrentManager {
         if (tId !== undefined && this.rpc) {
             await this.rpc.call('torrent-stop', { ids: [tId] });
         }
-        updateTorrent(id, { status: 'paused', downloadSpeed: 0, uploadSpeed: 0 });
-        emitEvent(TORRENT_EVENTS.PAUSED, { id, name: record.name });
-        log('INFO', `Paused torrent: ${record.name || id}`);
+        // If fully downloaded, mark as completed (not paused)
+        const isComplete = record.progress >= 1;
+        updateTorrent(id, {
+            status: isComplete ? 'completed' : 'paused',
+            downloadSpeed: 0,
+            uploadSpeed: 0,
+            ...(isComplete && !record.completedAt ? { completedAt: Date.now() } : {}),
+        });
+        emitEvent(isComplete ? TORRENT_EVENTS.COMPLETED : TORRENT_EVENTS.PAUSED, { id, name: record.name });
+        log('INFO', `${isComplete ? 'Completed' : 'Paused'} torrent: ${record.name || id}`);
     }
 
     async resumeTorrent(id: string): Promise<void> {

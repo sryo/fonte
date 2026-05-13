@@ -215,6 +215,8 @@ export default function HomePage() {
   const [stats, setStats] = useState<TorrentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddWatchlist, setShowAddWatchlist] = useState(false);
+  const [showAddAutomation, setShowAddAutomation] = useState(false);
+  const [autoForm, setAutoForm] = useState({ name: "", triggerType: "torrent:completed" as string, actionType: "fetch_subtitles" as string });
   const [wlForm, setWlForm] = useState({ title: "", mediaType: "movie" as "movie" | "tv", year: "", quality: "1080p" });
 
   const fetchAll = useCallback(async () => {
@@ -245,7 +247,7 @@ export default function HomePage() {
   // ── Derived data ───────────────────────────────────────────────────────
 
   const activeTorrents = torrents.filter(
-    (t) => t.status === "downloading" || t.status === "seeding"
+    (t) => t.status === "downloading" || t.status === "seeding" || t.status === "paused"
   );
 
   const completedTorrents = torrents
@@ -448,6 +450,15 @@ export default function HomePage() {
           icon={Lightning}
           emptyMessage="No automations configured"
           isEmpty={enabledAutomations.length === 0}
+          action={
+            <button
+              onClick={() => setShowAddAutomation(true)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg px-2.5 py-1.5 hover:bg-muted"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add
+            </button>
+          }
         >
           {enabledAutomations.map((rule) => (
             <div
@@ -533,6 +544,75 @@ export default function HomePage() {
               </button>
               <button
                 onClick={() => setShowAddWatchlist(false)}
+                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Automation Modal */}
+      {showAddAutomation && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onClick={() => setShowAddAutomation(false)}>
+          <div className="bg-card rounded-xl shadow-lg border p-6 w-full max-w-sm space-y-4 animate-card-enter" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold">Create Automation</h3>
+            <input
+              placeholder="Rule name"
+              value={autoForm.name}
+              onChange={(e) => setAutoForm({ ...autoForm, name: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-lg border bg-background"
+              autoFocus
+            />
+            <div>
+              <label className="text-xs text-muted-foreground">When this happens...</label>
+              <select
+                value={autoForm.triggerType}
+                onChange={(e) => setAutoForm({ ...autoForm, triggerType: e.target.value })}
+                className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1"
+              >
+                <option value="torrent:completed">Torrent completes</option>
+                <option value="torrent:added">Torrent added</option>
+                <option value="torrent:error">Torrent error</option>
+                <option value="torrent:stalled">Torrent stalled</option>
+                <option value="watchlist:match">Watchlist match found</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Then do this...</label>
+              <select
+                value={autoForm.actionType}
+                onChange={(e) => setAutoForm({ ...autoForm, actionType: e.target.value })}
+                className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1"
+              >
+                <option value="fetch_subtitles">Fetch subtitles</option>
+                <option value="translate_subtitles">Translate subtitles</option>
+                <option value="pause_torrent">Pause torrent</option>
+                <option value="remove_torrent">Remove torrent</option>
+                <option value="notify_webhook">Send webhook</option>
+              </select>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={async () => {
+                  if (!autoForm.name.trim()) return;
+                  await createAutomation({
+                    name: autoForm.name.trim(),
+                    triggerType: autoForm.triggerType as any,
+                    actions: [{ type: autoForm.actionType as any, config: {} }],
+                  });
+                  setAutoForm({ name: "", triggerType: "torrent:completed", actionType: "fetch_subtitles" });
+                  setShowAddAutomation(false);
+                  fetchAll();
+                }}
+                disabled={!autoForm.name.trim()}
+                className="flex-1 px-4 py-2 text-sm bg-automation text-automation-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
+              >
+                Create
+              </button>
+              <button
+                onClick={() => setShowAddAutomation(false)}
                 className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted"
               >
                 Cancel
