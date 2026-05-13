@@ -16,6 +16,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
   const [sending, setSending] = useState(false);
   const [thinking, setThinking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const prevCountRef = useRef(0);
 
   // Poll for messages when panel is open
@@ -48,6 +49,16 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
       mounted = false;
       clearInterval(id);
     };
+  }, [open]);
+
+  // Scroll to bottom + focus input when panel opens
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+        inputRef.current?.focus();
+      }, 100);
+    }
   }, [open]);
 
   // Auto-scroll on new messages
@@ -165,6 +176,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
         <div className="px-4 py-3 border-t flex gap-2 shrink-0">
           <input
             type="text"
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
