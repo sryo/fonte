@@ -199,3 +199,14 @@ body {
 .animate-card-enter {
   animation: card-enter 0.3s ease-out;
 }
+
+@keyframes download-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+.animate-download-bounce {
+  animation: download-bounce 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-download-bounce { animation: none; }
+}
