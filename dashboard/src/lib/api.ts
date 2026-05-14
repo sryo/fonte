@@ -657,6 +657,13 @@ export async function setAllowedChat(allowed_chat: string | null): Promise<{ ok:
   });
 }
 
+export async function requestWhatsAppPairingCode(phone: string): Promise<{ ok: boolean; code: string }> {
+  return apiFetch("/api/whatsapp/pair", {
+    method: "POST",
+    body: JSON.stringify({ phone }),
+  });
+}
+
 // ── SSE ───────────────────────────────────────────────────────────────────
 
 export function subscribeToEvents(

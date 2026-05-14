@@ -1,21 +1,28 @@
 import fs from 'fs';
 import path from 'path';
-import { Client, LocalAuth, Message, MessageMedia, MessageTypes } from 'whatsapp-web.js';
+import pino from 'pino';
+import {
+    makeWASocket,
+    useMultiFileAuthState,
+    makeCacheableSignalKeyStore,
+    fetchLatestWaWebVersion,
+    DisconnectReason,
+    Browsers,
+    downloadMediaMessage,
+} from '@whiskeysockets/baileys';
+import type { WASocket, WAMessage } from '@whiskeysockets/baileys';
 import {
     log, emitEvent, AITORRENT_HOME, FILES_DIR, enqueueMessage,
     getResponsesForChannel, ackResponse, getSettings,
 } from '@aitorrent/core';
 
-const SESSION_DIR = path.join(AITORRENT_HOME, 'whatsapp-session');
-
-const MEDIA_TYPES: string[] = [
-    MessageTypes.IMAGE, MessageTypes.AUDIO, MessageTypes.VOICE,
-    MessageTypes.VIDEO, MessageTypes.DOCUMENT, MessageTypes.STICKER,
-];
+// New auth dir (Baileys multi-file state — replaces the old Chrome profile dir)
+const AUTH_DIR = path.join(AITORRENT_HOME, 'whatsapp-auth');
+const LEGACY_SESSION_DIR = path.join(AITORRENT_HOME, 'whatsapp-session');
 
 const MIME_EXT: Record<string, string> = {
     'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp',
-    'audio/ogg': '.ogg', 'audio/mpeg': '.mp3', 'audio/mp4': '.m4a',
+    'audio/ogg': '.ogg', 'audio/mpeg': '.mp3', 'audio/mp4': '.m4a', 'audio/aac': '.aac',
     'video/mp4': '.mp4', 'application/pdf': '.pdf', 'text/plain': '.txt',
 };
 
@@ -27,7 +34,7 @@ function extFromMime(mime?: string): string {
 export type WhatsAppStatus = 'disconnected' | 'connecting' | 'waiting_qr' | 'connected';
 
 interface PendingMessage {
-    message: Message;
+    message: WAMessage;
     timestamp: number;
 }
 
@@ -39,136 +46,177 @@ export interface ChatSummary {
     lastTimestamp?: number;
 }
 
+const baileysLogger = pino({ level: 'silent' });
+
 export class WhatsAppService {
-    private client: Client | null = null;
+    private sock: WASocket | null = null;
     private _status: WhatsAppStatus = 'disconnected';
     private _qr: string | null = null;
+    private saveCreds: (() => Promise<void>) | null = null;
     private responsePoller: ReturnType<typeof setInterval> | null = null;
     private pending = new Map<string, PendingMessage>();
-    private outgoingIds = new Set<string>();
-    private recentSentTexts = new Map<string, number>();  // text → ts, for self-send dedup
+    private recentSentTexts = new Map<string, number>();
     private SEND_DEDUPE_MS = 15_000;
-    private readyWatchdog: ReturnType<typeof setTimeout> | null = null;
-    private READY_TIMEOUT_MS = 60_000;
+    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    private starting = false;
 
     get status(): WhatsAppStatus { return this._status; }
     get qr(): string | null { return this._qr; }
 
     async start(): Promise<void> {
-        if (this.client) return;
+        if (this.sock || this.starting) return;
+        this.starting = true;
         this._status = 'connecting';
-
-        this.client = new Client({
-            authStrategy: new LocalAuth({ dataPath: SESSION_DIR }),
-            puppeteer: {
-                headless: 'new' as any,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--disable-gpu',
-                ],
-            },
-        });
-
-        this.client.on('loading_screen', (percent: number, message: string) => {
-            log('INFO', `WhatsApp: loading ${percent}% — ${message}`);
-        });
-
-        this.client.on('qr', (qr: string) => {
-            this._qr = qr;
-            this._status = 'waiting_qr';
-            emitEvent('whatsapp:qr', { qr });
-            log('INFO', 'WhatsApp: QR code ready for scanning');
-        });
-
-        this.client.on('authenticated', () => {
-            log('INFO', 'WhatsApp: authenticated (waiting for ready)');
-            this.armReadyWatchdog();
-        });
-
-        this.client.on('change_state', (state: string) => {
-            log('INFO', `WhatsApp: state → ${state}`);
-        });
-
-        this.client.on('ready', () => {
-            this.clearReadyWatchdog();
-            this._qr = null;
-            this._status = 'connected';
-            emitEvent('whatsapp:ready', {});
-            log('INFO', 'WhatsApp: connected (ready)');
-            this.startResponsePoller();
-        });
-
-        this.client.on('message_create', async (msg: Message) => {
-            try { await this.handleIncoming(msg); }
-            catch (err) { log('ERROR', `WhatsApp message handler: ${(err as Error).message}`); }
-        });
-
-        this.client.on('disconnected', (reason: string) => {
-            this._status = 'disconnected';
-            this._qr = null;
-            emitEvent('whatsapp:disconnected', { reason });
-            log('INFO', `WhatsApp disconnected: ${reason}`);
-            setTimeout(() => {
-                if (this.client) this.client.initialize().catch(() => {});
-            }, 5000);
-        });
-
-        this.client.on('auth_failure', (msg: string) => {
-            this._status = 'disconnected';
-            this._qr = null;
-            log('ERROR', `WhatsApp auth failed: ${msg}`);
-        });
-
-        await this.client.initialize();
+        try {
+            await this.connectInternal();
+        } finally {
+            this.starting = false;
+        }
     }
 
-    private async handleIncoming(msg: Message): Promise<void> {
-        if (msg.from === 'status@broadcast') return;
+    private async connectInternal(): Promise<void> {
+        // Clean up legacy Chrome profile from the old whatsapp-web.js implementation
+        try {
+            if (fs.existsSync(LEGACY_SESSION_DIR)) {
+                fs.rmSync(LEGACY_SESSION_DIR, { recursive: true, force: true });
+                log('INFO', 'WhatsApp: removed legacy session dir (whatsapp-web.js)');
+            }
+        } catch {}
+
+        fs.mkdirSync(AUTH_DIR, { recursive: true });
+        const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+        this.saveCreds = saveCreds;
+
+        const versionResult = await fetchLatestWaWebVersion({}).catch(() => null);
+        const version = versionResult?.version as [number, number, number] | undefined;
+
+        this.sock = makeWASocket({
+            version,
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(state.keys, baileysLogger),
+            },
+            printQRInTerminal: false,
+            logger: baileysLogger,
+            browser: Browsers.macOS('AITorrent'),
+            markOnlineOnConnect: false,
+            syncFullHistory: false,
+        });
+
+        this.sock.ev.on('creds.update', saveCreds);
+
+        this.sock.ev.on('connection.update', (update) => {
+            const { connection, lastDisconnect, qr } = update;
+
+            if (qr) {
+                this._qr = qr;
+                this._status = 'waiting_qr';
+                emitEvent('whatsapp:qr', { qr });
+                log('INFO', 'WhatsApp: QR code ready for scanning');
+            }
+
+            if (connection === 'open') {
+                this._qr = null;
+                this._status = 'connected';
+                emitEvent('whatsapp:ready', {});
+                log('INFO', 'WhatsApp: connected');
+                this.startResponsePoller();
+            }
+
+            if (connection === 'close') {
+                this.stopResponsePoller();
+                const code = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
+                const loggedOut = code === DisconnectReason.loggedOut;
+                this._status = 'disconnected';
+                emitEvent('whatsapp:disconnected', { reason: code || 'unknown' });
+                log('INFO', `WhatsApp: disconnected (code=${code ?? 'n/a'}, loggedOut=${loggedOut})`);
+
+                if (loggedOut) {
+                    try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch {}
+                    log('INFO', 'WhatsApp: logged out — auth wiped, fresh QR will be needed');
+                    this.sock = null;
+                    return;
+                }
+
+                this.sock = null;
+                this.scheduleReconnect();
+            }
+        });
+
+        this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
+            if (type !== 'notify' && type !== 'append') return;
+            for (const msg of messages) {
+                try { await this.handleIncoming(msg); }
+                catch (err) { log('ERROR', `WhatsApp message handler: ${(err as Error).message}`); }
+            }
+        });
+    }
+
+    private scheduleReconnect(): void {
+        if (this.reconnectTimer) return;
+        this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
+            log('INFO', 'WhatsApp: attempting reconnect');
+            this.connectInternal().catch(err => {
+                log('ERROR', `WhatsApp reconnect failed: ${(err as Error).message}`);
+                this.scheduleReconnect();
+            });
+        }, 5000);
+    }
+
+    async requestPairingCode(phoneNumber: string): Promise<string> {
+        if (!this.sock) throw new Error('WhatsApp not started — call start() first');
+        // Strip non-digits (UI may send "+1 415 …")
+        const digits = phoneNumber.replace(/\D/g, '');
+        if (!digits) throw new Error('Phone number must contain digits');
+        const code = await this.sock.requestPairingCode(digits);
+        log('INFO', `WhatsApp: pairing code requested for ${digits.slice(0, 3)}…`);
+        return code;
+    }
+
+    private async handleIncoming(msg: WAMessage): Promise<void> {
+        if (!msg.message) return;
+        const rawJid = msg.key.remoteJid;
+        if (!rawJid || rawJid === 'status@broadcast') return;
 
         const allowedChat = getSettings().whatsapp?.allowed_chat;
-        if (!allowedChat) return;                  // null = ignore everything
+        if (!allowedChat) return;
+        if (rawJid !== allowedChat) return;
 
-        // Match against either side of the chat — for self-groups msg.from can be your own user id
-        const chatId = (msg as any).id?.remote || msg.from;
-        if (chatId !== allowedChat && msg.from !== allowedChat) return;
+        // Extract text from the various WA message types
+        const m = msg.message;
+        const text = (
+            m.conversation
+            || m.extendedTextMessage?.text
+            || m.imageMessage?.caption
+            || m.videoMessage?.caption
+            || m.documentMessage?.caption
+            || ''
+        ).trim();
 
-        // Skip our own bot replies; allow user-typed self-messages.
-        // Two strategies: ID-based (no race when reply() resolves first) and text-based (catches the race).
-        if (msg.fromMe) {
-            const id = (msg as any).id?._serialized;
-            if (id && this.outgoingIds.has(id)) {
-                this.outgoingIds.delete(id);
-                return;
-            }
-            const body = (msg.body || '').trim();
-            if (body && this.wasRecentlySent(body)) return;
+        const hasMedia = !!(m.imageMessage || m.videoMessage || m.audioMessage || m.documentMessage || m.stickerMessage);
+        if (!text && !hasMedia) return;
+
+        // Skip bot's own replies (text-based dedup catches the race between send-promise and event)
+        if (msg.key.fromMe) {
+            if (text && this.wasRecentlySent(text)) return;
         }
 
-        const hasMedia = msg.hasMedia && MEDIA_TYPES.includes(msg.type);
-        const isChat = msg.type === 'chat';
-        if (!isChat && !hasMedia) return;
-
-        let text = (msg.body || '').trim();
-        const sender = (msg as any)._data?.notifyName || msg.from.split('@')[0];
+        const sender = msg.pushName || (msg.key.participant || rawJid).split('@')[0];
         const messageId = `wa_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
         const files: string[] = [];
         if (hasMedia) {
             const filePath = await this.downloadMedia(msg, messageId);
             if (filePath) files.push(filePath);
-            if (msg.type === MessageTypes.STICKER && !text) text = '[Sticker]';
         }
 
-        if (!text && files.length === 0) return;
-
+        const stickerNote = m.stickerMessage && !text ? '[Sticker]' : '';
         const body = files.length > 0
-            ? (text ? `${text}\n\n${files.map(f => `[file: ${f}]`).join('\n')}` : files.map(f => `[file: ${f}]`).join('\n'))
-            : text;
+            ? `${text || stickerNote || ''}${files.length > 0 ? (text || stickerNote ? '\n\n' : '') + files.map(f => `[file: ${f}]`).join('\n') : ''}`
+            : text || stickerNote;
+
+        if (!body) return;
 
         log('INFO', `WhatsApp message from ${sender}: ${text.slice(0, 80)}${files.length > 0 ? ` [+${files.length} file(s)]` : ''}`);
 
@@ -178,24 +226,34 @@ export class WhatsAppService {
         enqueueMessage({
             channel: 'whatsapp',
             sender,
-            senderId: msg.from,
+            senderId: rawJid,
             message: body,
             messageId,
         });
     }
 
-    private async downloadMedia(msg: Message, messageId: string): Promise<string | null> {
+    private async downloadMedia(msg: WAMessage, messageId: string): Promise<string | null> {
         try {
-            const media = await msg.downloadMedia();
-            if (!media || !media.data) return null;
-            const ext = msg.type === MessageTypes.DOCUMENT && (msg as any)._data?.filename
-                ? path.extname((msg as any)._data.filename)
-                : extFromMime(media.mimetype);
+            const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger: baileysLogger, reuploadRequest: this.sock!.updateMediaMessage });
+            if (!buffer) return null;
+
+            const m = msg.message!;
+            let mime: string | undefined;
+            let suggestedExt: string | undefined;
+            if (m.imageMessage) mime = m.imageMessage.mimetype || undefined;
+            else if (m.videoMessage) mime = m.videoMessage.mimetype || undefined;
+            else if (m.audioMessage) mime = m.audioMessage.mimetype || undefined;
+            else if (m.stickerMessage) mime = m.stickerMessage.mimetype || undefined;
+            else if (m.documentMessage) {
+                mime = m.documentMessage.mimetype || undefined;
+                if (m.documentMessage.fileName) suggestedExt = path.extname(m.documentMessage.fileName) || undefined;
+            }
+            const ext = suggestedExt || extFromMime(mime);
             if (!fs.existsSync(FILES_DIR)) fs.mkdirSync(FILES_DIR, { recursive: true });
             const filename = `whatsapp_${messageId}${ext}`;
             const localPath = path.join(FILES_DIR, filename);
-            fs.writeFileSync(localPath, Buffer.from(media.data, 'base64'));
-            log('INFO', `WhatsApp: saved media ${filename} (${media.mimetype})`);
+            fs.writeFileSync(localPath, buffer as Buffer);
+            log('INFO', `WhatsApp: saved media ${filename} (${mime || 'unknown'})`);
             return localPath;
         } catch (err) {
             log('ERROR', `WhatsApp: media download failed: ${(err as Error).message}`);
@@ -203,102 +261,10 @@ export class WhatsAppService {
         }
     }
 
-    private pruneStalePending(): void {
-        const cutoff = Date.now() - 10 * 60 * 1000;
-        for (const [id, p] of this.pending) {
-            if (p.timestamp < cutoff) this.pending.delete(id);
-        }
-    }
-
-    async stop(): Promise<void> {
-        this.clearReadyWatchdog();
-        this.stopResponsePoller();
-        if (this.client) {
-            try { await this.client.destroy(); } catch {}
-            this.client = null;
-        }
-        this._status = 'disconnected';
-        this._qr = null;
-        this.pending.clear();
-        this.outgoingIds.clear();
-        this.recentSentTexts.clear();
-        log('INFO', 'WhatsApp: stopped');
-    }
-
-    getStatusInfo(): { status: WhatsAppStatus; qr?: string } {
-        return {
-            status: this._status,
-            ...(this._qr ? { qr: this._qr } : {}),
-        };
-    }
-
-    async getChats(): Promise<ChatSummary[]> {
-        if (!this.client || this._status !== 'connected') return [];
-        const chats = await this.client.getChats();
-        return chats.map(c => ({
-            id: c.id._serialized,
-            name: c.name || c.id.user,
-            isGroup: c.isGroup,
-            unread: c.unreadCount,
-            lastTimestamp: c.timestamp,
-        })).sort((a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0));
-    }
-
-    private startResponsePoller(): void {
-        if (this.responsePoller) return;
-        this.responsePoller = setInterval(async () => {
-            if (!this.client || this._status !== 'connected') return;
-            try {
-                const responses = getResponsesForChannel('whatsapp');
-                for (const resp of responses) {
-                    await this.deliverResponse(resp);
-                }
-            } catch {}
-        }, 2000);
-    }
-
-    private async deliverResponse(resp: any): Promise<void> {
-        const senderId = resp.sender_id || resp.senderId;
-        if (!senderId || !this.client) return;
-        const messageId = resp.message_id || resp.messageId;
-        const pending = messageId ? this.pending.get(messageId) : undefined;
-        const destination = pending ? ((pending.message as any).id?.remote || senderId) : senderId;
-        const files: string[] = resp.files ? (typeof resp.files === 'string' ? JSON.parse(resp.files) : resp.files) : [];
-
-        const trackSent = (sent: any) => {
-            const sid = sent?.id?._serialized;
-            if (sid) this.outgoingIds.add(sid);
-        };
-
-        try {
-            for (const file of files) {
-                if (!fs.existsSync(file)) continue;
-                const media = MessageMedia.fromFilePath(file);
-                const sent = pending ? await pending.message.reply(media) : await this.client.sendMessage(senderId, media);
-                trackSent(sent);
-            }
-
-            if (resp.message) {
-                // Pre-mark to handle the race where message_create fires before reply() resolves
-                this.markRecentSent(resp.message);
-                const sent = pending ? await pending.message.reply(resp.message) : await this.client.sendMessage(senderId, resp.message);
-                trackSent(sent);
-            }
-
-            ackResponse(resp.id);
-            // Keep pending alive — agents may emit multiple responses per messageId (streaming, follow-ups).
-            // Pruned by pruneStalePending after 10 min.
-            log('INFO', `WhatsApp: sent ${pending ? 'reply' : 'message'} to ${destination}${files.length > 0 ? ` [+${files.length} file(s)]` : ''}`);
-        } catch (err) {
-            log('ERROR', `WhatsApp: send failed: ${(err as Error).message}`);
-        }
-    }
-
     private markRecentSent(text: string): void {
         const trimmed = text.trim();
         if (!trimmed) return;
         this.recentSentTexts.set(trimmed, Date.now());
-        // Prune
         const cutoff = Date.now() - this.SEND_DEDUPE_MS;
         for (const [t, ts] of this.recentSentTexts) {
             if (ts < cutoff) this.recentSentTexts.delete(t);
@@ -312,30 +278,132 @@ export class WhatsAppService {
             this.recentSentTexts.delete(text);
             return false;
         }
-        // Consume — one match, one delete (handles streaming responses with same text rare)
         this.recentSentTexts.delete(text);
         return true;
+    }
+
+    private pruneStalePending(): void {
+        const cutoff = Date.now() - 10 * 60 * 1000;
+        for (const [id, p] of this.pending) {
+            if (p.timestamp < cutoff) this.pending.delete(id);
+        }
+    }
+
+    async stop(): Promise<void> {
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        this.stopResponsePoller();
+        if (this.sock) {
+            try { await this.sock.logout(); } catch {}
+            try { this.sock.end(undefined); } catch {}
+            this.sock = null;
+        }
+        this._status = 'disconnected';
+        this._qr = null;
+        this.pending.clear();
+        this.recentSentTexts.clear();
+        log('INFO', 'WhatsApp: stopped');
+    }
+
+    getStatusInfo(): { status: WhatsAppStatus; qr?: string } {
+        return {
+            status: this._status,
+            ...(this._qr ? { qr: this._qr } : {}),
+        };
+    }
+
+    async getChats(): Promise<ChatSummary[]> {
+        if (!this.sock || this._status !== 'connected') return [];
+        try {
+            const groups = await this.sock.groupFetchAllParticipating();
+            const groupSummaries: ChatSummary[] = Object.values(groups).map(g => ({
+                id: g.id,
+                name: g.subject || g.id,
+                isGroup: true,
+                unread: 0,
+                lastTimestamp: g.creation || undefined,
+            }));
+
+            // Include self-chat (Message Yourself) as the user's own number
+            const selfSummaries: ChatSummary[] = [];
+            const userId = this.sock.user?.id;
+            if (userId) {
+                const phone = userId.split(':')[0].split('@')[0];
+                const selfJid = `${phone}@s.whatsapp.net`;
+                selfSummaries.push({
+                    id: selfJid,
+                    name: 'Message Yourself',
+                    isGroup: false,
+                    unread: 0,
+                });
+            }
+
+            return [...selfSummaries, ...groupSummaries].sort((a, b) => (b.lastTimestamp || 0) - (a.lastTimestamp || 0));
+        } catch (err) {
+            log('ERROR', `WhatsApp: getChats failed: ${(err as Error).message}`);
+            return [];
+        }
+    }
+
+    private startResponsePoller(): void {
+        if (this.responsePoller) return;
+        this.responsePoller = setInterval(async () => {
+            if (!this.sock || this._status !== 'connected') return;
+            try {
+                const responses = getResponsesForChannel('whatsapp');
+                for (const resp of responses) {
+                    await this.deliverResponse(resp);
+                }
+            } catch {}
+        }, 2000);
+    }
+
+    private async deliverResponse(resp: any): Promise<void> {
+        const senderJid = (resp.sender_id || resp.senderId) as string | undefined;
+        if (!senderJid || !this.sock) return;
+        const messageId = resp.message_id || resp.messageId;
+        const pending = messageId ? this.pending.get(messageId) : undefined;
+        const destinationJid = pending?.message.key.remoteJid || senderJid;
+        const files: string[] = resp.files ? (typeof resp.files === 'string' ? JSON.parse(resp.files) : resp.files) : [];
+
+        try {
+            for (const file of files) {
+                if (!fs.existsSync(file)) continue;
+                const ext = path.extname(file).toLowerCase();
+                const payload = this.buildMediaPayload(file, ext);
+                if (!payload) continue;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                await this.sock.sendMessage(destinationJid, payload as any, pending ? { quoted: pending.message } : undefined);
+            }
+
+            if (resp.message) {
+                this.markRecentSent(resp.message);
+                await this.sock.sendMessage(destinationJid, { text: resp.message }, pending ? { quoted: pending.message } : undefined);
+            }
+
+            ackResponse(resp.id);
+            // pending stays for the message-id lifetime — agents emit multiple chunks
+            log('INFO', `WhatsApp: sent ${pending ? 'reply' : 'message'} to ${destinationJid}${files.length > 0 ? ` [+${files.length} file(s)]` : ''}`);
+        } catch (err) {
+            log('ERROR', `WhatsApp: send failed: ${(err as Error).message}`);
+        }
+    }
+
+    private buildMediaPayload(filePath: string, ext: string): Record<string, unknown> | null {
+        const buf = fs.readFileSync(filePath);
+        const name = path.basename(filePath);
+        if (['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)) return { image: buf };
+        if (['.mp4', '.mov'].includes(ext)) return { video: buf };
+        if (['.mp3', '.ogg', '.m4a', '.aac'].includes(ext)) return { audio: buf, mimetype: ext === '.mp3' ? 'audio/mpeg' : 'audio/ogg' };
+        return { document: buf, fileName: name, mimetype: 'application/octet-stream' };
     }
 
     private stopResponsePoller(): void {
         if (this.responsePoller) {
             clearInterval(this.responsePoller);
             this.responsePoller = null;
-        }
-    }
-
-    private armReadyWatchdog(): void {
-        this.clearReadyWatchdog();
-        this.readyWatchdog = setTimeout(() => {
-            if (this._status === 'connected') return;
-            log('WARN', `WhatsApp: ready event did not fire ${this.READY_TIMEOUT_MS / 1000}s after authenticated. Session kept; disconnect manually from the dashboard if messages aren't flowing.`);
-        }, this.READY_TIMEOUT_MS);
-    }
-
-    private clearReadyWatchdog(): void {
-        if (this.readyWatchdog) {
-            clearTimeout(this.readyWatchdog);
-            this.readyWatchdog = null;
         }
     }
 }

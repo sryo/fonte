@@ -14,6 +14,7 @@ import {
   getWhatsAppChats,
   getAllowedChat,
   setAllowedChat,
+  requestWhatsAppPairingCode,
   type WhatsAppChat,
   getAgents,
   saveAgent,
@@ -235,24 +236,14 @@ export default function SettingsPage() {
         />
       )}
 
-      {/* Provider Settings */}
-      {settings && (
-        <ProviderSettingsCard
-          settings={settings}
-          onSave={saveGeneralSettings}
-          saving={savingSection === "general"}
-          saved={savedSection === "general"}
-        />
-      )}
-
-      {/* Custom Providers */}
-      <CustomProvidersSection />
-
       {/* WhatsApp Channel */}
       <WhatsAppSection />
 
-      {/* Agents */}
+      {/* Agents — with inline custom-provider creation */}
       <AgentsSection />
+
+      {/* Providers — built-in + custom (management) */}
+      <ProvidersSection />
 
       {/* Advanced: Raw JSON */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
@@ -320,6 +311,10 @@ function WhatsAppSection() {
   const [status, setStatus] = useState<string>("disconnected");
   const [qr, setQr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPairing, setShowPairing] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [pairingError, setPairingError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Poll status every 2s
@@ -368,7 +363,22 @@ function WhatsAppSection() {
       await stopWhatsApp();
       setStatus("disconnected");
       setQr(null);
+      setShowPairing(false);
+      setPairingCode(null);
     } catch {}
+    setLoading(false);
+  };
+
+  const handleRequestPairing = async () => {
+    setPairingError(null);
+    if (!phone.trim()) return;
+    setLoading(true);
+    try {
+      const res = await requestWhatsAppPairingCode(phone.trim());
+      setPairingCode(res.code);
+    } catch (err) {
+      setPairingError((err as Error).message);
+    }
     setLoading(false);
   };
 
@@ -387,13 +397,22 @@ function WhatsAppSection() {
             <p className="text-sm text-muted-foreground">
               Connect WhatsApp to manage torrents and get notifications on your phone.
             </p>
-            <button
-              onClick={handleConnect}
-              disabled={loading}
-              className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-            >
-              {loading ? "Connecting..." : "Connect WhatsApp"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleConnect}
+                disabled={loading}
+                className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                {loading ? "Connecting..." : "Connect with QR"}
+              </button>
+              <button
+                onClick={() => { setShowPairing(true); setPairingCode(null); }}
+                disabled={loading}
+                className="px-4 py-2 text-sm border rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
+              >
+                Pair with phone number
+              </button>
+            </div>
           </div>
         )}
 
@@ -404,7 +423,7 @@ function WhatsAppSection() {
           </div>
         )}
 
-        {status === "waiting_qr" && (
+        {status === "waiting_qr" && !showPairing && (
           <div className="text-center space-y-3">
             <div className="inline-block rounded-xl border bg-white p-3">
               <canvas ref={canvasRef} />
@@ -415,6 +434,55 @@ function WhatsAppSection() {
                 Open WhatsApp &rarr; Settings &rarr; Linked Devices &rarr; Link a Device
               </p>
             </div>
+          </div>
+        )}
+
+        {showPairing && status !== "connected" && (
+          <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+            {!pairingCode ? (
+              <>
+                <p className="text-sm font-medium">Pair with phone number</p>
+                <p className="text-xs text-muted-foreground">
+                  Enter your phone number (country code + number, digits only).
+                </p>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="14155551234"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-md border bg-background font-mono"
+                />
+                {pairingError && (
+                  <p className="text-xs text-destructive">{pairingError}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleRequestPairing}
+                    disabled={loading || !phone.trim()}
+                    className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50"
+                  >
+                    {loading ? "Requesting..." : "Get pairing code"}
+                  </button>
+                  <button
+                    onClick={() => { setShowPairing(false); setPhone(""); setPairingError(null); }}
+                    className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium">Your pairing code</p>
+                <p className="text-3xl font-mono font-bold tracking-widest text-center py-2 select-all">
+                  {pairingCode.replace(/(.{4})/, "$1 ")}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  On your phone: <strong>WhatsApp → Settings → Linked Devices → Link a Device → Link with phone number instead</strong>. Code expires in ~60s.
+                </p>
+              </>
+            )}
           </div>
         )}
 
@@ -507,18 +575,47 @@ function WhatsAppChatPicker() {
 
 function AgentsSection() {
   const [agents, setAgents] = useState<Record<string, AgentConfig>>({});
+  const [providers, setProviders] = useState<Record<string, CustomProvider>>({});
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ id: "", name: "", provider: "anthropic", model: "sonnet" });
   const [saving, setSaving] = useState(false);
+  const [showAddProvider, setShowAddProvider] = useState(false);
+  const [providerForm, setProviderForm] = useState({
+    id: "", name: "", harness: "claude" as "claude" | "codex",
+    base_url: "", api_key: "", model: "",
+  });
+  const [savingProvider, setSavingProvider] = useState(false);
 
-  const fetchAgents = async () => {
+  const fetchAll = async () => {
     try {
-      const data = await getAgents();
-      setAgents(data);
+      const [a, p] = await Promise.all([getAgents(), getCustomProviders()]);
+      setAgents(a);
+      setProviders(p);
     } catch {}
   };
 
-  useEffect(() => { fetchAgents(); }, []);
+  useEffect(() => { fetchAll(); }, []);
+
+  const handleSaveProvider = async () => {
+    if (!providerForm.id || !providerForm.name || !providerForm.base_url || !providerForm.api_key) return;
+    setSavingProvider(true);
+    try {
+      await saveCustomProvider(providerForm.id, {
+        name: providerForm.name,
+        harness: providerForm.harness,
+        base_url: providerForm.base_url,
+        api_key: providerForm.api_key,
+        model: providerForm.model || undefined,
+      });
+      const newId = providerForm.id;
+      setProviderForm({ id: "", name: "", harness: "claude", base_url: "", api_key: "", model: "" });
+      setShowAddProvider(false);
+      await fetchAll();
+      // Auto-select the freshly added provider for the agent being created
+      setForm((f) => ({ ...f, provider: `custom:${newId}` }));
+    } catch {}
+    setSavingProvider(false);
+  };
 
   const handleSave = async () => {
     if (!form.id || !form.name || !form.model) return;
@@ -532,7 +629,7 @@ function AgentsSection() {
       });
       setForm({ id: "", name: "", provider: "anthropic", model: "sonnet" });
       setShowAdd(false);
-      await fetchAgents();
+      await fetchAll();
     } catch {}
     setSaving(false);
   };
@@ -541,7 +638,7 @@ function AgentsSection() {
     if (!confirm(`Delete agent "${id}"? This cannot be undone.`)) return;
     try {
       await deleteAgent(id);
-      await fetchAgents();
+      await fetchAll();
     } catch {}
   };
 
@@ -633,7 +730,16 @@ function AgentsSection() {
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Provider</Label>
-                <Select value={form.provider} onValueChange={(v) => setForm((f) => ({ ...f, provider: v }))}>
+                <Select
+                  value={form.provider}
+                  onValueChange={(v) => {
+                    if (v === "__add_custom__") {
+                      setShowAddProvider(true);
+                      return;
+                    }
+                    setForm((f) => ({ ...f, provider: v }));
+                  }}
+                >
                   <SelectTrigger className="text-sm">
                     <SelectValue />
                   </SelectTrigger>
@@ -642,6 +748,12 @@ function AgentsSection() {
                     <SelectItem value="openai">OpenAI</SelectItem>
                     <SelectItem value="gemini">Gemini</SelectItem>
                     <SelectItem value="opencode">OpenCode</SelectItem>
+                    {Object.entries(providers).map(([id, p]) => (
+                      <SelectItem key={id} value={`custom:${id}`}>
+                        {p.name} (custom)
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__add_custom__">+ Add custom provider…</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -655,6 +767,77 @@ function AgentsSection() {
                 />
               </div>
             </div>
+
+            {/* Inline custom-provider creation */}
+            {showAddProvider && (
+              <div className="border rounded-lg p-3 space-y-2 bg-background">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium">New custom provider</p>
+                  <button
+                    onClick={() => setShowAddProvider(false)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    value={providerForm.id}
+                    onChange={(e) => setProviderForm((f) => ({ ...f, id: e.target.value }))}
+                    placeholder="ID (e.g. groq)"
+                    className="text-xs"
+                  />
+                  <Input
+                    value={providerForm.name}
+                    onChange={(e) => setProviderForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Display name"
+                    className="text-xs"
+                  />
+                  <Select
+                    value={providerForm.harness}
+                    onValueChange={(v) => setProviderForm((f) => ({ ...f, harness: v as "claude" | "codex" }))}
+                  >
+                    <SelectTrigger className="text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="claude">Claude harness</SelectItem>
+                      <SelectItem value="codex">Codex harness</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={providerForm.model}
+                    onChange={(e) => setProviderForm((f) => ({ ...f, model: e.target.value }))}
+                    placeholder="Default model (optional)"
+                    className="text-xs"
+                  />
+                </div>
+                <Input
+                  value={providerForm.base_url}
+                  onChange={(e) => setProviderForm((f) => ({ ...f, base_url: e.target.value }))}
+                  placeholder="Base URL (https://...)"
+                  className="text-xs"
+                />
+                <Input
+                  type="password"
+                  value={providerForm.api_key}
+                  onChange={(e) => setProviderForm((f) => ({ ...f, api_key: e.target.value }))}
+                  placeholder="API key"
+                  className="text-xs"
+                />
+                <button
+                  onClick={handleSaveProvider}
+                  disabled={savingProvider || !providerForm.id || !providerForm.name || !providerForm.base_url || !providerForm.api_key}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {savingProvider && (
+                    <div className="h-3 w-3 animate-spin border-2 border-primary-foreground border-t-transparent rounded-full" />
+                  )}
+                  Save provider
+                </button>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 pt-1">
               <button
                 onClick={handleSave}
@@ -667,7 +850,7 @@ function AgentsSection() {
                 Save
               </button>
               <button
-                onClick={() => { setShowAdd(false); setForm({ id: "", name: "", provider: "anthropic", model: "sonnet" }); }}
+                onClick={() => { setShowAdd(false); setShowAddProvider(false); setForm({ id: "", name: "", provider: "anthropic", model: "sonnet" }); }}
                 className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
@@ -1209,9 +1392,16 @@ function ProviderSettingsCard({
   );
 }
 
-// ── Custom Providers Section ───────────────────────────────────────────
+// ── Providers Section (built-in + custom) ──────────────────────────────
 
-function CustomProvidersSection() {
+const BUILTIN_PROVIDERS = [
+  { id: "anthropic", name: "Anthropic" },
+  { id: "openai", name: "OpenAI" },
+  { id: "gemini", name: "Gemini" },
+  { id: "opencode", name: "OpenCode" },
+] as const;
+
+function ProvidersSection() {
   const [providers, setProviders] = useState<Record<string, CustomProvider>>({});
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -1272,9 +1462,9 @@ function CustomProvidersSection() {
       <div className="p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold">Custom Providers</h3>
+            <h3 className="text-sm font-semibold">Providers</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Add custom LLM providers with compatible API endpoints
+              Built-in providers are always available. Add custom ones for OpenAI-compatible endpoints.
             </p>
           </div>
           {!showAdd && (
@@ -1282,10 +1472,29 @@ function CustomProvidersSection() {
               onClick={() => setShowAdd(true)}
               className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
-              Add Provider
+              Add Custom
             </button>
           )}
         </div>
+
+        {/* Built-in chips */}
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Built-in</p>
+          <div className="flex flex-wrap gap-1.5">
+            {BUILTIN_PROVIDERS.map((p) => (
+              <span
+                key={p.id}
+                className="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-md bg-muted text-foreground"
+              >
+                {p.name}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {entries.length > 0 && (
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Custom</p>
+        )}
 
         {/* Provider list */}
         {entries.length > 0 && (

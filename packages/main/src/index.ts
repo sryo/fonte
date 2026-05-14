@@ -252,8 +252,8 @@ const automationEngine = createAutomationEngine();
 automationEngine.start();
 
 // Auto-restore WhatsApp session if previously paired
-const waSessionDir = path.join(AITORRENT_HOME, 'whatsapp-session', 'session', 'Default');
-if (fs.existsSync(waSessionDir)) {
+const waAuthDir = path.join(AITORRENT_HOME, 'whatsapp-auth');
+if (fs.existsSync(waAuthDir) && fs.readdirSync(waAuthDir).length > 0) {
     log('INFO', 'WhatsApp: restoring previous session...');
     getWhatsAppService().start().catch(err => {
         log('ERROR', `WhatsApp auto-start failed: ${(err as Error).message}`);

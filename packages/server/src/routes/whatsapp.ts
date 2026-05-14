@@ -37,6 +37,19 @@ app.post('/api/whatsapp/disconnect', async (c) => {
     }
 });
 
+app.post('/api/whatsapp/pair', async (c) => {
+    try {
+        const body = await c.req.json() as { phone: string };
+        if (!body.phone) return c.json({ ok: false, error: 'phone is required' }, 400);
+        const service = getWhatsAppService();
+        if (service.status === 'disconnected') await service.start();
+        const code = await service.requestPairingCode(body.phone);
+        return c.json({ ok: true, code });
+    } catch (err) {
+        return c.json({ ok: false, error: (err as Error).message }, 500);
+    }
+});
+
 app.get('/api/whatsapp/chats', async (c) => {
     try {
         const chats = await getWhatsAppService().getChats();
