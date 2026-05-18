@@ -299,9 +299,6 @@ export default function SettingsPage() {
         )}
       </div>
 
-      <p className="text-center text-xs text-muted-foreground pt-4">
-        Fonte v0.0.20
-      </p>
     </div>
   );
 }

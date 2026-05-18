@@ -173,6 +173,9 @@ chmod +x "$APP_DEST/Contents/MacOS/fonte-handler"
 
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP_DEST"
 
+mkdir -p "$CONFIG_DIR"
+echo "$SCRIPT_DIR/packages/cli/bin/fonte.mjs" > "$CONFIG_DIR/cli-path"
+
 echo "  Installed to $APP_DEST"
 
 # ── Step 7: Write settings ───────────────────────────────────────────────────

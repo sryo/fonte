@@ -64,15 +64,6 @@ body:
       description: Paste any error messages or log output.
       render: shell
 
-  - type: input
-    id: version
-    attributes:
-      label: Fonte Version
-      description: Output of `fonte version` or the release you're using.
-      placeholder: e.g., 0.1.0
-    validations:
-      required: true
-
   - type: dropdown
     id: os
     attributes:

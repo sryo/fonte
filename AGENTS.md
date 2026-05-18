@@ -66,6 +66,40 @@ POST   /api/subtitles/:id/translate          Translate: {"language": "es"}
 GET    /api/torrents/:id/subtitles           List
 ```
 
+## Other endpoints
+
+```
+GET    /api/agents                List agents
+GET    /api/status                Daemon and system status
+GET    /api/events                SSE stream for live updates
+```
+
+## CLI reference
+
+The CLI is for humans and shell scripts. Agents should use the API directly — but you may suggest CLI commands to the user when relevant.
+
+| Command                          | Description                          |
+| -------------------------------- | ------------------------------------ |
+| `fonte start`                    | Start the daemon                     |
+| `fonte stop`                     | Stop all processes                   |
+| `fonte restart`                  | Restart the daemon                   |
+| `fonte status`                   | Show daemon and torrent status       |
+| `fonte torrent add <src>`        | Add a torrent (magnet or .torrent)   |
+| `fonte torrent list`             | List all torrents and their status   |
+| `fonte torrent remove <id>`      | Remove a torrent                     |
+| `fonte torrent pause <id>`       | Pause a torrent                      |
+| `fonte torrent resume <id>`      | Resume a paused torrent              |
+| `fonte watchlist add <title>`    | Add to watchlist (`--type`, `--year`, `--quality`, `--season`) |
+| `fonte watchlist list`           | List watchlist entries               |
+| `fonte watchlist check`          | Trigger a search across all entries  |
+| `fonte watchlist search <id>`    | Trigger a search for one entry       |
+| `fonte watchlist remove <id>`    | Remove a watchlist entry             |
+| `fonte agent list`               | List configured agents               |
+| `fonte agent add`                | Add a new agent (interactive)        |
+| `fonte logs [type]`              | View logs (queue, heartbeat, all)    |
+| `fonte office`                   | Start the web UI on port 3000        |
+| `fonte update`                   | Update to the latest version         |
+
 ## Rules
 
 1. When the user says "download X" or "find X" or pastes a link — search immediately, don't ask clarifying questions first.

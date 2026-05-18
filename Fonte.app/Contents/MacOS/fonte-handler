@@ -9,12 +9,24 @@
 #   - No args (double-click the app icon)
 #
 
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Resolve the fonte CLI — check common locations
 find_cli() {
-    # 1. Sibling to .app bundle (development)
+    # 0. Path pinned at install time (writes by install-app.sh or a one-off setup)
+    if [ -f "$HOME/.fonte/cli-path" ]; then
+        local pinned
+        pinned=$(cat "$HOME/.fonte/cli-path" 2>/dev/null)
+        if [ -n "$pinned" ] && [ -f "$pinned" ]; then
+            echo "node" "$pinned"
+            return
+        fi
+    fi
+
+    # 1. Sibling to .app bundle (development install in the repo)
     local dev_cli="$APP_DIR/packages/cli/bin/fonte.mjs"
     if [ -f "$dev_cli" ]; then
         echo "node" "$dev_cli"
@@ -27,7 +39,7 @@ find_cli() {
         return
     fi
 
-    # 3. npx fallback
+    # 3. npx fallback (only useful once published)
     echo "npx" "fonte"
 }
 
@@ -94,7 +106,25 @@ add_torrent_file() {
 log "Handler invoked with args: $*"
 
 if [ $# -eq 0 ]; then
-    # No args — app was double-clicked. Open the web dashboard.
+    log "Double-click launch — checking services"
+
+    if ! curl -sf --connect-timeout 1 "$API_URL/api/status" >/dev/null 2>&1; then
+        log "Daemon down, starting"
+        nohup "${CLI[@]}" start >>"$LOG_FILE" 2>&1 &
+        disown
+    fi
+
+    if ! curl -sf --connect-timeout 1 "http://localhost:3000" >/dev/null 2>&1; then
+        log "Dashboard down, starting"
+        nohup "${CLI[@]}" office >>"$LOG_FILE" 2>&1 &
+        disown
+    fi
+
+    for _ in $(seq 1 30); do
+        if curl -sf --connect-timeout 1 "http://localhost:3000" >/dev/null 2>&1; then break; fi
+        sleep 0.5
+    done
+
     open "http://localhost:3000" 2>/dev/null || true
     log "Opened dashboard"
     exit 0
