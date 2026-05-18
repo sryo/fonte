@@ -251,7 +251,7 @@ echo "[8/8] Configuring auto-start at login..."
 
 NODE_BIN="$(command -v node)"
 NPM_BIN="$(command -v npm)"
-AITORRENT_BIN="$SCRIPT_DIR/packages/cli/bin/fonte.mjs"
+FONTE_BIN="$SCRIPT_DIR/packages/cli/bin/fonte.mjs"
 DASHBOARD_DIR="$SCRIPT_DIR/dashboard"
 DAEMON_PLIST="$HOME/Library/LaunchAgents/com.fonte.daemon.plist"
 DASHBOARD_PLIST="$HOME/Library/LaunchAgents/com.fonte.dashboard.plist"
@@ -273,7 +273,7 @@ cat > "$DAEMON_PLIST" <<EOF
     <key>ProgramArguments</key>
     <array>
         <string>$NODE_BIN</string>
-        <string>$AITORRENT_BIN</string>
+        <string>$FONTE_BIN</string>
         <string>start</string>
     </array>
     <key>RunAtLoad</key>
@@ -290,7 +290,7 @@ cat > "$DAEMON_PLIST" <<EOF
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
         <key>HOME</key>
         <string>$HOME</string>
-        <key>AITORRENT_NO_OPEN</key>
+        <key>FONTE_NO_OPEN</key>
         <string>1</string>
     </dict>
 </dict>

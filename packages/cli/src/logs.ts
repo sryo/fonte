@@ -5,9 +5,9 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { AITORRENT_HOME } from '@fonte/core';
+import { FONTE_HOME } from '@fonte/core';
 
-const LOG_DIR = path.join(AITORRENT_HOME, 'logs');
+const LOG_DIR = path.join(FONTE_HOME, 'logs');
 
 const YELLOW = '\x1b[33m';
 const RED = '\x1b[31m';

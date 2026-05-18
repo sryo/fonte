@@ -2,7 +2,7 @@
 import * as p from '@clack/prompts';
 import http from 'http';
 
-const API_PORT = process.env.AITORRENT_API_PORT || '3777';
+const API_PORT = process.env.FONTE_API_PORT || '3777';
 const API_URL = `http://localhost:${API_PORT}`;
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────

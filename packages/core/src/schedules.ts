@@ -2,11 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import { Cron } from 'croner';
 import { Schedule, MessageJobData } from './types';
-import { AITORRENT_HOME } from './config';
+import { FONTE_HOME } from './config';
 import { log } from './logging';
 import { enqueueMessage, insertAgentMessage } from './queues';
 
-export const SCHEDULES_FILE = path.join(AITORRENT_HOME, 'schedules.json');
+export const SCHEDULES_FILE = path.join(FONTE_HOME, 'schedules.json');
 
 // Live cron job instances keyed by schedule id
 const jobs = new Map<string, Cron>();

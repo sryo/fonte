@@ -1,17 +1,31 @@
 # Fonte
 
-AI-powered torrent download manager with a REST API, CLI, and Next.js web UI.
+A torrent client run by agents.
 
-## Features
+You tell it what you want — a movie, a season, an album. The agents handle the rest: searching trackers, ranking releases, queueing downloads, retrying failures, fetching subtitles, and organizing the library. Talk to them through WhatsApp, the web dashboard, the CLI, or the REST API.
 
-- Magnet link and .torrent file support
-- WebTorrent engine for browser-compatible downloading
-- REST API for programmatic torrent management
-- Full-featured CLI for adding, removing, and monitoring torrents
-- Next.js web dashboard (Fonte Dashboard) for real-time status and control
-- AI agent integration for intelligent download management
+## What the agents do
+
+- **Search** — Jackett indexers and bt4g/DHT in parallel; dedupe by info hash; rank by seeders and quality
+- **Watch** — track shows and movies that aren't out yet; pick them up the moment a good release lands
+- **Retry** — switch to a fresh release when a download stalls or fails
+- **Subtitle** — auto-fetch via Subdl; translate via the configured model
+- **Organize** — rename, move, and route finished files into your library layout
+- **Notify** — completion updates through whichever surface you're using
+
+## Surfaces
+
+- **WhatsApp** — chat with the agent in your conversation; it replies inline
+- **Web dashboard** — Next.js UI at `localhost:3000` for browsing, control, and live status
+- **CLI** — `fonte torrent add`, `fonte watchlist`, etc., for shell and scripts
+- **REST API** — `localhost:3777` with Server-Sent Events for live updates
+
+## Under the hood
+
+- WebTorrent engine for the BitTorrent protocol (magnet links and `.torrent` files)
 - SQLite-backed persistent queue and state
 - Parallel torrent processing with per-torrent status tracking
+- Pluggable model provider (Anthropic, OpenAI, local) for agent reasoning
 
 ## Quick Start
 
@@ -70,8 +84,13 @@ Data is persisted in an `fonte-data` Docker volume.
 | `fonte torrent remove <id>` | Remove a torrent                     |
 | `fonte torrent pause <id>`  | Pause a torrent                      |
 | `fonte torrent resume <id>` | Resume a paused torrent              |
-| `fonte agent list`          | List configured AI agents            |
-| `fonte agent add`           | Add a new AI agent (interactive)     |
+| `fonte watchlist add <title>` | Add a title to the watchlist (`--type`, `--year`, `--quality`, `--season`) |
+| `fonte watchlist list`      | List watchlist entries               |
+| `fonte watchlist check`     | Trigger a search across all entries  |
+| `fonte watchlist search <id>` | Trigger a search for one entry     |
+| `fonte watchlist remove <id>` | Remove a watchlist entry           |
+| `fonte agent list`          | List configured agents               |
+| `fonte agent add`           | Add a new agent (interactive)        |
 | `fonte logs [type]`         | View logs (queue, heartbeat, all)    |
 | `fonte office`              | Start the web UI on port 3000        |
 | `fonte update`              | Update to the latest version         |

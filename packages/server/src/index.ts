@@ -1,7 +1,7 @@
 /**
  * API Server — HTTP endpoints for Mission Control and external integrations.
  *
- * Runs on a configurable port (env AITORRENT_API_PORT, default 3777) and
+ * Runs on a configurable port (env FONTE_API_PORT, default 3777) and
  * provides REST + SSE access to agents, teams, settings, queue status,
  * events, logs, and chat histories.
  */
@@ -29,7 +29,7 @@ import subtitlesRoutes from './routes/subtitles';
 import automationsRoutes from './routes/automations';
 import whatsappRoutes from './routes/whatsapp';
 
-const API_PORT = parseInt(process.env.AITORRENT_API_PORT || '3777', 10);
+const API_PORT = parseInt(process.env.FONTE_API_PORT || '3777', 10);
 
 const startedAt = Date.now();
 

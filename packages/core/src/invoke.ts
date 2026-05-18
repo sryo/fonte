@@ -214,7 +214,7 @@ export async function invokeAgent(
     let provider = rawProvider;
     let customProvider: CustomProvider | undefined;
     let envOverrides: Record<string, string> = {
-        AITORRENT_AGENT_ID: agentId,
+        FONTE_AGENT_ID: agentId,
     };
 
     if (rawProvider.startsWith('custom:')) {

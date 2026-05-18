@@ -12,13 +12,13 @@ import {
 } from '@whiskeysockets/baileys';
 import type { WASocket, WAMessage } from '@whiskeysockets/baileys';
 import {
-    log, emitEvent, AITORRENT_HOME, FILES_DIR, enqueueMessage,
+    log, emitEvent, FONTE_HOME, FILES_DIR, enqueueMessage,
     getResponsesForChannel, ackResponse, getSettings,
 } from '@fonte/core';
 
 // New auth dir (Baileys multi-file state — replaces the old Chrome profile dir)
-const AUTH_DIR = path.join(AITORRENT_HOME, 'whatsapp-auth');
-const LEGACY_SESSION_DIR = path.join(AITORRENT_HOME, 'whatsapp-session');
+const AUTH_DIR = path.join(FONTE_HOME, 'whatsapp-auth');
+const LEGACY_SESSION_DIR = path.join(FONTE_HOME, 'whatsapp-session');
 
 const MIME_EXT: Record<string, string> = {
     'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp',

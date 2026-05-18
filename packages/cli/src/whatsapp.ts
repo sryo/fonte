@@ -14,10 +14,10 @@ import qrcode from 'qrcode-terminal';
 import http from 'http';
 import path from 'path';
 
-const API_PORT = process.env.AITORRENT_API_PORT || '3777';
+const API_PORT = process.env.FONTE_API_PORT || '3777';
 const API_URL = `http://localhost:${API_PORT}`;
-const AITORRENT_HOME = process.env.AITORRENT_HOME || path.join(require('os').homedir(), '.fonte');
-const SESSION_DIR = path.join(AITORRENT_HOME, 'whatsapp-session');
+const FONTE_HOME = process.env.FONTE_HOME || path.join(require('os').homedir(), '.fonte');
+const SESSION_DIR = path.join(FONTE_HOME, 'whatsapp-session');
 
 // Approved chat IDs (loaded from settings or auto-approved on first message)
 const approvedChats = new Set<string>();

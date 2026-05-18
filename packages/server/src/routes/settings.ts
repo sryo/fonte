@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { Hono } from 'hono';
 import { Settings } from '@fonte/core';
-import { SETTINGS_FILE, AITORRENT_HOME, getSettings, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@fonte/core';
+import { SETTINGS_FILE, FONTE_HOME, getSettings, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@fonte/core';
 import { log } from '@fonte/core';
 
 /** Read, mutate, and persist settings.json atomically. */
@@ -62,15 +62,15 @@ app.post('/api/setup', async (c) => {
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2) + '\n');
     log('INFO', '[API] Setup: settings.json written');
 
-    // Create AITORRENT_HOME directories
-    fs.mkdirSync(path.join(AITORRENT_HOME, 'logs'), { recursive: true });
-    fs.mkdirSync(path.join(AITORRENT_HOME, 'files'), { recursive: true });
+    // Create FONTE_HOME directories
+    fs.mkdirSync(path.join(FONTE_HOME, 'logs'), { recursive: true });
+    fs.mkdirSync(path.join(FONTE_HOME, 'files'), { recursive: true });
 
-    // Copy template files into AITORRENT_HOME
+    // Copy template files into FONTE_HOME
     const templateItems = ['.claude', 'heartbeat.md', 'AGENTS.md'];
     for (const item of templateItems) {
         const srcPath = path.join(SCRIPT_DIR, item);
-        const destPath = path.join(AITORRENT_HOME, item);
+        const destPath = path.join(FONTE_HOME, item);
         if (fs.existsSync(srcPath)) {
             if (fs.statSync(srcPath).isDirectory()) {
                 copyDirSync(srcPath, destPath);

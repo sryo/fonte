@@ -4,12 +4,12 @@ import { jsonrepair } from 'jsonrepair';
 import { Settings, AgentConfig, TeamConfig, MODEL_ALIASES } from './types';
 
 export const SCRIPT_DIR = path.resolve(__dirname, '../../..');
-export const AITORRENT_HOME = process.env.AITORRENT_HOME
+export const FONTE_HOME = process.env.FONTE_HOME
     || path.join(require('os').homedir(), '.fonte');
-export const LOG_FILE = path.join(AITORRENT_HOME, 'logs/queue.log');
-export const SETTINGS_FILE = path.join(AITORRENT_HOME, 'settings.json');
-export const CHATS_DIR = path.join(AITORRENT_HOME, 'chats');
-export const FILES_DIR = path.join(AITORRENT_HOME, 'files');
+export const LOG_FILE = path.join(FONTE_HOME, 'logs/queue.log');
+export const SETTINGS_FILE = path.join(FONTE_HOME, 'settings.json');
+export const CHATS_DIR = path.join(FONTE_HOME, 'chats');
+export const FILES_DIR = path.join(FONTE_HOME, 'files');
 
 export function getSettings(): Settings {
     try {

@@ -10,7 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import {
     MessageJobData,
-    getSettings, getAgents, LOG_FILE, FILES_DIR, AITORRENT_HOME,
+    getSettings, getAgents, LOG_FILE, FILES_DIR, FONTE_HOME,
     log, emitEvent, onEvent,
     parseAgentRouting, getAgentResetFlag,
     invokeAgent, killAgentProcess,
@@ -192,7 +192,7 @@ function logAgentConfig(): void {
 initQueueDb();
 
 // Write PID file so the CLI can find this process
-fs.writeFileSync(path.join(AITORRENT_HOME, 'fonte.pid'), String(process.pid));
+fs.writeFileSync(path.join(FONTE_HOME, 'fonte.pid'), String(process.pid));
 
 // Recover any messages left in 'processing' from a previous run — they're
 // guaranteed stale because the process just restarted.
@@ -252,7 +252,7 @@ const automationEngine = createAutomationEngine();
 automationEngine.start();
 
 // Auto-restore WhatsApp session if previously paired
-const waAuthDir = path.join(AITORRENT_HOME, 'whatsapp-auth');
+const waAuthDir = path.join(FONTE_HOME, 'whatsapp-auth');
 if (fs.existsSync(waAuthDir) && fs.readdirSync(waAuthDir).length > 0) {
     log('INFO', 'WhatsApp: restoring previous session...');
     getWhatsAppService().start().catch(err => {
@@ -287,7 +287,7 @@ function shutdown(exitCode = 0): void {
     closeQueueDb();
     // Clean up PID file on normal shutdown (not restart)
     if (exitCode !== 75) {
-        try { fs.unlinkSync(path.join(AITORRENT_HOME, 'fonte.pid')); } catch {}
+        try { fs.unlinkSync(path.join(FONTE_HOME, 'fonte.pid')); } catch {}
     }
     process.exit(exitCode);
 }

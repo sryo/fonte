@@ -2,12 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { AgentConfig, TeamConfig } from './types';
-import { SCRIPT_DIR, AITORRENT_HOME } from './config';
+import { SCRIPT_DIR, FONTE_HOME } from './config';
 import { loadMemoryIndex } from './memory';
 import { log } from './logging';
 
 /** Path to the global SOUL.md personality file. */
-export const SOUL_PATH = path.join(AITORRENT_HOME, 'SOUL.md');
+export const SOUL_PATH = path.join(FONTE_HOME, 'SOUL.md');
 
 const DEFAULT_SOUL = `# Soul
 
@@ -221,7 +221,7 @@ export function buildSystemPrompt(
 
 ## Torrent Management API
 
-You can manage torrent downloads via HTTP API at http://localhost:${process.env.AITORRENT_API_PORT || '3777'}.
+You can manage torrent downloads via HTTP API at http://localhost:${process.env.FONTE_API_PORT || '3777'}.
 
 **Add a torrent:**
 \`\`\`

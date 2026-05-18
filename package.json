@@ -1,7 +1,7 @@
 {
   "name": "fonte",
   "version": "0.0.20",
-  "description": "AI-powered torrent download manager",
+  "description": "A torrent client run by agents.",
   "workspaces": [
     "packages/*"
   ],

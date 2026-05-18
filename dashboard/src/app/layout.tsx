@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "Fonte",
-  description: "AI-Powered Torrent Download Manager",
+  description: "A torrent client run by agents.",
 };
 
 export default function RootLayout({

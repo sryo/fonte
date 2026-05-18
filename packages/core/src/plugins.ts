@@ -7,7 +7,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { AITORRENT_HOME } from './config';
+import { FONTE_HOME } from './config';
 import { log, onEvent } from './logging';
 
 // Types
@@ -68,7 +68,7 @@ function createPluginContext(pluginName: string): PluginContext {
             log(level, `[plugin:${pluginName}] ${message}`);
         },
         getFonteHome(): string {
-            return AITORRENT_HOME;
+            return FONTE_HOME;
         },
     };
 }
@@ -80,7 +80,7 @@ function createPluginContext(pluginName: string): PluginContext {
  *   - hooks: Hooks                        (optional)
  */
 export async function loadPlugins(): Promise<void> {
-    const pluginsDir = path.join(AITORRENT_HOME, 'plugins');
+    const pluginsDir = path.join(FONTE_HOME, 'plugins');
 
     if (!fs.existsSync(pluginsDir)) {
         log('DEBUG', 'No plugins directory found');

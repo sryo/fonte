@@ -1,8 +1,8 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import { AITORRENT_HOME } from '@fonte/core';
+import { FONTE_HOME } from '@fonte/core';
 
-const DB_PATH = path.join(AITORRENT_HOME, 'torrents.db');
+const DB_PATH = path.join(FONTE_HOME, 'torrents.db');
 
 let db: Database.Database | null = null;
 

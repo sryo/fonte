@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const AITORRENT_HOME = process.env.AITORRENT_HOME || path.join(os.homedir(), '.fonte');
-const SETTINGS_FILE = path.join(AITORRENT_HOME, 'settings.json');
+const FONTE_HOME = process.env.FONTE_HOME || path.join(os.homedir(), '.fonte');
+const SETTINGS_FILE = path.join(FONTE_HOME, 'settings.json');
 const OLD_HOME = path.join(os.homedir(), '.tinyclaw');
 
 /**
@@ -11,14 +11,14 @@ const OLD_HOME = path.join(os.homedir(), '.tinyclaw');
  * Runs once — skips if ~/.tinyclaw doesn't exist or ~/.fonte already exists.
  */
 function migrateFromTinyclaw() {
-    if (!fs.existsSync(OLD_HOME) || fs.existsSync(AITORRENT_HOME)) return false;
+    if (!fs.existsSync(OLD_HOME) || fs.existsSync(FONTE_HOME)) return false;
 
     console.log('Migrating ~/.tinyclaw → ~/.fonte ...');
-    fs.renameSync(OLD_HOME, AITORRENT_HOME);
+    fs.renameSync(OLD_HOME, FONTE_HOME);
 
     // Rename database file
-    const oldDb = path.join(AITORRENT_HOME, 'tinyclaw.db');
-    const newDb = path.join(AITORRENT_HOME, 'fonte.db');
+    const oldDb = path.join(FONTE_HOME, 'tinyclaw.db');
+    const newDb = path.join(FONTE_HOME, 'fonte.db');
     if (fs.existsSync(oldDb) && !fs.existsSync(newDb)) {
         fs.renameSync(oldDb, newDb);
         for (const suffix of ['-wal', '-shm']) {
@@ -123,8 +123,8 @@ export function writeDefaults() {
         return false;
     }
 
-    // Ensure AITORRENT_HOME exists
-    fs.mkdirSync(AITORRENT_HOME, { recursive: true });
+    // Ensure FONTE_HOME exists
+    fs.mkdirSync(FONTE_HOME, { recursive: true });
 
     // Write settings
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(DEFAULT_SETTINGS, null, 2) + '\n');
@@ -140,4 +140,4 @@ export function writeDefaults() {
     return true;
 }
 
-export { AITORRENT_HOME, SETTINGS_FILE, DEFAULT_SETTINGS };
+export { FONTE_HOME, SETTINGS_FILE, DEFAULT_SETTINGS };

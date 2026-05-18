@@ -5,13 +5,13 @@
 import { execSync, spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { AITORRENT_HOME, SCRIPT_DIR } from '@fonte/core';
+import { FONTE_HOME, SCRIPT_DIR } from '@fonte/core';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const PID_FILE = path.join(AITORRENT_HOME, 'fonte.pid');
-const LOG_DIR = path.join(AITORRENT_HOME, 'logs');
-const API_PORT = parseInt(process.env.AITORRENT_API_PORT || '3777', 10);
+const PID_FILE = path.join(FONTE_HOME, 'fonte.pid');
+const LOG_DIR = path.join(FONTE_HOME, 'logs');
+const API_PORT = parseInt(process.env.FONTE_API_PORT || '3777', 10);
 const API_URL = `http://localhost:${API_PORT}`;
 
 const GREEN = '\x1b[32m';
@@ -27,7 +27,7 @@ function log(color: string, msg: string): void {
 
 function getMainScript(): string | null {
     const local = path.join(SCRIPT_DIR, 'packages/main/dist/index.js');
-    const installed = path.join(AITORRENT_HOME, 'packages/main/dist/index.js');
+    const installed = path.join(FONTE_HOME, 'packages/main/dist/index.js');
     if (fs.existsSync(local)) return local;
     if (fs.existsSync(installed)) return installed;
     return null;
@@ -94,7 +94,7 @@ export async function startDaemon(): Promise<void> {
     const child = spawn('node', [mainScript], {
         detached: true,
         stdio: ['ignore', out, out],
-        env: { ...process.env, AITORRENT_HOME },
+        env: { ...process.env, FONTE_HOME },
     });
 
     fs.writeFileSync(PID_FILE, String(child.pid));
@@ -257,7 +257,7 @@ const flags = process.argv.slice(3);
 switch (command) {
     case 'start':
         await startDaemon();
-        if (flags.includes('--open') && !process.env.AITORRENT_NO_OPEN) await openOffice();
+        if (flags.includes('--open') && !process.env.FONTE_NO_OPEN) await openOffice();
         break;
     case 'stop':
         stopDaemon();

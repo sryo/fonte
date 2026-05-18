@@ -1,10 +1,10 @@
 import * as p from '@clack/prompts';
 import fs from 'fs';
 import path from 'path';
-import { Settings, SETTINGS_FILE, AITORRENT_HOME, SCRIPT_DIR } from '@fonte/core';
+import { Settings, SETTINGS_FILE, FONTE_HOME, SCRIPT_DIR } from '@fonte/core';
 
 // Re-export for convenience
-export { SETTINGS_FILE, AITORRENT_HOME, SCRIPT_DIR };
+export { SETTINGS_FILE, FONTE_HOME, SCRIPT_DIR };
 
 const BANNER = `
   ▀█▀ █ █▄ █ █▄█ █▀█ █▀▀ █

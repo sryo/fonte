@@ -32,7 +32,7 @@ find_cli() {
 }
 
 CLI=($(find_cli))
-API_PORT="${AITORRENT_API_PORT:-3777}"
+API_PORT="${FONTE_API_PORT:-3777}"
 API_URL="http://localhost:$API_PORT"
 
 # Log to a file for debugging
