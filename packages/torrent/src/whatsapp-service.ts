@@ -60,9 +60,6 @@ export class WhatsAppService {
     private pending = new Map<string, PendingMessage>();
     private recentSentTexts = new Map<string, number>();
     private SEND_DEDUPE_MS = 15_000;
-    // Cache settings.whatsapp.allowed_chat to avoid disk reads on every message
-    private allowedChatCache: { value: string | null; ts: number } = { value: null, ts: 0 };
-    private SETTINGS_CACHE_MS = 5_000;
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     private starting = false;
 
@@ -90,6 +87,7 @@ export class WhatsAppService {
         } catch {}
 
         fs.mkdirSync(AUTH_DIR, { recursive: true });
+        fs.mkdirSync(FILES_DIR, { recursive: true });
         const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
         this.saveCreds = saveCreds;
 
@@ -142,6 +140,7 @@ export class WhatsAppService {
 
                 if (loggedOut) {
                     try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch {}
+                    cachedWaVersion = undefined;
                     log('INFO', 'WhatsApp: logged out — auth wiped, fresh QR will be needed');
                     this.sock = null;
                     return;
@@ -188,7 +187,7 @@ export class WhatsAppService {
         const rawJid = msg.key.remoteJid;
         if (!rawJid || rawJid === 'status@broadcast') return;
 
-        const allowedChat = this.getAllowedChat();
+        const allowedChat = getSettings().whatsapp?.allowed_chat ?? null;
         if (!allowedChat || rawJid !== allowedChat) return;
 
         const m = msg.message;
@@ -204,8 +203,6 @@ export class WhatsAppService {
         const hasMedia = !!(m.imageMessage || m.videoMessage || m.audioMessage || m.documentMessage || m.stickerMessage);
         if (!text && !hasMedia) return;
 
-        // Bot's own replies arrive as fromMe; recentSentTexts dedup catches the
-        // race between the send promise resolving and the upsert event firing.
         if (msg.key.fromMe && text && this.wasRecentlySent(text)) return;
 
         const sender = msg.pushName || (msg.key.participant || rawJid).split('@')[0];
@@ -254,7 +251,6 @@ export class WhatsAppService {
                 if (m.documentMessage.fileName) suggestedExt = path.extname(m.documentMessage.fileName) || undefined;
             }
             const ext = suggestedExt || extFromMime(mime);
-            fs.mkdirSync(FILES_DIR, { recursive: true });
             const filename = `whatsapp_${messageId}${ext}`;
             const localPath = path.join(FILES_DIR, filename);
             fs.writeFileSync(localPath, buffer as Buffer);
@@ -285,17 +281,6 @@ export class WhatsAppService {
         }
         this.recentSentTexts.delete(text);
         return true;
-    }
-
-    private getAllowedChat(): string | null {
-        const now = Date.now();
-        if (now - this.allowedChatCache.ts > this.SETTINGS_CACHE_MS) {
-            this.allowedChatCache = {
-                value: getSettings().whatsapp?.allowed_chat ?? null,
-                ts: now,
-            };
-        }
-        return this.allowedChatCache.value;
     }
 
     private pruneStalePending(): void {
