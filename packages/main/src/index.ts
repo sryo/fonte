@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * AITorrent Queue Processor — Entry point.
+ * Fonte Queue Processor — Entry point.
  *
  * Initializes the SQLite queue, starts the API server, processes messages,
  * and manages lifecycle. This is the only file that should be run directly.
@@ -22,9 +22,9 @@ import {
     closeQueueDb, queueEvents,
     insertAgentMessage,
     startScheduler, stopScheduler,
-} from '@aitorrent/core';
-import { startApiServer } from '@aitorrent/server';
-import { createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted, createAutomationEngine, getWhatsAppService } from '@aitorrent/torrent';
+} from '@fonte/core';
+import { startApiServer } from '@fonte/server';
+import { createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted, createAutomationEngine, getWhatsAppService } from '@fonte/torrent';
 
 // Ensure directories exist
 [FILES_DIR, path.dirname(LOG_FILE)].forEach(dir => {
@@ -53,7 +53,7 @@ async function processMessage(dbMsg: any): Promise<void> {
 
     const settings = getSettings();
     const agents = getAgents(settings);
-    const workspacePath = settings?.workspace?.path || path.join(require('os').homedir(), 'aitorrent-workspace');
+    const workspacePath = settings?.workspace?.path || path.join(require('os').homedir(), 'fonte-workspace');
 
     // ── Route message to agent ──────────────────────────────────────────────
     let agentId: string;
@@ -69,7 +69,7 @@ async function processMessage(dbMsg: any): Promise<void> {
     }
 
     if (!agents[agentId]) {
-        agentId = 'aitorrent';
+        agentId = 'fonte';
         message = rawMessage;
     }
     if (!agents[agentId]) {
@@ -192,7 +192,7 @@ function logAgentConfig(): void {
 initQueueDb();
 
 // Write PID file so the CLI can find this process
-fs.writeFileSync(path.join(AITORRENT_HOME, 'aitorrent.pid'), String(process.pid));
+fs.writeFileSync(path.join(AITORRENT_HOME, 'fonte.pid'), String(process.pid));
 
 // Recover any messages left in 'processing' from a previous run — they're
 // guaranteed stale because the process just restarted.
@@ -287,7 +287,7 @@ function shutdown(exitCode = 0): void {
     closeQueueDb();
     // Clean up PID file on normal shutdown (not restart)
     if (exitCode !== 75) {
-        try { fs.unlinkSync(path.join(AITORRENT_HOME, 'aitorrent.pid')); } catch {}
+        try { fs.unlinkSync(path.join(AITORRENT_HOME, 'fonte.pid')); } catch {}
     }
     process.exit(exitCode);
 }

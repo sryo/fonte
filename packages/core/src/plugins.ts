@@ -1,7 +1,7 @@
 /**
- * Plugin System for AITorrent
+ * Plugin System for Fonte
  *
- * Plugins auto-discover from .aitorrent/plugins/ folder.
+ * Plugins auto-discover from .fonte/plugins/ folder.
  * Each plugin exports an activate() function and/or a hooks object from index.ts.
  */
 
@@ -42,7 +42,7 @@ export interface Hooks {
 export interface PluginContext {
     on(eventType: string | '*', handler: (event: PluginEvent) => void): void;
     log(level: string, message: string): void;
-    getAITorrentHome(): string;
+    getFonteHome(): string;
 }
 
 interface LoadedPlugin {
@@ -67,14 +67,14 @@ function createPluginContext(pluginName: string): PluginContext {
         log(level: string, message: string): void {
             log(level, `[plugin:${pluginName}] ${message}`);
         },
-        getAITorrentHome(): string {
+        getFonteHome(): string {
             return AITORRENT_HOME;
         },
     };
 }
 
 /**
- * Load all plugins from .aitorrent/plugins/.
+ * Load all plugins from .fonte/plugins/.
  * Each plugin directory should have an index.ts/index.js that exports:
  *   - activate(ctx: PluginContext): void  (optional)
  *   - hooks: Hooks                        (optional)

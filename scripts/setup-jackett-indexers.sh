@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# AITorrent — Configure Jackett indexers
+# Fonte — Configure Jackett indexers
 #
 # Enables a set of public torrent indexers in Jackett.
 # Requires Jackett to be running on localhost:9117.
@@ -11,8 +11,8 @@ JACKETT_URL="${JACKETT_URL:-http://localhost:9117}"
 # Read API key from settings or argument
 if [ -n "$1" ]; then
     API_KEY="$1"
-elif [ -f "$HOME/.aitorrent/settings.json" ]; then
-    API_KEY=$(python3 -c "import json; print(json.load(open('$HOME/.aitorrent/settings.json')).get('watchlist',{}).get('jackett_api_key',''))" 2>/dev/null)
+elif [ -f "$HOME/.fonte/settings.json" ]; then
+    API_KEY=$(python3 -c "import json; print(json.load(open('$HOME/.fonte/settings.json')).get('watchlist',{}).get('jackett_api_key',''))" 2>/dev/null)
 fi
 
 if [ -z "$API_KEY" ]; then

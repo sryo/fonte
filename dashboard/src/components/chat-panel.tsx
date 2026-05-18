@@ -49,7 +49,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
 
     const fetchMessages = async () => {
       try {
-        const data = await getAgentMessages("aitorrent", 50);
+        const data = await getAgentMessages("fonte", 50);
         if (active) {
           const reversed = [...data].reverse();
           setMessages((prev) => {
@@ -92,13 +92,13 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     try {
       await sendMessage({
         message: value,
-        agent: "aitorrent",
+        agent: "fonte",
         channel: "web",
         sender: "Web",
       });
       setInput("");
       // Immediately fetch to show the user message
-      const data = await getAgentMessages("aitorrent", 50);
+      const data = await getAgentMessages("fonte", 50);
       setMessages([...data].reverse());
     } catch {
       setThinking(false);
@@ -123,7 +123,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
       <div
         className={`fixed right-0 top-0 h-full w-96 z-50 bg-card border-l shadow-xl flex flex-col ${closing ? "animate-chat-panel-out" : "animate-chat-panel-in"}`}
         role="dialog"
-        aria-label="AITorrent Agent Chat"
+        aria-label="Fonte Agent Chat"
       >
         {/* Header */}
         <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
@@ -131,7 +131,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
             <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-primary/10">
               <Robot className="h-4 w-4 text-primary" />
             </div>
-            <span className="text-sm font-semibold">AITorrent Agent</span>
+            <span className="text-sm font-semibold">Fonte Agent</span>
           </div>
           <button
             onClick={handleClose}

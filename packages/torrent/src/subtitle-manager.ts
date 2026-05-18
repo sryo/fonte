@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { log, emitEvent, getSettings } from '@aitorrent/core';
+import { log, emitEvent, getSettings } from '@fonte/core';
 import { getTorrent } from './torrent-db';
 import { getTorrentFiles } from './torrent-db';
 import { insertSubtitle, updateSubtitle, getSubtitle, getSubtitlesByTorrent } from './subtitle-db';

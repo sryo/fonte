@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { log } from '@aitorrent/core';
+import { log } from '@fonte/core';
 
 export interface ServiceHandlers {
     restart?: () => void;

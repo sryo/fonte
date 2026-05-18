@@ -1,7 +1,7 @@
 import * as p from '@clack/prompts';
 import fs from 'fs';
 import path from 'path';
-import { Settings, SETTINGS_FILE, AITORRENT_HOME, SCRIPT_DIR } from '@aitorrent/core';
+import { Settings, SETTINGS_FILE, AITORRENT_HOME, SCRIPT_DIR } from '@fonte/core';
 
 // Re-export for convenience
 export { SETTINGS_FILE, AITORRENT_HOME, SCRIPT_DIR };
@@ -12,7 +12,7 @@ const BANNER = `
 `;
 
 /**
- * Print the AITorrent ASCII banner.
+ * Print the Fonte ASCII banner.
  */
 export function printBanner(): void {
     console.log(BANNER);

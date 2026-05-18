@@ -25,7 +25,7 @@ body:
     id: component
     attributes:
       label: Component
-      description: Which part of AITorrent is affected?
+      description: Which part of Fonte is affected?
       options:
         - "Torrent engine (downloads, seeding)"
         - "REST API"
@@ -67,8 +67,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: AITorrent Version
-      description: Output of `aitorrent version` or the release you're using.
+      label: Fonte Version
+      description: Output of `fonte version` or the release you're using.
       placeholder: e.g., 0.1.0
     validations:
       required: true

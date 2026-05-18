@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import {
     getSubtitlesByTorrent, deleteSubtitle,
     fetchSubtitlesForTorrent, translateSubtitle,
-} from '@aitorrent/torrent';
-import { log } from '@aitorrent/core';
+} from '@fonte/torrent';
+import { log } from '@fonte/core';
 
 const app = new Hono();
 

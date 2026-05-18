@@ -14,7 +14,7 @@ import type { WASocket, WAMessage } from '@whiskeysockets/baileys';
 import {
     log, emitEvent, AITORRENT_HOME, FILES_DIR, enqueueMessage,
     getResponsesForChannel, ackResponse, getSettings,
-} from '@aitorrent/core';
+} from '@fonte/core';
 
 // New auth dir (Baileys multi-file state — replaces the old Chrome profile dir)
 const AUTH_DIR = path.join(AITORRENT_HOME, 'whatsapp-auth');
@@ -48,6 +48,9 @@ export interface ChatSummary {
 
 const baileysLogger = pino({ level: 'silent' });
 
+// Fetched once per process; reused across reconnects to avoid repeated network calls
+let cachedWaVersion: [number, number, number] | undefined;
+
 export class WhatsAppService {
     private sock: WASocket | null = null;
     private _status: WhatsAppStatus = 'disconnected';
@@ -57,6 +60,9 @@ export class WhatsAppService {
     private pending = new Map<string, PendingMessage>();
     private recentSentTexts = new Map<string, number>();
     private SEND_DEDUPE_MS = 15_000;
+    // Cache settings.whatsapp.allowed_chat to avoid disk reads on every message
+    private allowedChatCache: { value: string | null; ts: number } = { value: null, ts: 0 };
+    private SETTINGS_CACHE_MS = 5_000;
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     private starting = false;
 
@@ -87,8 +93,11 @@ export class WhatsAppService {
         const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
         this.saveCreds = saveCreds;
 
-        const versionResult = await fetchLatestWaWebVersion({}).catch(() => null);
-        const version = versionResult?.version as [number, number, number] | undefined;
+        if (!cachedWaVersion) {
+            const versionResult = await fetchLatestWaWebVersion({}).catch(() => null);
+            cachedWaVersion = versionResult?.version as [number, number, number] | undefined;
+        }
+        const version = cachedWaVersion;
 
         this.sock = makeWASocket({
             version,
@@ -98,7 +107,7 @@ export class WhatsAppService {
             },
             printQRInTerminal: false,
             logger: baileysLogger,
-            browser: Browsers.macOS('AITorrent'),
+            browser: Browsers.macOS('Fonte'),
             markOnlineOnConnect: false,
             syncFullHistory: false,
         });
@@ -179,11 +188,9 @@ export class WhatsAppService {
         const rawJid = msg.key.remoteJid;
         if (!rawJid || rawJid === 'status@broadcast') return;
 
-        const allowedChat = getSettings().whatsapp?.allowed_chat;
-        if (!allowedChat) return;
-        if (rawJid !== allowedChat) return;
+        const allowedChat = this.getAllowedChat();
+        if (!allowedChat || rawJid !== allowedChat) return;
 
-        // Extract text from the various WA message types
         const m = msg.message;
         const text = (
             m.conversation
@@ -197,10 +204,9 @@ export class WhatsAppService {
         const hasMedia = !!(m.imageMessage || m.videoMessage || m.audioMessage || m.documentMessage || m.stickerMessage);
         if (!text && !hasMedia) return;
 
-        // Skip bot's own replies (text-based dedup catches the race between send-promise and event)
-        if (msg.key.fromMe) {
-            if (text && this.wasRecentlySent(text)) return;
-        }
+        // Bot's own replies arrive as fromMe; recentSentTexts dedup catches the
+        // race between the send promise resolving and the upsert event firing.
+        if (msg.key.fromMe && text && this.wasRecentlySent(text)) return;
 
         const sender = msg.pushName || (msg.key.participant || rawJid).split('@')[0];
         const messageId = `wa_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -211,10 +217,9 @@ export class WhatsAppService {
             if (filePath) files.push(filePath);
         }
 
-        const stickerNote = m.stickerMessage && !text ? '[Sticker]' : '';
-        const body = files.length > 0
-            ? `${text || stickerNote || ''}${files.length > 0 ? (text || stickerNote ? '\n\n' : '') + files.map(f => `[file: ${f}]`).join('\n') : ''}`
-            : text || stickerNote;
+        const head = text || (m.stickerMessage ? '[Sticker]' : '');
+        const fileRefs = files.map(f => `[file: ${f}]`).join('\n');
+        const body = [head, fileRefs].filter(Boolean).join('\n\n');
 
         if (!body) return;
 
@@ -249,7 +254,7 @@ export class WhatsAppService {
                 if (m.documentMessage.fileName) suggestedExt = path.extname(m.documentMessage.fileName) || undefined;
             }
             const ext = suggestedExt || extFromMime(mime);
-            if (!fs.existsSync(FILES_DIR)) fs.mkdirSync(FILES_DIR, { recursive: true });
+            fs.mkdirSync(FILES_DIR, { recursive: true });
             const filename = `whatsapp_${messageId}${ext}`;
             const localPath = path.join(FILES_DIR, filename);
             fs.writeFileSync(localPath, buffer as Buffer);
@@ -280,6 +285,17 @@ export class WhatsAppService {
         }
         this.recentSentTexts.delete(text);
         return true;
+    }
+
+    private getAllowedChat(): string | null {
+        const now = Date.now();
+        if (now - this.allowedChatCache.ts > this.SETTINGS_CACHE_MS) {
+            this.allowedChatCache = {
+                value: getSettings().whatsapp?.allowed_chat ?? null,
+                ts: now,
+            };
+        }
+        return this.allowedChatCache.value;
     }
 
     private pruneStalePending(): void {

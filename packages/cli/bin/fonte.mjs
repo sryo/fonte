@@ -63,7 +63,7 @@ switch (command) {
 
     case 'torrent':
         if (!restArgs[0]) {
-            console.log('Usage: aitorrent torrent {add|list|status|pause|resume|remove|config}');
+            console.log('Usage: fonte torrent {add|list|status|pause|resume|remove|config}');
             process.exit(1);
         }
         runCliScript('torrent.js', restArgs);
@@ -73,7 +73,7 @@ switch (command) {
 
     case 'watchlist':
         if (!restArgs[0]) {
-            console.log('Usage: aitorrent watchlist {add|list|remove|check|search}');
+            console.log('Usage: fonte watchlist {add|list|remove|check|search}');
             process.exit(1);
         }
         runCliScript('watchlist.js', restArgs);
@@ -83,7 +83,7 @@ switch (command) {
 
     case 'subtitle':
         if (!restArgs[0]) {
-            console.log('Usage: aitorrent subtitle {fetch|list|translate}');
+            console.log('Usage: fonte subtitle {fetch|list|translate}');
             process.exit(1);
         }
         runCliScript('subtitle.js', restArgs);
@@ -105,7 +105,7 @@ switch (command) {
 
     case 'send':
         if (!restArgs[0]) {
-            console.log('Usage: aitorrent send <message>');
+            console.log('Usage: fonte send <message>');
             process.exit(1);
         }
         runCliScript('messaging.js', ['send', restArgs[0]]);
@@ -119,33 +119,33 @@ switch (command) {
                 runCliScript('agent.js', ['add']);
                 break;
             case 'remove': case 'rm':
-                if (!restArgs[1]) { console.log('Usage: aitorrent agent remove <agent_id>'); process.exit(1); }
+                if (!restArgs[1]) { console.log('Usage: fonte agent remove <agent_id>'); process.exit(1); }
                 runCliScript('agent.js', ['remove', restArgs[1]]);
                 break;
             case 'list': case 'ls':
                 runCliScript('agent.js', ['list']);
                 break;
             case 'show':
-                if (!restArgs[1]) { console.log('Usage: aitorrent agent show <agent_id>'); process.exit(1); }
+                if (!restArgs[1]) { console.log('Usage: fonte agent show <agent_id>'); process.exit(1); }
                 runCliScript('agent.js', ['show', restArgs[1]]);
                 break;
             case 'reset':
-                if (!restArgs[1]) { console.log('Usage: aitorrent agent reset <agent_id> [...]'); process.exit(1); }
+                if (!restArgs[1]) { console.log('Usage: fonte agent reset <agent_id> [...]'); process.exit(1); }
                 runCliScript('agent.js', ['reset', ...restArgs.slice(1)]);
                 break;
             case 'provider':
-                if (!restArgs[1]) { console.log('Usage: aitorrent agent provider <agent_id> [provider] [--model MODEL]'); process.exit(1); }
+                if (!restArgs[1]) { console.log('Usage: fonte agent provider <agent_id> [provider] [--model MODEL]'); process.exit(1); }
                 runCliScript('agent.js', ['provider', ...restArgs.slice(1)]);
                 break;
             default:
-                console.log('Usage: aitorrent agent {list|add|remove|show|reset|provider}');
+                console.log('Usage: fonte agent {list|add|remove|show|reset|provider}');
                 process.exit(1);
         }
         break;
 
     case 'reset':
         if (!restArgs[0]) {
-            console.log('Usage: aitorrent reset <agent_id> [agent_id2 ...]');
+            console.log('Usage: fonte reset <agent_id> [agent_id2 ...]');
             process.exit(1);
         }
         runCliScript('agent.js', ['reset', ...restArgs]);
@@ -162,7 +162,7 @@ switch (command) {
                 runCliScript('agent.js', ['provider-add']);
                 break;
             case 'remove': case 'rm':
-                if (!restArgs[1]) { console.log('Usage: aitorrent provider remove <provider_id>'); process.exit(1); }
+                if (!restArgs[1]) { console.log('Usage: fonte provider remove <provider_id>'); process.exit(1); }
                 runCliScript('agent.js', ['provider-remove', restArgs[1]]);
                 break;
             case 'anthropic': case 'openai':
@@ -172,7 +172,7 @@ switch (command) {
                 runCliScript('provider.js', ['show']);
                 break;
             default:
-                console.log('Usage: aitorrent provider {anthropic|openai|list|add|remove} [--model MODEL]');
+                console.log('Usage: fonte provider {anthropic|openai|list|add|remove} [--model MODEL]');
                 process.exit(1);
         }
         break;
@@ -186,14 +186,14 @@ switch (command) {
     case 'ui': case 'web': case 'office': {
         const officeDir = path.join(REPO_ROOT, 'dashboard');
         if (!fs.existsSync(path.join(officeDir, 'node_modules'))) {
-            log(BLUE, 'Installing AITorrent Dashboard dependencies...');
+            log(BLUE, 'Installing Fonte Dashboard dependencies...');
             execSync(`cd "${officeDir}" && npm install`, { stdio: 'inherit' });
         }
         if (!fs.existsSync(path.join(officeDir, '.next/BUILD_ID'))) {
-            log(BLUE, 'Building AITorrent Dashboard...');
+            log(BLUE, 'Building Fonte Dashboard...');
             execSync(`cd "${officeDir}" && npm run build`, { stdio: 'inherit' });
         }
-        log(GREEN, 'Starting AITorrent Dashboard on http://localhost:3000');
+        log(GREEN, 'Starting Fonte Dashboard on http://localhost:3000');
         const child = spawn('npm', ['run', 'start'], { cwd: officeDir, stdio: 'inherit' });
         child.on('exit', (code) => process.exit(code || 0));
         break;
@@ -209,12 +209,12 @@ switch (command) {
 
     case '--help': case '-h': case 'help':
         console.log('');
-        console.log('Usage: aitorrent [command]');
+        console.log('Usage: fonte [command]');
         console.log('');
         console.log('Daemon:');
-        console.log('  start                    Start AITorrent (default)');
+        console.log('  start                    Start Fonte (default)');
         console.log('  stop                     Stop all processes');
-        console.log('  restart                  Restart AITorrent');
+        console.log('  restart                  Restart Fonte');
         console.log('  status                   Show current status');
         console.log('');
         console.log('Torrents:');
@@ -259,6 +259,6 @@ switch (command) {
 
     default:
         console.log(`Unknown command: ${command}`);
-        console.log('Run "aitorrent --help" for usage information.');
+        console.log('Run "fonte --help" for usage information.');
         process.exit(1);
 }

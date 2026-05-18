@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# AITorrent — macOS Installer
+# Fonte — macOS Installer
 #
 # Bootstraps everything from scratch:
 #   1. Homebrew (if missing)
@@ -8,7 +8,7 @@
 #   3. Transmission (torrent backend)
 #   4. Jackett (torrent indexer)
 #   5. npm dependencies + build
-#   6. AITorrent.app (magnet: and .torrent file handler)
+#   6. Fonte.app (magnet: and .torrent file handler)
 #   7. Write default settings with Jackett API key
 #   8. LaunchAgent so the daemon auto-starts at login
 #
@@ -16,9 +16,9 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_SOURCE="$SCRIPT_DIR/AITorrent.app"
-APP_DEST="$HOME/Applications/AITorrent.app"
-CONFIG_DIR="$HOME/.aitorrent"
+APP_SOURCE="$SCRIPT_DIR/Fonte.app"
+APP_DEST="$HOME/Applications/Fonte.app"
+CONFIG_DIR="$HOME/.fonte"
 
 echo ""
 echo "  █▀█ █   ▀█▀ █▀█ █▀▄ █▀▄ █▀▀ █▄ █ ▀█▀"
@@ -147,7 +147,7 @@ else
     echo "  Warning: Could not read Jackett API key. Configure manually in settings."
 fi
 
-# ── Step 5: Build AITorrent ──────────────────────────────────────────────────
+# ── Step 5: Build Fonte ──────────────────────────────────────────────────
 
 echo ""
 echo "[5/8] Installing dependencies and building..."
@@ -156,20 +156,20 @@ npm install 2>&1 | tail -1
 npm run build 2>&1 | tail -1
 echo "  Built successfully."
 
-# ── Step 6: Install AITorrent.app ────────────────────────────────────────────
+# ── Step 6: Install Fonte.app ────────────────────────────────────────────
 
 echo ""
-echo "[6/8] Installing AITorrent.app..."
+echo "[6/8] Installing Fonte.app..."
 
 if [ ! -d "$APP_SOURCE" ]; then
-    echo "  Error: AITorrent.app not found at $APP_SOURCE"
+    echo "  Error: Fonte.app not found at $APP_SOURCE"
     exit 1
 fi
 
 mkdir -p "$HOME/Applications"
 rm -rf "$APP_DEST"
 cp -R "$APP_SOURCE" "$APP_DEST"
-chmod +x "$APP_DEST/Contents/MacOS/aitorrent-handler"
+chmod +x "$APP_DEST/Contents/MacOS/fonte-handler"
 
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP_DEST"
 
@@ -181,29 +181,29 @@ echo ""
 echo "[7/8] Writing settings..."
 
 mkdir -p "$CONFIG_DIR/logs"
-mkdir -p "$HOME/Downloads/aitorrent"
+mkdir -p "$HOME/Downloads/fonte"
 
 # Only write settings if they don't exist yet
 if [ ! -f "$CONFIG_DIR/settings.json" ]; then
     cat > "$CONFIG_DIR/settings.json" <<EOF
 {
   "workspace": {
-    "path": "$HOME/aitorrent-workspace",
-    "name": "AITorrent"
+    "path": "$HOME/fonte-workspace",
+    "name": "Fonte"
   },
   "models": {
     "provider": "anthropic"
   },
   "agents": {
-    "aitorrent": {
-      "name": "AITorrent Agent",
+    "fonte": {
+      "name": "Fonte Agent",
       "provider": "anthropic",
       "model": "sonnet",
-      "working_directory": "$HOME/aitorrent-workspace/aitorrent"
+      "working_directory": "$HOME/fonte-workspace/fonte"
     }
   },
   "torrent": {
-    "download_dir": "$HOME/Downloads/aitorrent",
+    "download_dir": "$HOME/Downloads/fonte",
     "max_concurrent": 5,
     "max_download_speed": 0,
     "max_upload_speed": 0,
@@ -251,10 +251,10 @@ echo "[8/8] Configuring auto-start at login..."
 
 NODE_BIN="$(command -v node)"
 NPM_BIN="$(command -v npm)"
-AITORRENT_BIN="$SCRIPT_DIR/packages/cli/bin/aitorrent.mjs"
+AITORRENT_BIN="$SCRIPT_DIR/packages/cli/bin/fonte.mjs"
 DASHBOARD_DIR="$SCRIPT_DIR/dashboard"
-DAEMON_PLIST="$HOME/Library/LaunchAgents/com.aitorrent.daemon.plist"
-DASHBOARD_PLIST="$HOME/Library/LaunchAgents/com.aitorrent.dashboard.plist"
+DAEMON_PLIST="$HOME/Library/LaunchAgents/com.fonte.daemon.plist"
+DASHBOARD_PLIST="$HOME/Library/LaunchAgents/com.fonte.dashboard.plist"
 
 mkdir -p "$HOME/Library/LaunchAgents"
 
@@ -269,7 +269,7 @@ cat > "$DAEMON_PLIST" <<EOF
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.aitorrent.daemon</string>
+    <string>com.fonte.daemon</string>
     <key>ProgramArguments</key>
     <array>
         <string>$NODE_BIN</string>
@@ -312,7 +312,7 @@ cat > "$DASHBOARD_PLIST" <<EOF
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.aitorrent.dashboard</string>
+    <string>com.fonte.dashboard</string>
     <key>ProgramArguments</key>
     <array>
         <string>$NPM_BIN</string>
@@ -354,14 +354,14 @@ echo "  Installation complete!"
 echo "============================================"
 echo ""
 echo "Usage:"
-echo "  aitorrent start              Start the daemon"
-echo "  aitorrent torrent add <url>  Add a magnet link"
-echo "  aitorrent watchlist add \"Movie Name\" --year 2025"
-echo "  aitorrent ui                 Open web dashboard"
+echo "  fonte start              Start the daemon"
+echo "  fonte torrent add <url>  Add a magnet link"
+echo "  fonte watchlist add \"Movie Name\" --year 2025"
+echo "  fonte ui                 Open web dashboard"
 echo ""
 echo "File associations:"
-echo "  - magnet: links → AITorrent"
-echo "  - .torrent files → AITorrent"
+echo "  - magnet: links → Fonte"
+echo "  - .torrent files → Fonte"
 echo ""
 echo "Auto-start at login:"
 echo "  - Daemon  → http://localhost:3777"

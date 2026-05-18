@@ -1,5 +1,5 @@
 const DEFAULT_API_BASE = "http://localhost:3777";
-const STORAGE_KEY = "aitorrent_api_base";
+const STORAGE_KEY = "fonte_api_base";
 
 /** Resolve the API base URL. Priority: env > localStorage > default. */
 export function getApiBase(): string {
@@ -21,7 +21,7 @@ export function setApiBase(url: string | null): void {
   }
 }
 
-/** Check if the AITorrent API is reachable at the given (or current) base URL. */
+/** Check if the Fonte API is reachable at the given (or current) base URL. */
 export async function checkConnection(baseUrl?: string): Promise<boolean> {
   const base = baseUrl ?? getApiBase();
   try {
@@ -310,7 +310,14 @@ export async function restartService(): Promise<{ ok: boolean; action: string }>
   return apiFetch("/api/services/restart", { method: "POST" });
 }
 
-// ── Custom Providers ──────────────────────────────────────────────────────
+// ── Providers ─────────────────────────────────────────────────────────────
+
+export const BUILTIN_PROVIDERS = [
+  { id: "anthropic", name: "Anthropic" },
+  { id: "openai", name: "OpenAI" },
+  { id: "gemini", name: "Gemini" },
+  { id: "opencode", name: "OpenCode" },
+] as const;
 
 export interface CustomProvider {
   name: string;

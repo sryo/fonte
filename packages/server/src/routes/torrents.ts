@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import { getTorrentManager } from '@aitorrent/torrent';
-import type { TorrentStatus } from '@aitorrent/torrent';
-import { log } from '@aitorrent/core';
+import { getTorrentManager } from '@fonte/torrent';
+import type { TorrentStatus } from '@fonte/torrent';
+import { log } from '@fonte/core';
 
 const app = new Hono();
 

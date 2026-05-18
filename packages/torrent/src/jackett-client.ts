@@ -1,4 +1,4 @@
-import { log } from '@aitorrent/core';
+import { log } from '@fonte/core';
 
 export interface JackettResult {
     title: string;

@@ -5,7 +5,7 @@ import {
     ackResponse, enqueueResponse,
     getDeadMessages, retryDeadMessage, deleteDeadMessage,
     getProcessingMessages, failMessage, getActiveAgentIds, killAgentProcess, queueEvents,
-} from '@aitorrent/core';
+} from '@fonte/core';
 
 export function createQueueRoutes() {
     const app = new Hono();

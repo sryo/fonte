@@ -34,7 +34,7 @@ function apiRequest<T = any>(method: string, path: string, body?: unknown): Prom
         });
 
         req.on('error', (err) => {
-            reject(new Error(`API request failed: ${err.message}. Is the daemon running? (aitorrent start)`));
+            reject(new Error(`API request failed: ${err.message}. Is the daemon running? (fonte start)`));
         });
 
         if (payload) req.write(payload);
@@ -217,7 +217,7 @@ async function torrentConfig(key?: string, value?: string) {
     }
 
     if (!value) {
-        p.log.error(`Usage: aitorrent torrent config <key> <value>`);
+        p.log.error(`Usage: fonte torrent config <key> <value>`);
         process.exit(1);
     }
 
@@ -252,7 +252,7 @@ const arg2 = process.argv[4];
         switch (command) {
             case 'add':
                 if (!arg1) {
-                    p.log.error('Usage: aitorrent torrent add <magnet_uri_or_path>');
+                    p.log.error('Usage: fonte torrent add <magnet_uri_or_path>');
                     process.exit(1);
                 }
                 await torrentAdd(arg1);
@@ -262,28 +262,28 @@ const arg2 = process.argv[4];
                 break;
             case 'status':
                 if (!arg1) {
-                    p.log.error('Usage: aitorrent torrent status <id>');
+                    p.log.error('Usage: fonte torrent status <id>');
                     process.exit(1);
                 }
                 await torrentStatus(arg1);
                 break;
             case 'pause':
                 if (!arg1) {
-                    p.log.error('Usage: aitorrent torrent pause <id>');
+                    p.log.error('Usage: fonte torrent pause <id>');
                     process.exit(1);
                 }
                 await torrentPause(arg1);
                 break;
             case 'resume':
                 if (!arg1) {
-                    p.log.error('Usage: aitorrent torrent resume <id>');
+                    p.log.error('Usage: fonte torrent resume <id>');
                     process.exit(1);
                 }
                 await torrentResume(arg1);
                 break;
             case 'remove': case 'rm':
                 if (!arg1) {
-                    p.log.error('Usage: aitorrent torrent remove <id> [--delete-files]');
+                    p.log.error('Usage: fonte torrent remove <id> [--delete-files]');
                     process.exit(1);
                 }
                 await torrentRemove(arg1, process.argv.includes('--delete-files'));
@@ -292,7 +292,7 @@ const arg2 = process.argv[4];
                 await torrentConfig(arg1, arg2);
                 break;
             default:
-                console.log('Usage: aitorrent torrent {add|list|status|pause|resume|remove|config}');
+                console.log('Usage: fonte torrent {add|list|status|pause|resume|remove|config}');
                 process.exit(1);
         }
     } catch (err) {

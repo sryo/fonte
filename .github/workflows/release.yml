@@ -61,9 +61,9 @@ jobs:
       - name: Create bundle tarball
         run: |
           VERSION="${{ steps.get_version.outputs.version }}"
-          BUNDLE_NAME="aitorrent-bundle.tar.gz"
+          BUNDLE_NAME="fonte-bundle.tar.gz"
           TEMP_DIR=$(mktemp -d)
-          BUNDLE_DIR="$TEMP_DIR/aitorrent"
+          BUNDLE_DIR="$TEMP_DIR/fonte"
 
           mkdir -p "$BUNDLE_DIR"
 
@@ -78,10 +78,10 @@ jobs:
           cp LICENSE "$BUNDLE_DIR/"
           cp .gitignore "$BUNDLE_DIR/"
 
-          chmod +x "$BUNDLE_DIR/packages/cli/bin/aitorrent.mjs"
+          chmod +x "$BUNDLE_DIR/packages/cli/bin/fonte.mjs"
 
           cd "$TEMP_DIR"
-          tar -czf "$GITHUB_WORKSPACE/$BUNDLE_NAME" aitorrent/
+          tar -czf "$GITHUB_WORKSPACE/$BUNDLE_NAME" fonte/
 
           BUNDLE_SIZE=$(du -h "$GITHUB_WORKSPACE/$BUNDLE_NAME" | cut -f1)
           echo "Bundle created: $BUNDLE_NAME ($BUNDLE_SIZE)"
@@ -97,7 +97,7 @@ jobs:
             git cat-file -p "refs/tags/$VERSION" | sed '1,/^$/d' > release_notes.md
           fi
           if [ ! -s release_notes.md ]; then
-            echo "## AITorrent $VERSION" > release_notes.md
+            echo "## Fonte $VERSION" > release_notes.md
           fi
 
       - name: Create GitHub Release
@@ -105,7 +105,7 @@ jobs:
         if: github.ref_type == 'tag'
         with:
           body_path: release_notes.md
-          files: aitorrent-bundle.tar.gz
+          files: fonte-bundle.tar.gz
           draft: false
           prerelease: false
         env:
@@ -115,6 +115,6 @@ jobs:
         if: github.ref_type != 'tag'
         uses: actions/upload-artifact@v4
         with:
-          name: aitorrent-bundle
-          path: aitorrent-bundle.tar.gz
+          name: fonte-bundle
+          path: fonte-bundle.tar.gz
           retention-days: 7

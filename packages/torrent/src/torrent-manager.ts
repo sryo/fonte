@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
-import { log, emitEvent } from '@aitorrent/core';
-import { genId } from '@aitorrent/core';
+import { log, emitEvent } from '@fonte/core';
+import { genId } from '@fonte/core';
 import { TorrentConfig, TorrentRecord, TorrentFileRecord, TorrentStats, TorrentStatus } from './types';
 import { TORRENT_EVENTS } from './torrent-events';
 import {
@@ -12,7 +12,7 @@ import {
 } from './torrent-db';
 
 const DEFAULT_CONFIG: TorrentConfig = {
-    download_dir: path.join(require('os').homedir(), 'Downloads', 'aitorrent'),
+    download_dir: path.join(require('os').homedir(), 'Downloads', 'fonte'),
     max_concurrent: 5,
     max_download_speed: 0,
     max_upload_speed: 0,

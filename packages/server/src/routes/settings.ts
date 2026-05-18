@@ -2,9 +2,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { Hono } from 'hono';
-import { Settings } from '@aitorrent/core';
-import { SETTINGS_FILE, AITORRENT_HOME, getSettings, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@aitorrent/core';
-import { log } from '@aitorrent/core';
+import { Settings } from '@fonte/core';
+import { SETTINGS_FILE, AITORRENT_HOME, getSettings, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@fonte/core';
+import { log } from '@fonte/core';
 
 /** Read, mutate, and persist settings.json atomically. */
 export function mutateSettings(fn: (settings: Settings) => void): Settings {

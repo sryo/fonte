@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { Hono } from 'hono';
-import { LOG_FILE } from '@aitorrent/core';
+import { LOG_FILE } from '@fonte/core';
 
 const app = new Hono();
 

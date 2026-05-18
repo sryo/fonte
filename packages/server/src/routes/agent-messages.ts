@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { getAgentMessages } from '@aitorrent/core';
+import { getAgentMessages } from '@fonte/core';
 
 const app = new Hono();
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * AITorrent WhatsApp Channel
+ * Fonte WhatsApp Channel
  *
  * Connects to WhatsApp Web via QR code, listens for messages,
- * forwards them to the AITorrent API, and sends responses back.
+ * forwards them to the Fonte API, and sends responses back.
  *
  * Usage: node whatsapp.js
  */
@@ -16,7 +16,7 @@ import path from 'path';
 
 const API_PORT = process.env.AITORRENT_API_PORT || '3777';
 const API_URL = `http://localhost:${API_PORT}`;
-const AITORRENT_HOME = process.env.AITORRENT_HOME || path.join(require('os').homedir(), '.aitorrent');
+const AITORRENT_HOME = process.env.AITORRENT_HOME || path.join(require('os').homedir(), '.fonte');
 const SESSION_DIR = path.join(AITORRENT_HOME, 'whatsapp-session');
 
 // Approved chat IDs (loaded from settings or auto-approved on first message)
@@ -95,7 +95,7 @@ async function pollResponses(client: Client): Promise<void> {
 // ── Main ────────────────────────────────────────────────────────────────────
 
 console.log('');
-console.log('  AITorrent WhatsApp Channel');
+console.log('  Fonte WhatsApp Channel');
 console.log('  ─────────────────────────');
 console.log('');
 
@@ -118,7 +118,7 @@ client.on('qr', (qr: string) => {
 
 client.on('ready', () => {
     console.log('  WhatsApp connected!');
-    console.log('  Send a message to any approved chat to control AITorrent.');
+    console.log('  Send a message to any approved chat to control Fonte.');
     console.log('  First message from a new chat will ask for approval.');
     console.log('');
 
@@ -146,17 +146,17 @@ client.on('message', async (msg: Message) => {
         console.log(`[WhatsApp] Auto-approved chat: ${chatId}`);
     }
 
-    // Forward to AITorrent agent
+    // Forward to Fonte agent
     try {
         const result = await sendToAgent(text, sender, chatId);
         if (result?.ok) {
             console.log(`[WhatsApp] Message queued: ${result.messageId}`);
         } else {
-            await msg.reply('Could not process your request. Is the AITorrent daemon running?');
+            await msg.reply('Could not process your request. Is the Fonte daemon running?');
         }
     } catch (err) {
         console.error(`[WhatsApp] API error:`, (err as Error).message);
-        await msg.reply('AITorrent daemon is not reachable. Start it with: aitorrent start');
+        await msg.reply('Fonte daemon is not reachable. Start it with: fonte start');
     }
 });
 

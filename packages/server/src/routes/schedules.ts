@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { getSchedules, addSchedule, removeSchedule, updateSchedule } from '@aitorrent/core';
+import { getSchedules, addSchedule, removeSchedule, updateSchedule } from '@fonte/core';
 
 const app = new Hono();
 

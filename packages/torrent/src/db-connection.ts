@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import { AITORRENT_HOME } from '@aitorrent/core';
+import { AITORRENT_HOME } from '@fonte/core';
 
 const DB_PATH = path.join(AITORRENT_HOME, 'torrents.db');
 

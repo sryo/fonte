@@ -1,4 +1,4 @@
-# AITorrent
+# Fonte
 
 AI-powered torrent download manager with a REST API, CLI, and Next.js web UI.
 
@@ -8,7 +8,7 @@ AI-powered torrent download manager with a REST API, CLI, and Next.js web UI.
 - WebTorrent engine for browser-compatible downloading
 - REST API for programmatic torrent management
 - Full-featured CLI for adding, removing, and monitoring torrents
-- Next.js web dashboard (AITorrent Dashboard) for real-time status and control
+- Next.js web dashboard (Fonte Dashboard) for real-time status and control
 - AI agent integration for intelligent download management
 - SQLite-backed persistent queue and state
 - Parallel torrent processing with per-torrent status tracking
@@ -25,20 +25,20 @@ AI-powered torrent download manager with a REST API, CLI, and Next.js web UI.
 ```bash
 npm install
 npm run build
-aitorrent start
+fonte start
 ```
 
 ### Add a Torrent
 
 ```bash
-aitorrent torrent add <magnet-link>
-aitorrent torrent add /path/to/file.torrent
+fonte torrent add <magnet-link>
+fonte torrent add /path/to/file.torrent
 ```
 
 ### Open the Web UI
 
 ```bash
-aitorrent office
+fonte office
 ```
 
 The web dashboard starts on `http://localhost:3000` and connects to the API at `http://localhost:3777`.
@@ -55,26 +55,26 @@ Set your API key via environment variable or `.env` file:
 ANTHROPIC_API_KEY=sk-ant-... docker compose up -d
 ```
 
-Data is persisted in an `aitorrent-data` Docker volume.
+Data is persisted in an `fonte-data` Docker volume.
 
 ## CLI Commands
 
 | Command                          | Description                          |
 | -------------------------------- | ------------------------------------ |
-| `aitorrent start`               | Start the AITorrent daemon           |
-| `aitorrent stop`                | Stop all processes                   |
-| `aitorrent restart`             | Restart the daemon                   |
-| `aitorrent status`              | Show daemon and torrent status       |
-| `aitorrent torrent add <src>`   | Add a torrent (magnet or .torrent)   |
-| `aitorrent torrent list`        | List all torrents and their status   |
-| `aitorrent torrent remove <id>` | Remove a torrent                     |
-| `aitorrent torrent pause <id>`  | Pause a torrent                      |
-| `aitorrent torrent resume <id>` | Resume a paused torrent              |
-| `aitorrent agent list`          | List configured AI agents            |
-| `aitorrent agent add`           | Add a new AI agent (interactive)     |
-| `aitorrent logs [type]`         | View logs (queue, heartbeat, all)    |
-| `aitorrent office`              | Start the web UI on port 3000        |
-| `aitorrent update`              | Update to the latest version         |
+| `fonte start`               | Start the Fonte daemon           |
+| `fonte stop`                | Stop all processes                   |
+| `fonte restart`             | Restart the daemon                   |
+| `fonte status`              | Show daemon and torrent status       |
+| `fonte torrent add <src>`   | Add a torrent (magnet or .torrent)   |
+| `fonte torrent list`        | List all torrents and their status   |
+| `fonte torrent remove <id>` | Remove a torrent                     |
+| `fonte torrent pause <id>`  | Pause a torrent                      |
+| `fonte torrent resume <id>` | Resume a paused torrent              |
+| `fonte agent list`          | List configured AI agents            |
+| `fonte agent add`           | Add a new AI agent (interactive)     |
+| `fonte logs [type]`         | View logs (queue, heartbeat, all)    |
+| `fonte office`              | Start the web UI on port 3000        |
+| `fonte update`              | Update to the latest version         |
 
 ## API Endpoints
 
@@ -93,7 +93,7 @@ Data is persisted in an `aitorrent-data` Docker volume.
 ## Architecture
 
 ```
-aitorrent/
+fonte/
 ├── packages/
 │   ├── core/          # Shared types, config, queue, agent invocation
 │   ├── torrent/       # WebTorrent engine wrapper and torrent management
@@ -101,9 +101,9 @@ aitorrent/
 │   ├── main/          # Daemon entry point and process orchestration
 │   └── cli/           # CLI commands (commander-based)
 ├── dashboard/        # Next.js web dashboard
-├── .aitorrent/        # Runtime data (created on first run)
+├── .fonte/        # Runtime data (created on first run)
 │   ├── settings.json  #   Configuration
-│   ├── aitorrent.db   #   SQLite database
+│   ├── fonte.db   #   SQLite database
 │   ├── logs/          #   Log files
 │   └── files/         #   Downloaded and uploaded files
 └── scripts/           # Installation and helper scripts
@@ -120,26 +120,26 @@ aitorrent/
 
 ## Configuration
 
-Settings are stored in `.aitorrent/settings.json` and can be edited directly or through the web UI.
+Settings are stored in `.fonte/settings.json` and can be edited directly or through the web UI.
 
 ```json
 {
   "workspace": {
-    "path": "~/aitorrent-workspace",
-    "name": "aitorrent-workspace"
+    "path": "~/fonte-workspace",
+    "name": "fonte-workspace"
   },
   "torrent": {
-    "download_path": "~/aitorrent-workspace/downloads",
+    "download_path": "~/fonte-workspace/downloads",
     "max_connections": 100,
     "upload_limit": 0,
     "download_limit": 0
   },
   "agents": {
-    "aitorrent": {
-      "name": "AITorrent Agent",
+    "fonte": {
+      "name": "Fonte Agent",
       "provider": "anthropic",
       "model": "opus",
-      "working_directory": "~/aitorrent-workspace/aitorrent"
+      "working_directory": "~/fonte-workspace/fonte"
     }
   },
   "models": {

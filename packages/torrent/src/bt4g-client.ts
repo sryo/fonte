@@ -1,4 +1,4 @@
-import { log } from '@aitorrent/core';
+import { log } from '@fonte/core';
 
 export interface Bt4gResult {
     title: string;
@@ -13,7 +13,7 @@ export async function searchBt4g(query: string): Promise<Bt4gResult[]> {
     const url = `https://bt4gprx.com/search?q=${encodeURIComponent(query)}&page=rss`;
 
     const res = await fetch(url, {
-        headers: { 'User-Agent': 'AITorrent/1.0' },
+        headers: { 'User-Agent': 'Fonte/1.0' },
         signal: AbortSignal.timeout(15000),
     });
 

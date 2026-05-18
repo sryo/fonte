@@ -34,7 +34,7 @@ function apiRequest<T = any>(method: string, path: string, body?: unknown): Prom
         });
 
         req.on('error', (err) => {
-            reject(new Error(`API request failed: ${err.message}. Is the daemon running? (aitorrent start)`));
+            reject(new Error(`API request failed: ${err.message}. Is the daemon running? (fonte start)`));
         });
 
         if (payload) req.write(payload);
@@ -211,7 +211,7 @@ const arg1 = process.argv[3];
         switch (command) {
             case 'add':
                 if (!arg1) {
-                    p.log.error('Usage: aitorrent watchlist add <title> [--type movie|tv|music|game|book|app|other] [--year N] [--quality Q] [--season S03]');
+                    p.log.error('Usage: fonte watchlist add <title> [--type movie|tv|music|game|book|app|other] [--year N] [--quality Q] [--season S03]');
                     process.exit(1);
                 }
                 await watchlistAdd(arg1);
@@ -221,7 +221,7 @@ const arg1 = process.argv[3];
                 break;
             case 'remove': case 'rm':
                 if (!arg1) {
-                    p.log.error('Usage: aitorrent watchlist remove <id>');
+                    p.log.error('Usage: fonte watchlist remove <id>');
                     process.exit(1);
                 }
                 await watchlistRemove(arg1);
@@ -231,13 +231,13 @@ const arg1 = process.argv[3];
                 break;
             case 'search':
                 if (!arg1) {
-                    p.log.error('Usage: aitorrent watchlist search <id>');
+                    p.log.error('Usage: fonte watchlist search <id>');
                     process.exit(1);
                 }
                 await watchlistSearch(arg1);
                 break;
             default:
-                console.log('Usage: aitorrent watchlist {add|list|remove|check|search}');
+                console.log('Usage: fonte watchlist {add|list|remove|check|search}');
                 process.exit(1);
         }
     } catch (err) {

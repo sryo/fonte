@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { log, emitEvent, enqueueMessage, insertAgentMessage, genId, parseAgentRouting, getAgents, getSettings } from '@aitorrent/core';
+import { log, emitEvent, enqueueMessage, insertAgentMessage, genId, parseAgentRouting, getAgents, getSettings } from '@fonte/core';
 
 const app = new Hono();
 

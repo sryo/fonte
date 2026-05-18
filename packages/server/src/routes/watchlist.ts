@@ -6,9 +6,9 @@ import {
     getTorrentManager,
     runWatchlistCheck, searchJackett, searchBt4g,
     searchTmdb,
-} from '@aitorrent/torrent';
-import type { WatchlistStatus, MediaType } from '@aitorrent/torrent';
-import { log, genId, getSettings } from '@aitorrent/core';
+} from '@fonte/torrent';
+import type { WatchlistStatus, MediaType } from '@fonte/torrent';
+import { log, genId, getSettings } from '@fonte/core';
 
 const CATEGORY_MAP: Record<string, number> = {
     movie: 2000,

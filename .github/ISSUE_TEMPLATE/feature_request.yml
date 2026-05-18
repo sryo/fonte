@@ -12,7 +12,7 @@ body:
     id: component
     attributes:
       label: Component
-      description: Which part of AITorrent does this relate to?
+      description: Which part of Fonte does this relate to?
       options:
         - "Torrent engine (downloads, seeding)"
         - "REST API"

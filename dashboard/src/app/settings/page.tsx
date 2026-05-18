@@ -23,6 +23,7 @@ import {
   getCustomProviders,
   saveCustomProvider,
   deleteCustomProvider,
+  BUILTIN_PROVIDERS,
   type Settings,
   type TorrentConfig,
   type AgentConfig,
@@ -184,7 +185,7 @@ export default function SettingsPage() {
           Settings
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Configure AITorrent modules and integrations
+          Configure Fonte modules and integrations
         </p>
       </div>
 
@@ -299,7 +300,7 @@ export default function SettingsPage() {
       </div>
 
       <p className="text-center text-xs text-muted-foreground pt-4">
-        AITorrent v0.0.20
+        Fonte v0.0.20
       </p>
     </div>
   );
@@ -310,7 +311,8 @@ export default function SettingsPage() {
 function WhatsAppSection() {
   const [status, setStatus] = useState<string>("disconnected");
   const [qr, setQr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [pairingLoading, setPairingLoading] = useState(false);
   const [showPairing, setShowPairing] = useState(false);
   const [phone, setPhone] = useState("");
   const [pairingCode, setPairingCode] = useState<string | null>(null);
@@ -350,15 +352,15 @@ function WhatsAppSection() {
   }, [qr]);
 
   const handleConnect = async () => {
-    setLoading(true);
+    setConnectLoading(true);
     try {
       await startWhatsApp();
     } catch {}
-    setLoading(false);
+    setConnectLoading(false);
   };
 
   const handleDisconnect = async () => {
-    setLoading(true);
+    setConnectLoading(true);
     try {
       await stopWhatsApp();
       setStatus("disconnected");
@@ -366,20 +368,20 @@ function WhatsAppSection() {
       setShowPairing(false);
       setPairingCode(null);
     } catch {}
-    setLoading(false);
+    setConnectLoading(false);
   };
 
   const handleRequestPairing = async () => {
     setPairingError(null);
     if (!phone.trim()) return;
-    setLoading(true);
+    setPairingLoading(true);
     try {
       const res = await requestWhatsAppPairingCode(phone.trim());
       setPairingCode(res.code);
     } catch (err) {
       setPairingError((err as Error).message);
     }
-    setLoading(false);
+    setPairingLoading(false);
   };
 
   return (
@@ -388,7 +390,7 @@ function WhatsAppSection() {
         <div>
           <h3 className="text-sm font-semibold">WhatsApp</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Control AITorrent from your phone
+            Control Fonte from your phone
           </p>
         </div>
 
@@ -400,14 +402,14 @@ function WhatsAppSection() {
             <div className="flex gap-2">
               <button
                 onClick={handleConnect}
-                disabled={loading}
+                disabled={connectLoading}
                 className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
               >
-                {loading ? "Connecting..." : "Connect with QR"}
+                {connectLoading ? "Connecting..." : "Connect with QR"}
               </button>
               <button
                 onClick={() => { setShowPairing(true); setPairingCode(null); }}
-                disabled={loading}
+                disabled={connectLoading}
                 className="px-4 py-2 text-sm border rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
               >
                 Pair with phone number
@@ -459,10 +461,10 @@ function WhatsAppSection() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleRequestPairing}
-                    disabled={loading || !phone.trim()}
+                    disabled={pairingLoading || !phone.trim()}
                     className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50"
                   >
-                    {loading ? "Requesting..." : "Get pairing code"}
+                    {pairingLoading ? "Requesting..." : "Get pairing code"}
                   </button>
                   <button
                     onClick={() => { setShowPairing(false); setPhone(""); setPairingError(null); }}
@@ -495,7 +497,7 @@ function WhatsAppSection() {
               </div>
               <button
                 onClick={handleDisconnect}
-                disabled={loading}
+                disabled={connectLoading}
                 className="px-3 py-1.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
               >
                 Disconnect
@@ -744,10 +746,9 @@ function AgentsSection() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="anthropic">Anthropic</SelectItem>
-                    <SelectItem value="openai">OpenAI</SelectItem>
-                    <SelectItem value="gemini">Gemini</SelectItem>
-                    <SelectItem value="opencode">OpenCode</SelectItem>
+                    {BUILTIN_PROVIDERS.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
                     {Object.entries(providers).map(([id, p]) => (
                       <SelectItem key={id} value={`custom:${id}`}>
                         {p.name} (custom)
@@ -961,7 +962,7 @@ function AgentPersonalitySection() {
           Agent Personality
         </h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Define your agent&apos;s communication style. Saved to ~/.aitorrent/SOUL.md
+          Define your agent&apos;s communication style. Saved to ~/.fonte/SOUL.md
         </p>
       </div>
 
@@ -1393,13 +1394,6 @@ function ProviderSettingsCard({
 }
 
 // ── Providers Section (built-in + custom) ──────────────────────────────
-
-const BUILTIN_PROVIDERS = [
-  { id: "anthropic", name: "Anthropic" },
-  { id: "openai", name: "OpenAI" },
-  { id: "gemini", name: "Gemini" },
-  { id: "opencode", name: "OpenCode" },
-] as const;
 
 function ProvidersSection() {
   const [providers, setProviders] = useState<Record<string, CustomProvider>>({});

@@ -5,7 +5,7 @@ import { Settings, AgentConfig, TeamConfig, MODEL_ALIASES } from './types';
 
 export const SCRIPT_DIR = path.resolve(__dirname, '../../..');
 export const AITORRENT_HOME = process.env.AITORRENT_HOME
-    || path.join(require('os').homedir(), '.aitorrent');
+    || path.join(require('os').homedir(), '.fonte');
 export const LOG_FILE = path.join(AITORRENT_HOME, 'logs/queue.log');
 export const SETTINGS_FILE = path.join(AITORRENT_HOME, 'settings.json');
 export const CHATS_DIR = path.join(AITORRENT_HOME, 'chats');
@@ -73,11 +73,11 @@ export function getDefaultAgentFromModels(settings: Settings): AgentConfig {
     }
 
     // Get workspace path from settings or use default
-    const workspacePath = settings?.workspace?.path || path.join(require('os').homedir(), 'aitorrent-workspace');
-    const defaultAgentDir = path.join(workspacePath, 'aitorrent');
+    const workspacePath = settings?.workspace?.path || path.join(require('os').homedir(), 'fonte-workspace');
+    const defaultAgentDir = path.join(workspacePath, 'fonte');
 
     return {
-        name: 'AITorrent Agent',
+        name: 'Fonte Agent',
         provider,
         model,
         working_directory: defaultAgentDir,
@@ -85,7 +85,7 @@ export function getDefaultAgentFromModels(settings: Settings): AgentConfig {
 }
 
 /**
- * Get all configured agents. Falls back to a single "aitorrent" agent
+ * Get all configured agents. Falls back to a single "fonte" agent
  * derived from the legacy models section if no agents are configured.
  */
 export function getAgents(settings: Settings): Record<string, AgentConfig> {
@@ -93,7 +93,7 @@ export function getAgents(settings: Settings): Record<string, AgentConfig> {
         return settings.agents;
     }
     // Fall back to default agent from models section
-    return { aitorrent: getDefaultAgentFromModels(settings) };
+    return { fonte: getDefaultAgentFromModels(settings) };
 }
 
 /**

@@ -1,8 +1,8 @@
 import fs from 'fs';
 import { Hono } from 'hono';
-import { getWhatsAppService } from '@aitorrent/torrent';
-import { getSettings, SETTINGS_FILE, log } from '@aitorrent/core';
-import type { Settings } from '@aitorrent/core';
+import { getWhatsAppService } from '@fonte/torrent';
+import { getSettings, SETTINGS_FILE, log } from '@fonte/core';
+import type { Settings } from '@fonte/core';
 
 const app = new Hono();
 

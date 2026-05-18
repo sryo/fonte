@@ -34,7 +34,7 @@ function apiRequest<T = any>(method: string, path: string, body?: unknown): Prom
         });
 
         req.on('error', (err) => {
-            reject(new Error(`API request failed: ${err.message}. Is the daemon running? (aitorrent start)`));
+            reject(new Error(`API request failed: ${err.message}. Is the daemon running? (fonte start)`));
         });
 
         if (payload) req.write(payload);
@@ -139,27 +139,27 @@ const arg2 = process.argv[4];
         switch (command) {
             case 'fetch':
                 if (!arg1) {
-                    p.log.error('Usage: aitorrent subtitle fetch <torrent_id>');
+                    p.log.error('Usage: fonte subtitle fetch <torrent_id>');
                     process.exit(1);
                 }
                 await subtitleFetch(arg1);
                 break;
             case 'list': case 'ls':
                 if (!arg1) {
-                    p.log.error('Usage: aitorrent subtitle list <torrent_id>');
+                    p.log.error('Usage: fonte subtitle list <torrent_id>');
                     process.exit(1);
                 }
                 await subtitleList(arg1);
                 break;
             case 'translate':
                 if (!arg1 || !arg2) {
-                    p.log.error('Usage: aitorrent subtitle translate <subtitle_id> <lang>');
+                    p.log.error('Usage: fonte subtitle translate <subtitle_id> <lang>');
                     process.exit(1);
                 }
                 await subtitleTranslate(arg1, arg2);
                 break;
             default:
-                console.log('Usage: aitorrent subtitle {fetch|list|translate}');
+                console.log('Usage: fonte subtitle {fetch|list|translate}');
                 process.exit(1);
         }
     } catch (err) {

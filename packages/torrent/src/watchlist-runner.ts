@@ -1,5 +1,5 @@
 import { Cron } from 'croner';
-import { log, emitEvent, getSettings } from '@aitorrent/core';
+import { log, emitEvent, getSettings } from '@fonte/core';
 import { searchJackett, JackettResult } from './jackett-client';
 import { searchBt4g } from './bt4g-client';
 import {

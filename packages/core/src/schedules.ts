@@ -37,7 +37,7 @@ function fireSchedule(schedule: Schedule): void {
     const data: MessageJobData = {
         channel: schedule.channel,
         sender: schedule.sender,
-        senderId: `aitorrent-schedule:${schedule.label}`,
+        senderId: `fonte-schedule:${schedule.label}`,
         message: `@${schedule.agentId} ${schedule.message}`,
         messageId: msgId,
         agent: schedule.agentId,

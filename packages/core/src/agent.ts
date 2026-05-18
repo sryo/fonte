@@ -11,7 +11,7 @@ export const SOUL_PATH = path.join(AITORRENT_HOME, 'SOUL.md');
 
 const DEFAULT_SOUL = `# Soul
 
-You are AITorrent's assistant. Be direct and concise. Act immediately on requests — don't ask unnecessary questions. Report results briefly. If something fails, say what went wrong and what you'll try next.
+You are Fonte's assistant. Be direct and concise. Act immediately on requests — don't ask unnecessary questions. Report results briefly. If something fails, say what went wrong and what you'll try next.
 `;
 
 /**
@@ -111,8 +111,8 @@ export function ensureAgentDirectory(agentDir: string): void {
         // Create empty AGENTS.md for user customization
         fs.writeFileSync(path.join(agentDir, 'AGENTS.md'), '');
 
-        // Create .aitorrent directory and copy SOUL.md
-        const targetAitorrent = path.join(agentDir, '.aitorrent');
+        // Create .fonte directory and copy SOUL.md
+        const targetAitorrent = path.join(agentDir, '.fonte');
         fs.mkdirSync(targetAitorrent, { recursive: true });
         const sourceSoul = path.join(SCRIPT_DIR, 'SOUL.md');
         if (fs.existsSync(sourceSoul)) {

@@ -5,7 +5,7 @@
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { AITORRENT_HOME } from '@aitorrent/core';
+import { AITORRENT_HOME } from '@fonte/core';
 
 const LOG_DIR = path.join(AITORRENT_HOME, 'logs');
 

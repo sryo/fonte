@@ -4,7 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
-  title: "AITorrent",
+  title: "Fonte",
   description: "AI-Powered Torrent Download Manager",
 };
 

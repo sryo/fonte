@@ -1,5 +1,5 @@
 import http from 'http';
-import { onEvent } from '@aitorrent/core';
+import { onEvent } from '@fonte/core';
 
 const sseClients = new Set<http.ServerResponse>();
 

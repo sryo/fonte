@@ -1,20 +1,20 @@
 {
-  "name": "aitorrent",
+  "name": "fonte",
   "version": "0.0.20",
   "description": "AI-powered torrent download manager",
   "workspaces": [
     "packages/*"
   ],
   "bin": {
-    "aitorrent": "packages/cli/bin/aitorrent.mjs"
+    "fonte": "packages/cli/bin/fonte.mjs"
   },
   "scripts": {
     "build": "tsc --build",
-    "dev": "concurrently -k -n core,server,main \"npm run dev -w @aitorrent/core\" \"npm run dev -w @aitorrent/server\" \"npm run dev -w @aitorrent/main\"",
-    "build:core": "npm run build -w @aitorrent/core",
-    "build:server": "npm run build -w @aitorrent/server",
-    "start": "npm run start -w @aitorrent/main",
-    "server": "npm run start -w @aitorrent/server"
+    "dev": "concurrently -k -n core,server,main \"npm run dev -w @fonte/core\" \"npm run dev -w @fonte/server\" \"npm run dev -w @fonte/main\"",
+    "build:core": "npm run build -w @fonte/core",
+    "build:server": "npm run build -w @fonte/server",
+    "start": "npm run start -w @fonte/main",
+    "server": "npm run start -w @fonte/server"
   },
   "devDependencies": {
     "@types/node": "^25.2.2",

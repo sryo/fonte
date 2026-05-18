@@ -1,10 +1,10 @@
 {
-  "name": "@aitorrent/cli",
+  "name": "@fonte/cli",
   "version": "0.0.10",
   "type": "module",
   "main": "dist/shared.js",
   "bin": {
-    "aitorrent": "./bin/aitorrent.mjs"
+    "fonte": "./bin/fonte.mjs"
   },
   "scripts": {
     "build": "tsc",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.1.0",
-    "@aitorrent/core": "*",
+    "@fonte/core": "*",
     "whatsapp-web.js": "^1.26.1",
     "qrcode-terminal": "^0.12.0"
   }

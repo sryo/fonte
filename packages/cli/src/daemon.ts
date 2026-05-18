@@ -5,11 +5,11 @@
 import { execSync, spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { AITORRENT_HOME, SCRIPT_DIR } from '@aitorrent/core';
+import { AITORRENT_HOME, SCRIPT_DIR } from '@fonte/core';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const PID_FILE = path.join(AITORRENT_HOME, 'aitorrent.pid');
+const PID_FILE = path.join(AITORRENT_HOME, 'fonte.pid');
 const LOG_DIR = path.join(AITORRENT_HOME, 'logs');
 const API_PORT = parseInt(process.env.AITORRENT_API_PORT || '3777', 10);
 const API_URL = `http://localhost:${API_PORT}`;
@@ -76,13 +76,13 @@ export function formatUptime(seconds: number): string {
 
 export async function startDaemon(): Promise<void> {
     if (isRunning()) {
-        log(YELLOW, 'AITorrent is already running');
+        log(YELLOW, 'Fonte is already running');
         return;
     }
 
     const mainScript = getMainScript();
     if (!mainScript) {
-        log(RED, 'AITorrent is not built. Run "npm run build" first.');
+        log(RED, 'Fonte is not built. Run "npm run build" first.');
         process.exit(1);
     }
 
@@ -100,7 +100,7 @@ export async function startDaemon(): Promise<void> {
     fs.writeFileSync(PID_FILE, String(child.pid));
     child.unref();
 
-    log(GREEN, `AITorrent started (PID: ${child.pid})`);
+    log(GREEN, `Fonte started (PID: ${child.pid})`);
 
     const status = await waitForServer();
     if (status) {
@@ -133,18 +133,18 @@ export async function startDaemon(): Promise<void> {
 
 export function stopDaemon(): void {
     if (!fs.existsSync(PID_FILE)) {
-        log(YELLOW, 'AITorrent is not running');
+        log(YELLOW, 'Fonte is not running');
         return;
     }
 
     const pid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10);
     if (pid === 1) {
-        log(RED, 'AITorrent is running as PID 1 (container mode). Use "aitorrent restart" or "docker restart" instead.');
+        log(RED, 'Fonte is running as PID 1 (container mode). Use "fonte restart" or "docker restart" instead.');
         return;
     }
     try {
         process.kill(pid, 'SIGTERM');
-        log(GREEN, `AITorrent stopped (PID: ${pid})`);
+        log(GREEN, `Fonte stopped (PID: ${pid})`);
     } catch {
         log(YELLOW, 'Process already exited');
     }
@@ -153,7 +153,7 @@ export function stopDaemon(): void {
 
 export async function statusDaemon(): Promise<void> {
     if (!isRunning()) {
-        log(YELLOW, 'AITorrent is not running');
+        log(YELLOW, 'Fonte is not running');
         return;
     }
 
@@ -161,12 +161,12 @@ export async function statusDaemon(): Promise<void> {
     const status = await fetchStatus();
 
     if (!status?.ok) {
-        log(GREEN, `AITorrent is running (PID: ${pid})`);
+        log(GREEN, `Fonte is running (PID: ${pid})`);
         log(YELLOW, '  Server:    not responding');
         return;
     }
 
-    log(GREEN, `AITorrent is running (PID: ${pid}, uptime: ${formatUptime(status.uptime)})`);
+    log(GREEN, `Fonte is running (PID: ${pid}, uptime: ${formatUptime(status.uptime)})`);
     log(NC, `  Server:    ${GREEN}● http://localhost:${status.server?.port || API_PORT}${NC}`);
 
     // Queue status
@@ -216,14 +216,14 @@ export async function restartDaemon(): Promise<void> {
         const res = await fetch(`${API_URL}/api/services/restart`, { method: 'POST' });
         const data = await res.json() as any;
         if (data.ok) {
-            log(GREEN, 'AITorrent restarting...');
+            log(GREEN, 'Fonte restarting...');
             // Wait for the process to come back up
             await new Promise(r => setTimeout(r, 2000));
             const status = await waitForServer();
             if (status) {
-                log(GREEN, 'AITorrent restarted successfully');
+                log(GREEN, 'Fonte restarted successfully');
             } else {
-                log(YELLOW, 'AITorrent is restarting (may take a moment)');
+                log(YELLOW, 'Fonte is restarting (may take a moment)');
             }
             return;
         }
@@ -240,7 +240,7 @@ export async function restartDaemon(): Promise<void> {
 export async function openOffice(): Promise<void> {
     const DASHBOARD_URL = 'http://localhost:3000';
     console.log('');
-    log(GREEN, `Opening AITorrent Dashboard: ${DASHBOARD_URL}`);
+    log(GREEN, `Opening Fonte Dashboard: ${DASHBOARD_URL}`);
     try {
         const { exec } = await import('child_process');
         exec(`open "${DASHBOARD_URL}"`);

@@ -1,5 +1,5 @@
 /**
- * @aitorrent/torrent — Torrent download management.
+ * @fonte/torrent — Torrent download management.
  */
 
 export * from './types';

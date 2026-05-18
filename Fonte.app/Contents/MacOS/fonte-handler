@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# AITorrent — macOS handler for magnet: URLs and .torrent files
+# Fonte — macOS handler for magnet: URLs and .torrent files
 #
-# This script is the CFBundleExecutable for AITorrent.app.
+# This script is the CFBundleExecutable for Fonte.app.
 # macOS calls it with either:
 #   - A magnet URI as $1 (from URL scheme handler)
 #   - A .torrent file path as $1 (from file association)
@@ -12,23 +12,23 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
-# Resolve the aitorrent CLI — check common locations
+# Resolve the fonte CLI — check common locations
 find_cli() {
     # 1. Sibling to .app bundle (development)
-    local dev_cli="$APP_DIR/packages/cli/bin/aitorrent.mjs"
+    local dev_cli="$APP_DIR/packages/cli/bin/fonte.mjs"
     if [ -f "$dev_cli" ]; then
         echo "node" "$dev_cli"
         return
     fi
 
     # 2. Global npm install
-    if command -v aitorrent &>/dev/null; then
-        echo "aitorrent"
+    if command -v fonte &>/dev/null; then
+        echo "fonte"
         return
     fi
 
     # 3. npx fallback
-    echo "npx" "aitorrent"
+    echo "npx" "fonte"
 }
 
 CLI=($(find_cli))
@@ -36,7 +36,7 @@ API_PORT="${AITORRENT_API_PORT:-3777}"
 API_URL="http://localhost:$API_PORT"
 
 # Log to a file for debugging
-LOG_FILE="$HOME/.aitorrent/handler.log"
+LOG_FILE="$HOME/.fonte/handler.log"
 mkdir -p "$(dirname "$LOG_FILE")"
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
@@ -57,14 +57,14 @@ add_torrent() {
     if echo "$response" | grep -q '"ok":true'; then
         log "Added via API: $response"
         # Show notification
-        osascript -e "display notification \"Torrent added\" with title \"AITorrent\"" 2>/dev/null
+        osascript -e "display notification \"Torrent added\" with title \"Fonte\"" 2>/dev/null
         return 0
     fi
 
     log "API not available, falling back to CLI"
     # Start daemon if not running, then add
     "${CLI[@]}" torrent add "$source" &
-    osascript -e "display notification \"Adding torrent...\" with title \"AITorrent\"" 2>/dev/null
+    osascript -e "display notification \"Adding torrent...\" with title \"Fonte\"" 2>/dev/null
 }
 
 add_torrent_file() {
@@ -80,13 +80,13 @@ add_torrent_file() {
 
     if echo "$response" | grep -q '"ok":true'; then
         log "Added file via API: $response"
-        osascript -e "display notification \"Torrent file added\" with title \"AITorrent\"" 2>/dev/null
+        osascript -e "display notification \"Torrent file added\" with title \"Fonte\"" 2>/dev/null
         return 0
     fi
 
     log "API not available, falling back to CLI"
     "${CLI[@]}" torrent add "$filepath" &
-    osascript -e "display notification \"Adding torrent file...\" with title \"AITorrent\"" 2>/dev/null
+    osascript -e "display notification \"Adding torrent file...\" with title \"Fonte\"" 2>/dev/null
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────

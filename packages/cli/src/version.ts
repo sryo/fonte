@@ -4,7 +4,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { SCRIPT_DIR } from '@aitorrent/core';
+import { SCRIPT_DIR } from '@fonte/core';
 
 export function getVersion(): string {
     try {
@@ -17,4 +17,4 @@ export function getVersion(): string {
 
 // ── CLI Dispatch ─────────────────────────────────────────────────────────────
 
-console.log(`aitorrent v${getVersion()}`);
+console.log(`fonte v${getVersion()}`);

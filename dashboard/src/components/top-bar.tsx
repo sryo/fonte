@@ -157,7 +157,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
       // 4. Natural language / agent message
       await sendMessage({
         message: value,
-        agent: "aitorrent",
+        agent: "fonte",
         channel: "web",
         sender: "Web",
       });

@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>AITorrent</string>
+	<string>Fonte</string>
 	<key>CFBundleDisplayName</key>
-	<string>AITorrent</string>
+	<string>Fonte</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.aitorrent.app</string>
+	<string>com.fonte.app</string>
 	<key>CFBundleVersion</key>
 	<string>0.1.0</string>
 	<key>CFBundleShortVersionString</key>
 	<string>0.1.0</string>
 	<key>CFBundleExecutable</key>
-	<string>aitorrent-handler</string>
+	<string>fonte-handler</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleIconFile</key>

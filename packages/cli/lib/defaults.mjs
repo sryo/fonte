@@ -2,23 +2,23 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const AITORRENT_HOME = process.env.AITORRENT_HOME || path.join(os.homedir(), '.aitorrent');
+const AITORRENT_HOME = process.env.AITORRENT_HOME || path.join(os.homedir(), '.fonte');
 const SETTINGS_FILE = path.join(AITORRENT_HOME, 'settings.json');
 const OLD_HOME = path.join(os.homedir(), '.tinyclaw');
 
 /**
- * Auto-migrate from ~/.tinyclaw to ~/.aitorrent if needed.
- * Runs once — skips if ~/.tinyclaw doesn't exist or ~/.aitorrent already exists.
+ * Auto-migrate from ~/.tinyclaw to ~/.fonte if needed.
+ * Runs once — skips if ~/.tinyclaw doesn't exist or ~/.fonte already exists.
  */
 function migrateFromTinyclaw() {
     if (!fs.existsSync(OLD_HOME) || fs.existsSync(AITORRENT_HOME)) return false;
 
-    console.log('Migrating ~/.tinyclaw → ~/.aitorrent ...');
+    console.log('Migrating ~/.tinyclaw → ~/.fonte ...');
     fs.renameSync(OLD_HOME, AITORRENT_HOME);
 
     // Rename database file
     const oldDb = path.join(AITORRENT_HOME, 'tinyclaw.db');
-    const newDb = path.join(AITORRENT_HOME, 'aitorrent.db');
+    const newDb = path.join(AITORRENT_HOME, 'fonte.db');
     if (fs.existsSync(oldDb) && !fs.existsSync(newDb)) {
         fs.renameSync(oldDb, newDb);
         for (const suffix of ['-wal', '-shm']) {
@@ -37,7 +37,7 @@ function expandHome(p) {
 }
 
 /**
- * Determine SCRIPT_DIR (repo root) — same logic as aitorrent.sh.
+ * Determine SCRIPT_DIR (repo root) — same logic as fonte.sh.
  * When running from packages/cli/lib/defaults.mjs, go up 3 levels.
  */
 const SCRIPT_DIR = path.resolve(new URL('.', import.meta.url).pathname, '../../..');
@@ -76,7 +76,7 @@ function bootstrapAgentDir(agentDir) {
     fs.writeFileSync(path.join(agentDir, 'AGENTS.md'), '');
 
     // Copy SOUL.md
-    const targetAitorrent = path.join(agentDir, '.aitorrent');
+    const targetAitorrent = path.join(agentDir, '.fonte');
     fs.mkdirSync(targetAitorrent, { recursive: true });
     const sourceSoul = path.join(SCRIPT_DIR, 'SOUL.md');
     if (fs.existsSync(sourceSoul)) {
@@ -89,18 +89,18 @@ function bootstrapAgentDir(agentDir) {
 
 const DEFAULT_SETTINGS = {
     workspace: {
-        path: path.join(os.homedir(), 'aitorrent-workspace'),
-        name: 'aitorrent-workspace',
+        path: path.join(os.homedir(), 'fonte-workspace'),
+        name: 'fonte-workspace',
     },
     channels: {
         enabled: [],
     },
     agents: {
-        aitorrent: {
-            name: 'AITorrent Agent',
+        fonte: {
+            name: 'Fonte Agent',
             provider: 'anthropic',
             model: 'opus',
-            working_directory: path.join(os.homedir(), 'aitorrent-workspace', 'aitorrent'),
+            working_directory: path.join(os.homedir(), 'fonte-workspace', 'fonte'),
         },
     },
     models: {

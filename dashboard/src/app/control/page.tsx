@@ -101,7 +101,7 @@ function DisconnectedSplash({ onReconnect }: { onReconnect: () => void }) {
               <WifiSlash className="h-6 w-6 text-muted-foreground" />
             </div>
           </div>
-          <h2 className="text-lg font-semibold">Cannot connect to AITorrent</h2>
+          <h2 className="text-lg font-semibold">Cannot connect to Fonte</h2>
           <p className="text-sm text-muted-foreground">
             Make sure the daemon is running, or update the server address below.
           </p>
@@ -141,7 +141,7 @@ function DisconnectedSplash({ onReconnect }: { onReconnect: () => void }) {
             <p>1. Follow the installation guide at{" "}
               the project README
             </p>
-            <p>2. Run <code className="px-1.5 py-0.5 bg-background border rounded text-xs font-mono">aitorrent start</code> to start the daemon</p>
+            <p>2. Run <code className="px-1.5 py-0.5 bg-background border rounded text-xs font-mono">fonte start</code> to start the daemon</p>
           </div>
         </div>
       </div>

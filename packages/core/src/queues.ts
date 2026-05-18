@@ -9,7 +9,7 @@ import { EventEmitter } from 'events';
 import { AITORRENT_HOME } from './config';
 import { MessageJobData, ResponseJobData } from './types';
 
-const QUEUE_DB_PATH = path.join(AITORRENT_HOME, 'aitorrent.db');
+const QUEUE_DB_PATH = path.join(AITORRENT_HOME, 'fonte.db');
 const MAX_RETRIES = 5;
 
 let db: Database.Database | null = null;

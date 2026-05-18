@@ -78,10 +78,10 @@ function providerSet(providerName: string, args: string[]) {
     } else {
         p.log.success(`Switched to ${providerName === 'anthropic' ? 'Anthropic' : 'OpenAI/Codex'} provider`);
         if (providerName === 'openai') {
-            p.log.message("Use 'aitorrent model {gpt-5.3-codex|gpt-5.2}' to set the model.");
+            p.log.message("Use 'fonte model {gpt-5.3-codex|gpt-5.2}' to set the model.");
             p.log.message("Note: Make sure you have the 'codex' CLI installed.");
         } else {
-            p.log.message("Use 'aitorrent model {sonnet|opus}' to set the model.");
+            p.log.message("Use 'fonte model {sonnet|opus}' to set the model.");
         }
     }
 

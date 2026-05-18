@@ -1,4 +1,4 @@
-import { log, emitEvent, onEvent, enqueueMessage } from '@aitorrent/core';
+import { log, emitEvent, onEvent, enqueueMessage } from '@fonte/core';
 import { getAutomationRules, updateAutomationRule, insertAutomationLog } from './automation-db';
 import { getTorrent } from './torrent-db';
 import { AUTOMATION_EVENTS } from './automation-events';
@@ -54,7 +54,7 @@ export class AutomationEngine {
             sender: 'Automation',
             message: fullMessage,
             messageId: `auto_${rule.id}_${Date.now()}`,
-            agent: 'aitorrent',
+            agent: 'fonte',
         });
 
         // Update rule stats

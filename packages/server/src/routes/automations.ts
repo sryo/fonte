@@ -4,9 +4,9 @@ import {
     getAutomationRules, deleteAutomationRule,
     getAutomationLogs,
     getAutomationEngine,
-} from '@aitorrent/torrent';
-import type { TriggerType } from '@aitorrent/torrent';
-import { log, genId, getLastAssistantMessageByMessageIdPrefix } from '@aitorrent/core';
+} from '@fonte/torrent';
+import type { TriggerType } from '@fonte/torrent';
+import { log, genId, getLastAssistantMessageByMessageIdPrefix } from '@fonte/core';
 
 const app = new Hono();
 

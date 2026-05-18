@@ -11,7 +11,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import { RESPONSE_ALREADY_SENT } from '@hono/node-server/utils/response';
-import { log } from '@aitorrent/core';
+import { log } from '@fonte/core';
 import { addSSEClient, removeSSEClient } from './sse';
 
 import messagesRoutes from './routes/messages';
