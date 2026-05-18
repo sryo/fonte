@@ -9,6 +9,7 @@
     "fonte": "packages/cli/bin/fonte.mjs"
   },
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
     "build": "tsc --build",
     "dev": "concurrently -k -n core,server,main \"npm run dev -w @fonte/core\" \"npm run dev -w @fonte/server\" \"npm run dev -w @fonte/main\"",
     "build:core": "npm run build -w @fonte/core",
