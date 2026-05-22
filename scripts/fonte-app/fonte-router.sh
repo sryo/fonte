@@ -1,9 +1,10 @@
 #!/bin/bash
 #
-# Fonte — macOS handler for magnet: URLs and .torrent files
+# Fonte — router for magnet: URLs and .torrent files
 #
-# This script is the CFBundleExecutable for Fonte.app.
-# macOS calls it with either:
+# Called from the AppleScript applet at Fonte.app/Contents/MacOS/applet, which
+# forwards macOS AppleEvents (open document / open URL / plain run) as
+# command-line arguments. Invoked with:
 #   - A magnet URI as $1 (from URL scheme handler)
 #   - A .torrent file path as $1 (from file association)
 #   - No args (double-click the app icon)
@@ -54,6 +55,25 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
 }
 
+# Move a file to ~/.Trash. Avoids talking to Finder (which would need an
+# Automation permission grant) by doing the rename directly. Loses Finder's
+# "Put Back" metadata, which isn't useful for an imported .torrent anyway.
+move_to_trash() {
+    local src="$1"
+    local trash="$HOME/.Trash"
+    local base dest
+    base=$(basename "$src")
+    dest="$trash/$base"
+    if [ -e "$dest" ]; then
+        dest="$trash/$base $(date +%H.%M.%S)"
+    fi
+    if mv "$src" "$dest" 2>/dev/null; then
+        log "Moved to Trash: $src"
+    else
+        log "Failed to move to Trash: $src"
+    fi
+}
+
 # Try to add via API first (if daemon is running), fall back to CLI
 add_torrent() {
     local source="$1"
@@ -68,15 +88,15 @@ add_torrent() {
 
     if echo "$response" | grep -q '"ok":true'; then
         log "Added via API: $response"
-        # Show notification
-        osascript -e "display notification \"Torrent added\" with title \"Fonte\"" 2>/dev/null
         return 0
     fi
 
     log "API not available, falling back to CLI"
-    # Start daemon if not running, then add
+    # Start daemon if not running, then add. Notify so the user knows something
+    # off-path happened (daemon down, slow start, etc.) — silent success only
+    # happens on the fast API path above.
     "${CLI[@]}" torrent add "$source" &
-    osascript -e "display notification \"Adding torrent...\" with title \"Fonte\"" 2>/dev/null
+    osascript -e "display notification \"Daemon down — adding via CLI\" with title \"Fonte\"" 2>/dev/null
 }
 
 add_torrent_file() {
@@ -92,13 +112,13 @@ add_torrent_file() {
 
     if echo "$response" | grep -q '"ok":true'; then
         log "Added file via API: $response"
-        osascript -e "display notification \"Torrent file added\" with title \"Fonte\"" 2>/dev/null
+        move_to_trash "$filepath"
         return 0
     fi
 
     log "API not available, falling back to CLI"
     "${CLI[@]}" torrent add "$filepath" &
-    osascript -e "display notification \"Adding torrent file...\" with title \"Fonte\"" 2>/dev/null
+    osascript -e "display notification \"Daemon down — adding via CLI\" with title \"Fonte\"" 2>/dev/null
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────

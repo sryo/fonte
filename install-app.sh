@@ -162,16 +162,32 @@ echo ""
 echo "[6/8] Installing Fonte.app..."
 
 if [ ! -d "$APP_SOURCE" ]; then
-    echo "  Error: Fonte.app not found at $APP_SOURCE"
-    exit 1
+    echo "  Building Fonte.app from sources..."
+    bash "$SCRIPT_DIR/scripts/build-fonte-app.sh"
 fi
 
 mkdir -p "$HOME/Applications"
 rm -rf "$APP_DEST"
 cp -R "$APP_SOURCE" "$APP_DEST"
-chmod +x "$APP_DEST/Contents/MacOS/fonte-handler"
+chmod +x "$APP_DEST/Contents/Resources/fonte-router.sh"
 
+# Deregister the dev-source bundle so LaunchServices doesn't keep a duplicate
+# pointing at the repo path, then register only the installed copy.
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$APP_SOURCE" 2>/dev/null || true
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP_DEST"
+
+# Make Fonte the default handler for magnet: URLs and .torrent files.
+# Without this, LaunchServices may keep Transmission (or another bittorrent app)
+# as the default even though Fonte claims both. Uses CoreServices APIs that
+# accept no command-line flag; a Swift one-liner is the simplest invocation.
+if command -v swift &>/dev/null; then
+    swift - <<'SWIFT' 2>/dev/null || true
+import Foundation
+import CoreServices
+LSSetDefaultHandlerForURLScheme("magnet" as CFString, "com.fonte.app" as CFString)
+LSSetDefaultRoleHandlerForContentType("org.bittorrent.torrent" as CFString, .all, "com.fonte.app" as CFString)
+SWIFT
+fi
 
 mkdir -p "$CONFIG_DIR"
 echo "$SCRIPT_DIR/packages/cli/bin/fonte.mjs" > "$CONFIG_DIR/cli-path"
