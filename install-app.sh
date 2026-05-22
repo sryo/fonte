@@ -15,6 +15,15 @@
 
 set -e
 
+# --dev installs Fonte.app as a symlink to the repo copy so subsequent
+# scripts/build-fonte-app.sh runs land in ~/Applications without reinstalling.
+DEV_MODE=0
+for arg in "$@"; do
+    case "$arg" in
+        --dev) DEV_MODE=1 ;;
+    esac
+done
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_SOURCE="$SCRIPT_DIR/Fonte.app"
 APP_DEST="$HOME/Applications/Fonte.app"
@@ -167,8 +176,14 @@ fi
 
 mkdir -p "$HOME/Applications"
 rm -rf "$APP_DEST"
-cp -R "$APP_SOURCE" "$APP_DEST"
-chmod +x "$APP_DEST/Contents/Resources/fonte-router.sh"
+if [ "$DEV_MODE" = "1" ]; then
+    ln -s "$APP_SOURCE" "$APP_DEST"
+    chmod +x "$APP_SOURCE/Contents/Resources/fonte-router.sh"
+    echo "  Linked $APP_SOURCE → $APP_DEST (dev mode)"
+else
+    cp -R "$APP_SOURCE" "$APP_DEST"
+    chmod +x "$APP_DEST/Contents/Resources/fonte-router.sh"
+fi
 
 # Deregister the dev-source bundle so LaunchServices doesn't keep a duplicate
 # pointing at the repo path, then register only the installed copy.
