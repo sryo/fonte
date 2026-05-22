@@ -9,7 +9,7 @@ You tell it what you want — a movie, a season, an album. The agents handle the
 - **Search** — Jackett indexers and bt4g/DHT in parallel; dedupe by info hash; rank by seeders and quality
 - **Watch** — track shows and movies that aren't out yet; pick them up the moment a good release lands
 - **Retry** — switch to a fresh release when a download stalls or fails
-- **Subtitle** — auto-fetch via Subdl; translate via the configured model
+- **Subtitle** — auto-fetch via OpenSubtitles; translate via the configured model
 - **Organize** — rename, move, and route finished files into your library layout
 - **Notify** — completion updates through whichever surface you're using
 

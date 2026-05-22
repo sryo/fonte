@@ -665,7 +665,7 @@ export default function HomePage() {
           <div className="bg-card rounded-xl shadow-lg border p-6 w-full max-w-sm space-y-4 animate-card-enter" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold">Add to Watchlist</h3>
             <input
-              placeholder="Title (e.g. Kika)"
+              placeholder="Title"
               value={wlForm.title}
               onChange={(e) => setWlForm({ ...wlForm, title: e.target.value })}
               className="w-full px-3 py-2 text-sm rounded-lg border bg-background"

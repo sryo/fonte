@@ -9,7 +9,7 @@ Use `POST /api/search` with whatever the user gives you. It accepts anything:
 ```bash
 # Title search
 curl -X POST http://localhost:3777/api/search -H "Content-Type: application/json" \
-  -d '{"query": "Kika", "year": 2025, "quality": "1080p"}'
+  -d '{"query": "<title>", "year": 2025, "quality": "1080p"}'
 
 # IMDB URL or ID
 curl -X POST http://localhost:3777/api/search -H "Content-Type: application/json" \

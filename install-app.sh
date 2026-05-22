@@ -6,7 +6,7 @@
 #   1. Homebrew (if missing)
 #   2. Node.js (if missing)
 #   3. Transmission (torrent backend)
-#   4. Jackett (torrent indexer)
+#   4. Jackett (indexer aggregator — no indexers configured by default)
 #   5. npm dependencies + build
 #   6. Fonte.app (magnet: and .torrent file handler)
 #   7. Write default settings with Jackett API key
@@ -141,8 +141,7 @@ done
 
 if [ -n "$JACKETT_API_KEY" ]; then
     echo "  Jackett API key: ${JACKETT_API_KEY:0:8}..."
-    echo "  Configuring public indexers..."
-    bash "$SCRIPT_DIR/scripts/setup-jackett-indexers.sh" "$JACKETT_API_KEY" 2>/dev/null
+    echo "  Add indexers via Jackett's web UI at http://localhost:9117"
 else
     echo "  Warning: Could not read Jackett API key. Configure manually in settings."
 fi
@@ -375,7 +374,7 @@ echo ""
 echo "Usage:"
 echo "  fonte start              Start the daemon"
 echo "  fonte torrent add <url>  Add a magnet link"
-echo "  fonte watchlist add \"Movie Name\" --year 2025"
+echo "  fonte watchlist add \"<title>\" --year 2025"
 echo "  fonte ui                 Open web dashboard"
 echo ""
 echo "File associations:"
