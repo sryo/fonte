@@ -8,12 +8,14 @@ import {
   getWatchlist,
   getAutomations,
   getTorrentStats,
+  getIndexerStatus,
 } from "@/lib/api";
 import type {
   TorrentRecord,
   WatchlistRecord,
   AutomationRule,
   TorrentStats,
+  IndexerStatus,
 } from "@/lib/api";
 import { formatBytes, formatSpeed, formatRelativeTime } from "@/lib/format";
 import {
@@ -28,6 +30,8 @@ import {
   Stop,
   MagnifyingGlass,
   Play,
+  Plug,
+  X,
 } from "@phosphor-icons/react";
 import {
   addWatchlistEntry,
@@ -267,6 +271,8 @@ export default function HomePage() {
   const [automations, setAutomations] = useState<AutomationRule[]>([]);
   const [stats, setStats] = useState<TorrentStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [indexerStatus, setIndexerStatus] = useState<IndexerStatus | null>(null);
+  const [indexerBannerDismissed, setIndexerBannerDismissed] = useState(false);
   const [showAddWatchlist, setShowAddWatchlist] = useState(false);
   const [showAddAutomation, setShowAddAutomation] = useState(false);
   const [autoForm, setAutoForm] = useState({
@@ -337,6 +343,24 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [fetchAll]);
 
+  // Indexer status is a real Jackett search on every call; check once on
+  // mount instead of every poll tick, and respect a persisted dismissal.
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIndexerBannerDismissed(localStorage.getItem("fonte.indexer-banner-dismissed") === "true");
+    }
+    getIndexerStatus().then(setIndexerStatus).catch(() => {});
+  }, []);
+
+  const dismissIndexerBanner = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("fonte.indexer-banner-dismissed", "true");
+    }
+    setIndexerBannerDismissed(true);
+  };
+
+  const showIndexerBanner = indexerStatus !== null && !indexerStatus.configured && !indexerBannerDismissed;
+
   // ── Derived data ───────────────────────────────────────────────────────
 
   const activeTorrents = torrents.filter(
@@ -375,6 +399,34 @@ export default function HomePage() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-6 space-y-8 animate-card-enter">
+      {/* First-run nudge: no indexers configured in Jackett */}
+      {showIndexerBanner && (
+        <div className="rounded-xl border bg-card p-4 flex items-center gap-3">
+          <Plug className="h-5 w-5 text-muted-foreground shrink-0" weight="bold" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">No indexers configured</p>
+            <p className="text-xs text-muted-foreground">
+              Fonte ships with none enabled. Open Jackett to pick which trackers to use.
+            </p>
+          </div>
+          <a
+            href={indexerStatus?.jackettUrl || "http://localhost:9117"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-foreground text-background hover:opacity-90 transition-opacity shrink-0"
+          >
+            Open Jackett
+          </a>
+          <button
+            onClick={dismissIndexerBanner}
+            aria-label="Dismiss"
+            className="text-muted-foreground hover:text-foreground transition-colors shrink-0 p-1"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Quick filter chips */}
       <div className="flex items-center gap-2 flex-wrap" role="tablist">
         {FILTER_CHIPS.map(({ key, label }) => (

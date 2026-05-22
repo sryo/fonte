@@ -397,6 +397,18 @@ export async function getTorrents(status?: TorrentStatus): Promise<{ ok: boolean
   return apiFetch(`/api/torrents${params}`);
 }
 
+export interface IndexerStatus {
+  ok: boolean;
+  count: number;
+  configured: boolean;
+  jackettUrl?: string;
+  reason?: string;
+}
+
+export async function getIndexerStatus(): Promise<IndexerStatus> {
+  return apiFetch(`/api/indexers/status`);
+}
+
 export async function getTorrent(id: string): Promise<{ ok: boolean; torrent: TorrentRecord }> {
   return apiFetch(`/api/torrents/${encodeURIComponent(id)}`);
 }

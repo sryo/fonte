@@ -25,6 +25,7 @@ import agentMessagesRoutes from './routes/agent-messages';
 import schedulesRoutes from './routes/schedules';
 import torrentsRoutes from './routes/torrents';
 import watchlistRoutes from './routes/watchlist';
+import indexersRoutes from './routes/indexers';
 import subtitlesRoutes from './routes/subtitles';
 import automationsRoutes from './routes/automations';
 import whatsappRoutes from './routes/whatsapp';
@@ -56,6 +57,7 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
     app.route('/', schedulesRoutes);
     app.route('/', torrentsRoutes);
     app.route('/', watchlistRoutes);
+    app.route('/', indexersRoutes);
     app.route('/', subtitlesRoutes);
     app.route('/', automationsRoutes);
     app.route('/', whatsappRoutes);
