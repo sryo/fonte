@@ -160,6 +160,42 @@ function MediaCard({
   );
 }
 
+// ── Empty Row Card ───────────────────────────────────────────────────────
+
+function EmptyRowCard({
+  icon: Icon,
+  label,
+  hint,
+  onClick,
+}: {
+  icon: React.ElementType;
+  label: string;
+  hint?: string;
+  onClick?: () => void;
+}) {
+  const interactive = Boolean(onClick);
+  return (
+    <div
+      onClick={onClick}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={interactive ? (e) => { if (e.key === "Enter") onClick?.(); } : undefined}
+      className={cn(
+        "w-44 rounded-xl border border-dashed bg-card/30 overflow-hidden text-left transition-colors",
+        interactive && "hover:bg-accent/50 hover:border-foreground/30 cursor-pointer"
+      )}
+    >
+      <div className="aspect-[2/3] w-full flex items-center justify-center bg-gradient-to-br from-muted/30 to-transparent">
+        <Icon className="h-12 w-12 text-muted-foreground/40" weight="thin" />
+      </div>
+      <div className="p-3 space-y-1">
+        <p className="text-sm font-medium leading-tight text-muted-foreground">{label}</p>
+        {hint && <p className="text-[11px] text-muted-foreground/70 leading-tight">{hint}</p>}
+      </div>
+    </div>
+  );
+}
+
 // ── Status Badge ─────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
@@ -187,7 +223,7 @@ function ContentRow({
   count,
   icon: Icon,
   children,
-  emptyMessage,
+  emptyContent,
   isEmpty,
   action,
 }: {
@@ -195,7 +231,7 @@ function ContentRow({
   count: number;
   icon: React.ElementType;
   children: React.ReactNode;
-  emptyMessage: string;
+  emptyContent: React.ReactNode;
   isEmpty: boolean;
   action?: React.ReactNode;
 }) {
@@ -212,7 +248,7 @@ function ContentRow({
         {action}
       </div>
       {isEmpty ? (
-        <p className="text-sm text-muted-foreground py-6 text-center">{emptyMessage}</p>
+        <div className="flex flex-wrap gap-3">{emptyContent}</div>
       ) : (
         <div className="flex flex-wrap gap-3">{children}</div>
       )}
@@ -365,8 +401,14 @@ export default function HomePage() {
           title="Active Downloads"
           count={activeTorrents.length}
           icon={DownloadSimple}
-          emptyMessage="No active downloads"
           isEmpty={activeTorrents.length === 0}
+          emptyContent={
+            <EmptyRowCard
+              icon={DownloadSimple}
+              label="Add a torrent"
+              hint="Click a magnet link or open a .torrent file"
+            />
+          }
         >
           {activeTorrents.map((torrent) => (
             <MediaCard
@@ -411,8 +453,15 @@ export default function HomePage() {
           title="Watchlist"
           count={watchingEntries.length}
           icon={Eye}
-          emptyMessage="Nothing on your watchlist"
           isEmpty={watchingEntries.length === 0}
+          emptyContent={
+            <EmptyRowCard
+              icon={Eye}
+              label="Watch for a release"
+              hint="We'll grab it when it shows up"
+              onClick={() => setShowAddWatchlist(true)}
+            />
+          }
           action={
             <button
               onClick={() => setShowAddWatchlist(true)}
@@ -464,8 +513,14 @@ export default function HomePage() {
           title="Recently Completed"
           count={completedTorrents.length}
           icon={Check}
-          emptyMessage="No completed downloads yet"
           isEmpty={completedTorrents.length === 0}
+          emptyContent={
+            <EmptyRowCard
+              icon={Check}
+              label="Nothing finished yet"
+              hint="Done downloads land here"
+            />
+          }
           action={completedTorrents.length > 0 ? (
             <button
               onClick={async () => {
@@ -522,8 +577,15 @@ export default function HomePage() {
           title="Automations"
           count={enabledAutomations.length}
           icon={Lightning}
-          emptyMessage="No automations configured"
           isEmpty={enabledAutomations.length === 0}
+          emptyContent={
+            <EmptyRowCard
+              icon={Lightning}
+              label="Create an automation"
+              hint="Run an agent when something happens"
+              onClick={() => setShowAddAutomation(true)}
+            />
+          }
           action={
             <button
               onClick={() => setShowAddAutomation(true)}
