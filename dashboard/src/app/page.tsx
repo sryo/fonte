@@ -304,12 +304,16 @@ export default function HomePage() {
   // ── Derived data ───────────────────────────────────────────────────────
 
   const activeTorrents = torrents.filter(
-    (t) => t.status === "downloading" || t.status === "seeding" || t.status === "paused"
+    (t) => t.status === "downloading" || t.status === "paused"
   );
 
+  // Seeding torrents have finished downloading; group them with completed so
+  // the user sees finished work in one place. Transmission only reports the
+  // transient "completed" status briefly before the daemon flips it to
+  // "seeding", so without this Recently Completed is almost always empty.
   const completedTorrents = torrents
-    .filter((t) => t.status === "completed")
-    .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
+    .filter((t) => t.status === "completed" || t.status === "seeding")
+    .sort((a, b) => (b.completedAt ?? b.addedAt ?? 0) - (a.completedAt ?? a.addedAt ?? 0))
     .slice(0, 10);
 
   const watchingEntries = watchlist.filter((w) => w.status === "watching");
@@ -382,9 +386,6 @@ export default function HomePage() {
                 <>
                   {torrent.status === "downloading" && (
                     <CardAction icon={Pause} label="Pause" onClick={() => { pauseTorrent(torrent.id); fetchAll(); }} />
-                  )}
-                  {torrent.status === "seeding" && (
-                    <CardAction icon={Stop} label="Stop seeding" onClick={() => { pauseTorrent(torrent.id); fetchAll(); }} />
                   )}
                   {torrent.status === "paused" && (
                     <CardAction icon={Play} label="Resume" onClick={() => { resumeTorrent(torrent.id); fetchAll(); }} />
@@ -484,15 +485,29 @@ export default function HomePage() {
               title={torrent.name}
               onClick={() => router.push(`/torrents/${torrent.id}`)}
               badges={
-                <span className="text-[10px] bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                  <Check className="h-2.5 w-2.5" weight="bold" /> Done
-                </span>
+                torrent.status === "seeding" ? (
+                  <span className="text-[10px] bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                    <Check className="h-2.5 w-2.5" weight="bold" /> Seeding
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                    <Check className="h-2.5 w-2.5" weight="bold" /> Done
+                  </span>
+                )
               }
               actions={
-                <CardAction icon={Trash} label="Remove" destructive onClick={() => { removeTorrent(torrent.id); fetchAll(); }} />
+                <>
+                  {torrent.status === "seeding" && (
+                    <CardAction icon={Stop} label="Stop seeding" onClick={() => { pauseTorrent(torrent.id); fetchAll(); }} />
+                  )}
+                  <CardAction icon={Trash} label="Remove" destructive onClick={() => { removeTorrent(torrent.id); fetchAll(); }} />
+                </>
               }
             >
               <p className="text-[11px] text-muted-foreground">
+                {torrent.status === "seeding" && (
+                  <span className="text-green-600 dark:text-green-400">&uarr; {formatSpeed(torrent.uploadSpeed)} &middot; </span>
+                )}
                 {formatBytes(torrent.size)}
                 {torrent.completedAt && ` \u00B7 ${relativeTime(torrent.completedAt)}`}
               </p>
