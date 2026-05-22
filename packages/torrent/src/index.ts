@@ -12,7 +12,7 @@ export * from './watchlist-db';
 export * from './subtitle-db';
 export * from './jackett-client';
 export * from './tmdb-client';
-export * from './subdl-client';
+export * from './opensubtitles-client';
 export * from './bt4g-client';
 export * from './watchlist-runner';
 export * from './subtitle-manager';

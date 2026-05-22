@@ -5,7 +5,7 @@ import { getTorrent } from './torrent-db';
 import { getTorrentFiles } from './torrent-db';
 import { insertSubtitle, updateSubtitle, getSubtitle, getSubtitlesByTorrent } from './subtitle-db';
 import { searchTmdb } from './tmdb-client';
-import { searchSubdl, downloadSubtitle } from './subdl-client';
+import { searchOpenSubtitles, downloadOpenSubtitle } from './opensubtitles-client';
 import { SUBTITLE_EVENTS } from './watchlist-events';
 
 const VIDEO_EXTENSIONS = new Set(['.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv', '.flv', '.webm']);
@@ -30,8 +30,14 @@ export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void>
 
     const settings = getSettings();
     const tmdbApiKey = settings.subtitles?.tmdb_api_key;
+    const opensubtitlesApiKey = settings.subtitles?.opensubtitles_api_key;
     const targetLanguages = settings.subtitles?.target_languages || ['en'];
     const shouldTranslate = settings.subtitles?.translate !== false;
+
+    if (!opensubtitlesApiKey) {
+        log('INFO', `Subtitles: no OpenSubtitles API key configured, skipping "${torrent.name}"`);
+        return;
+    }
 
     // Find video files
     const files = getTorrentFiles(torrentId);
@@ -72,9 +78,11 @@ export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void>
     }
 
     try {
-        const results = await searchSubdl({
-            filmName: parsed.title,
+        const results = await searchOpenSubtitles({
+            query: parsed.title,
             languages: searchLangs,
+            year: parsed.year,
+            apiKey: opensubtitlesApiKey,
         });
 
         if (results.length === 0) {
@@ -99,7 +107,11 @@ export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void>
         });
         updateSubtitle(subId, { status: 'downloading' });
 
-        await downloadSubtitle(originalSub.downloadUrl, subPath);
+        await downloadOpenSubtitle({
+            fileId: originalSub.fileId,
+            destPath: subPath,
+            apiKey: opensubtitlesApiKey,
+        });
         updateSubtitle(subId, { status: 'downloaded' });
 
         emitEvent(SUBTITLE_EVENTS.DOWNLOADED, {
@@ -314,5 +326,10 @@ export function parseTorrentName(name: string): { title: string; year?: number; 
     const tvMatch = title.match(/(.+?)\s*S\d{2}/i);
     if (tvMatch) title = tvMatch[1];
 
-    return { title: title.trim(), year, isTv };
+    // Strip trailing junk left behind by the cutoffs (e.g. "Movie (" after the
+    // year cut, or "Show -" before a release tag). Without this the cleaned
+    // title carries garbage characters that confuse downstream APIs.
+    title = title.replace(/[\s\(\[\-_]+$/, '').trim();
+
+    return { title, year, isTv };
 }
