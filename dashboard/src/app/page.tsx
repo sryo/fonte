@@ -507,20 +507,14 @@ export default function HomePage() {
         </ContentRow>
       )}
 
-      {/* Row 3: Recently Completed */}
-      {showCompleted && (
+      {/* Row 3: Recently Completed — hidden until there's something to show */}
+      {showCompleted && completedTorrents.length > 0 && (
         <ContentRow
           title="Recently Completed"
           count={completedTorrents.length}
           icon={Check}
-          isEmpty={completedTorrents.length === 0}
-          emptyContent={
-            <EmptyRowCard
-              icon={Check}
-              label="Nothing finished yet"
-              hint="Done downloads land here"
-            />
-          }
+          isEmpty={false}
+          emptyContent={null}
           action={completedTorrents.length > 0 ? (
             <button
               onClick={async () => {
