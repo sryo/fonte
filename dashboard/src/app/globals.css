@@ -245,25 +245,61 @@ body {
   .animate-chat-backdrop-in, .animate-chat-backdrop-out { animation: none; }
 }
 
-/* XP-style copy progress stripes — diagonal hatching scrolling across the bar */
-@keyframes xp-stripes {
-  from { background-position: 0 0; }
-  to   { background-position: 16px 0; }
+/* Progress ring — paints the card's own border as the progress indicator,
+   plus a shine that sweeps around the perimeter. The arc length tracks
+   --progress (0–1); the rotating overlay is the eye candy from
+   https://www.frontendhero.dev/tutorial/animated-shine-border-button/ */
+@property --shine-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }
-.animate-xp-stripes {
-  background-image: linear-gradient(
-    -45deg,
-    rgba(255, 255, 255, 0.45) 25%,
-    transparent 25%,
-    transparent 50%,
-    rgba(255, 255, 255, 0.45) 50%,
-    rgba(255, 255, 255, 0.45) 75%,
-    transparent 75%,
-    transparent
+.progress-ring {
+  --progress: 0;
+  --ring-thickness: 2px;
+  --ring-color: var(--torrent);
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: var(--ring-thickness);
+  pointer-events: none;
+  background:
+    conic-gradient(
+      from var(--shine-angle),
+      transparent 0%,
+      hsl(0 0% 100% / 0.85) 6%,
+      transparent 18%
+    ),
+    conic-gradient(
+      var(--ring-color) 0,
+      var(--ring-color) calc(var(--progress) * 1turn),
+      transparent calc(var(--progress) * 1turn)
+    );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: progress-ring-shine 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.progress-ring--stalled {
+  opacity: 0.35;
+  animation-play-state: paused;
+}
+/* Indeterminate: no progress arc, just a tinted shine sweeping the perimeter.
+   Used for "task is running" states (watchlist search, automation run). */
+.progress-ring--indeterminate {
+  background: conic-gradient(
+    from var(--shine-angle),
+    transparent 0%,
+    var(--ring-color) 6%,
+    transparent 22%
   );
-  background-size: 16px 16px;
-  animation: xp-stripes 0.8s linear infinite;
+  animation-duration: 1.6s;
+}
+@keyframes progress-ring-shine {
+  to { --shine-angle: 360deg; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .animate-xp-stripes { animation: none; }
+  .progress-ring { animation: none; }
 }

@@ -98,6 +98,41 @@ function CardAction({ icon: Icon, label, onClick, destructive }: {
   );
 }
 
+// ── ProgressRing (shine border, determinate or busy) ─────────────────────
+
+type RingColor = "torrent" | "watchlist" | "automation";
+
+function ProgressRing({
+  progress,
+  busy,
+  color = "torrent",
+}: {
+  progress?: { value: number; stalled?: boolean };
+  busy?: boolean;
+  color?: RingColor;
+}) {
+  const indeterminate = !progress && busy;
+  if (!progress && !busy) return null;
+  if (progress && progress.value >= 1) return null;
+  const style: React.CSSProperties = {
+    ["--ring-color" as string]: `var(--${color})`,
+  };
+  if (progress) {
+    (style as Record<string, string | number>)["--progress"] = Math.min(1, Math.max(0, progress.value));
+  }
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        "progress-ring",
+        progress?.stalled && "progress-ring--stalled",
+        indeterminate && "progress-ring--indeterminate",
+      )}
+      style={style}
+    />
+  );
+}
+
 // ── MediaCard (unified card layout) ──────────────────────────────────────
 
 function MediaCard({
@@ -108,6 +143,8 @@ function MediaCard({
   onClick,
   children,
   progress,
+  busy,
+  ringColor,
 }: {
   posterUrl?: string;
   title: string;
@@ -116,15 +153,16 @@ function MediaCard({
   onClick?: () => void;
   children?: React.ReactNode;
   progress?: { value: number; stalled?: boolean };
+  busy?: boolean;
+  ringColor?: RingColor;
 }) {
-  const showBar = progress && progress.value < 1;
   return (
     <div
       onClick={onClick}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter") onClick?.(); }}
-      className="w-44 rounded-xl shadow-sm border bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer"
+      className="w-44 rounded-xl shadow-sm border bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative"
     >
       <div className="aspect-[2/3] w-full bg-muted relative overflow-hidden">
         {posterUrl ? (
@@ -149,17 +187,7 @@ function MediaCard({
         <p className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-foreground">{title}</p>
         {children}
       </div>
-      {showBar && (
-        <div className="h-1 bg-muted">
-          <div
-            className={cn(
-              "h-full bg-torrent transition-all duration-500",
-              progress!.stalled ? "opacity-40" : "animate-xp-stripes"
-            )}
-            style={{ width: `${Math.min(100, progress!.value * 100)}%` }}
-          />
-        </div>
-      )}
+      <ProgressRing progress={progress} busy={busy} color={ringColor} />
     </div>
   );
 }
@@ -288,6 +316,7 @@ export default function HomePage() {
     prompt: "",
   });
   const [runningAutoId, setRunningAutoId] = useState<string | null>(null);
+  const [searchingWlIds, setSearchingWlIds] = useState<Set<string>>(new Set());
   const [editAutoLogs, setEditAutoLogs] = useState<AutomationLog[]>([]);
   const [editAutoLastResponse, setEditAutoLastResponse] = useState<{ text: string; ts: number } | null>(null);
   const [wlForm, setWlForm] = useState({ title: "", mediaType: "movie" as "movie" | "tv" | "music" | "game" | "book" | "app" | "other", year: "", quality: "1080p" });
@@ -538,6 +567,8 @@ export default function HomePage() {
               title={entry.title}
               posterUrl={entry.posterUrl}
               onClick={() => router.push(`/watchlist/${entry.id}`)}
+              busy={searchingWlIds.has(entry.id)}
+              ringColor="watchlist"
               badges={
                 <>
                   <StatusBadge status={entry.status} />
@@ -551,7 +582,13 @@ export default function HomePage() {
                   <CardAction
                     icon={MagnifyingGlass}
                     label={entry.lastCheckedAt ? `Search now\nLast searched: ${formatRelativeTime(entry.lastCheckedAt)}` : "Search now\nNever searched"}
-                    onClick={() => { triggerWatchlistSearch(entry.id); fetchAll(); }}
+                    onClick={async () => {
+                      setSearchingWlIds((prev) => { const next = new Set(prev); next.add(entry.id); return next; });
+                      try { await triggerWatchlistSearch(entry.id); }
+                      catch { /* ignore */ }
+                      setSearchingWlIds((prev) => { const next = new Set(prev); next.delete(entry.id); return next; });
+                      fetchAll();
+                    }}
                   />
                   <CardAction icon={Trash} label="Remove" destructive onClick={() => {
                     if (confirm(`Remove "${entry.title}" from watchlist?`)) { deleteWatchlistEntry(entry.id); fetchAll(); }
@@ -713,6 +750,7 @@ export default function HomePage() {
                     onClick={onDelete}
                   />
                 </div>
+                <ProgressRing busy={runningAutoId === rule.id} color="automation" />
               </div>
             );
           })}
