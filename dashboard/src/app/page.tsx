@@ -380,6 +380,14 @@ export default function HomePage() {
 
   const enabledAutomations = automations.filter((a) => a.enabled);
 
+  // If the user was viewing the Completed filter and the row drains, fall
+  // back to "all" — the chip we render is also hidden in that state.
+  useEffect(() => {
+    if (filter === "completed" && completedTorrents.length === 0) {
+      setFilter("all");
+    }
+  }, [filter, completedTorrents.length]);
+
   // ── Visibility based on filter ─────────────────────────────────────────
 
   const showDownloading = filter === "all" || filter === "downloading";
@@ -427,9 +435,9 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Quick filter chips */}
+      {/* Quick filter chips — hide ones that point at empty rows */}
       <div className="flex items-center gap-2 flex-wrap" role="tablist">
-        {FILTER_CHIPS.map(({ key, label }) => (
+        {FILTER_CHIPS.filter(({ key }) => key !== "completed" || completedTorrents.length > 0).map(({ key, label }) => (
           <button
             key={key}
             role="tab"
