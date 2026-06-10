@@ -11,6 +11,7 @@ export * from './watchlist-events';
 export * from './watchlist-db';
 export * from './subtitle-db';
 export * from './jackett-client';
+export * from './search-aggregator';
 export * from './tmdb-client';
 export * from './opensubtitles-client';
 export * from './bt4g-client';

@@ -4,7 +4,8 @@ import {
     getWatchlistEntries, deleteWatchlistEntry,
     getWatchlistResults, markResultSelected,
     getTorrentManager,
-    runWatchlistCheck, searchJackett, searchBt4g,
+    runWatchlistCheck,
+    aggregateSearch, filterByTitle, sortBySeedersThenSize,
     searchTmdb,
 } from '@fonte/torrent';
 import type { WatchlistStatus, MediaType } from '@fonte/torrent';
@@ -35,83 +36,16 @@ async function multiSearch(title: string, year?: number, quality?: string, categ
     queries.add(`${title} ${year || ''}`.trim());
     queries.add(title);
 
-    const allResults: any[] = [];
-    const seenHashes = new Set<string>();
-
-    for (const query of queries) {
-        // Search Jackett
-        if (jackettUrl && apiKey) {
-            try {
-                const results = await searchJackett({
-                    query,
-                    categories: category ? [category] : [],
-                    jackettUrl,
-                    apiKey,
-                });
-                for (const r of results) {
-                    const hash = extractHash(r.magnetUri);
-                    if (hash && seenHashes.has(hash)) continue;
-                    if (hash) seenHashes.add(hash);
-                    allResults.push({ ...r, source: r.indexer || 'jackett' });
-                }
-            } catch (err) {
-                log('WARN', `[search] Jackett failed for "${query}": ${(err as Error).message}`);
-            }
-        }
-
-        // Search bt4g (DHT)
-        try {
-            const bt4gResults = await searchBt4g(query);
-            for (const r of bt4gResults) {
-                if (!r.magnetUri) continue;
-                if (r.category?.toLowerCase() === 'doc' || r.category?.toLowerCase() === 'audio') continue;
-                const hash = extractHash(r.magnetUri) || r.infoHash;
-                if (hash && seenHashes.has(hash)) continue;
-                if (hash) seenHashes.add(hash);
-                allResults.push({
-                    title: r.title,
-                    magnetUri: r.magnetUri,
-                    seeders: 0,
-                    leechers: 0,
-                    size: parseSizeStr(r.size),
-                    sizeStr: r.size,
-                    publishDate: r.publishDate,
-                    source: 'bt4g-dht',
-                });
-            }
-        } catch (err) {
-            log('WARN', `[search] bt4g failed for "${query}": ${(err as Error).message}`);
-        }
-    }
-
-    // Filter: title words + year must match
-    const titleWords = title.toLowerCase().split(/\s+/);
-    const filtered = allResults.filter(r => {
-        const rt = r.title.toLowerCase();
-        if (!titleWords.every((w: string) => rt.includes(w))) return false;
-        if (year && !rt.includes(String(year))) return false;
-        return true;
+    const allResults = await aggregateSearch([...queries], {
+        categories: category ? [category] : [],
+        jackettUrl,
+        apiKey,
     });
 
+    const filtered = filterByTitle(allResults, { title, year });
+
     // Sort: seeders desc, then size desc (bigger = better quality usually)
-    filtered.sort((a: any, b: any) => (b.seeders || 0) - (a.seeders || 0) || (b.size || 0) - (a.size || 0));
-
-    return filtered;
-}
-
-function extractHash(magnetUri: string): string | undefined {
-    const match = magnetUri.match(/xt=urn:btih:([a-fA-F0-9]{40})/i);
-    return match ? match[1].toLowerCase() : undefined;
-}
-
-function parseSizeStr(size: string): number {
-    if (!size) return 0;
-    const match = size.match(/([\d.]+)\s*(GB|MB|KB|TB)/i);
-    if (!match) return 0;
-    const value = parseFloat(match[1]);
-    const unit = match[2].toUpperCase();
-    const m: Record<string, number> = { KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3, TB: 1024 ** 4 };
-    return Math.round(value * (m[unit] || 0));
+    return sortBySeedersThenSize(filtered);
 }
 
 // ── POST /api/search — universal "find me this" endpoint ─────────────────
