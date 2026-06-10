@@ -504,7 +504,7 @@ export default function HomePage() {
               key={torrent.id}
               title={torrent.name}
               onClick={() => router.push(`/torrents/${torrent.id}`)}
-              progress={{ value: torrent.progress, stalled: isStalled(torrent) }}
+              progress={{ value: torrent.progress, stalled: isStalled(torrent) || torrent.status === "paused" }}
               badges={
                 <>
                   <StatusBadge status={torrent.status} />

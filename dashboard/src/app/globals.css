@@ -284,7 +284,12 @@ body {
 }
 .progress-ring--stalled {
   opacity: 0.35;
-  animation-play-state: paused;
+  background: conic-gradient(
+    var(--ring-color) 0,
+    var(--ring-color) calc(var(--progress) * 1turn),
+    transparent calc(var(--progress) * 1turn)
+  );
+  animation: none;
 }
 /* Indeterminate: no progress arc, just a tinted shine sweeping the perimeter.
    Used for "task is running" states (watchlist search, automation run). */
