@@ -1,60 +1,8 @@
 #!/usr/bin/env node
 import * as p from '@clack/prompts';
-import http from 'http';
-
-const API_PORT = process.env.FONTE_API_PORT || '3777';
-const API_URL = `http://localhost:${API_PORT}`;
-
-// ── HTTP helpers ──────────────────────────────────────────────────────────────
-
-function apiRequest<T = any>(method: string, path: string, body?: unknown): Promise<T> {
-    return new Promise((resolve, reject) => {
-        const payload = body ? JSON.stringify(body) : undefined;
-        const url = new URL(`${API_URL}${path}`);
-
-        const req = http.request({
-            hostname: url.hostname,
-            port: url.port,
-            path: url.pathname + url.search,
-            method,
-            headers: {
-                'Content-Type': 'application/json',
-                ...(payload ? { 'Content-Length': String(Buffer.byteLength(payload)) } : {}),
-            },
-        }, (res) => {
-            let data = '';
-            res.on('data', (chunk) => data += chunk);
-            res.on('end', () => {
-                try {
-                    resolve(JSON.parse(data));
-                } catch {
-                    reject(new Error(`Invalid JSON response: ${data}`));
-                }
-            });
-        });
-
-        req.on('error', (err) => {
-            reject(new Error(`API request failed: ${err.message}. Is the daemon running? (fonte start)`));
-        });
-
-        if (payload) req.write(payload);
-        req.end();
-    });
-}
+import { apiRequest, formatBytes, formatSpeed, padRight } from './shared.ts';
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
-
-function formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-}
-
-function formatSpeed(bytesPerSec: number): string {
-    return `${formatBytes(bytesPerSec)}/s`;
-}
 
 function formatProgress(progress: number): string {
     const pct = (progress * 100).toFixed(1);
@@ -233,12 +181,6 @@ async function torrentConfig(key?: string, value?: string) {
     } else {
         p.log.error(result.error || 'Failed to update config');
     }
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function padRight(str: string, len: number): string {
-    return str.length >= len ? str.substring(0, len) : str + ' '.repeat(len - str.length);
 }
 
 // ── CLI dispatch ──────────────────────────────────────────────────────────────

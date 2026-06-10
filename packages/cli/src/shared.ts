@@ -1,10 +1,69 @@
 import * as p from '@clack/prompts';
 import fs from 'fs';
+import http from 'http';
 import path from 'path';
 import { Settings, SETTINGS_FILE, FONTE_HOME, SCRIPT_DIR } from '@fonte/core';
 
 // Re-export for convenience
 export { SETTINGS_FILE, FONTE_HOME, SCRIPT_DIR };
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+
+export const API_PORT = process.env.FONTE_API_PORT || '3777';
+export const API_URL = `http://localhost:${API_PORT}`;
+
+export function apiRequest<T = any>(method: string, apiPath: string, body?: unknown): Promise<T> {
+    return new Promise((resolve, reject) => {
+        const payload = body ? JSON.stringify(body) : undefined;
+        const url = new URL(`${API_URL}${apiPath}`);
+
+        const req = http.request({
+            hostname: url.hostname,
+            port: url.port,
+            path: url.pathname + url.search,
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(payload ? { 'Content-Length': String(Buffer.byteLength(payload)) } : {}),
+            },
+        }, (res) => {
+            let data = '';
+            res.on('data', (chunk) => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve(JSON.parse(data));
+                } catch {
+                    reject(new Error(`Invalid JSON response: ${data}`));
+                }
+            });
+        });
+
+        req.on('error', (err) => {
+            reject(new Error(`API request failed: ${err.message}. Is the daemon running? (fonte start)`));
+        });
+
+        if (payload) req.write(payload);
+        req.end();
+    });
+}
+
+// ── Formatting helpers ────────────────────────────────────────────────────────
+
+export function formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+}
+
+export function formatSpeed(bytesPerSec: number): string {
+    return `${formatBytes(bytesPerSec)}/s`;
+}
+
+export function padRight(str: string, len: number): string {
+    return str.length >= len ? str.substring(0, len) : str + ' '.repeat(len - str.length);
+}
 
 const BANNER = `
   ▀█▀ █ █▄ █ █▄█ █▀█ █▀▀ █

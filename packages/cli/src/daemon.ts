@@ -6,13 +6,12 @@ import { execSync, spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { FONTE_HOME, SCRIPT_DIR } from '@fonte/core';
+import { API_PORT, API_URL } from './shared.ts';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const PID_FILE = path.join(FONTE_HOME, 'fonte.pid');
 const LOG_DIR = path.join(FONTE_HOME, 'logs');
-const API_PORT = parseInt(process.env.FONTE_API_PORT || '3777', 10);
-const API_URL = `http://localhost:${API_PORT}`;
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';

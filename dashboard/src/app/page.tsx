@@ -17,7 +17,7 @@ import type {
   TorrentStats,
   IndexerStatus,
 } from "@/lib/api";
-import { formatBytes, formatSpeed, formatRelativeTime } from "@/lib/format";
+import { formatBytes, formatSpeed, formatRelativeTime, formatShortRelativeTime } from "@/lib/format";
 import {
   DownloadSimple,
   Eye,
@@ -58,21 +58,6 @@ const FILTER_CHIPS: { key: FilterChip; label: string }[] = [
   { key: "completed", label: "Completed" },
   { key: "watching", label: "Watching" },
 ];
-
-// ── Helpers ──────────────────────────────────────────────────────────────
-
-function relativeTime(ts: number): string {
-  const now = Date.now();
-  const diff = now - ts;
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
 
 // ── CardAction (hover action button) ────────────────────────────────────
 
@@ -655,7 +640,7 @@ export default function HomePage() {
                   <span className="text-green-600 dark:text-green-400">&uarr; {formatSpeed(torrent.uploadSpeed)} &middot; </span>
                 )}
                 {formatBytes(torrent.size)}
-                {torrent.completedAt && ` \u00B7 ${relativeTime(torrent.completedAt)}`}
+                {torrent.completedAt && ` \u00B7 ${formatShortRelativeTime(torrent.completedAt)}`}
               </p>
             </MediaCard>
           ))}

@@ -11,46 +11,14 @@
 import { Client, LocalAuth, Message } from 'whatsapp-web.js';
 // @ts-ignore — no type declarations
 import qrcode from 'qrcode-terminal';
-import http from 'http';
 import path from 'path';
+import { apiRequest } from './shared.ts';
 
-const API_PORT = process.env.FONTE_API_PORT || '3777';
-const API_URL = `http://localhost:${API_PORT}`;
 const FONTE_HOME = process.env.FONTE_HOME || path.join(require('os').homedir(), '.fonte');
 const SESSION_DIR = path.join(FONTE_HOME, 'whatsapp-session');
 
 // Approved chat IDs (loaded from settings or auto-approved on first message)
 const approvedChats = new Set<string>();
-
-// ── API helpers ─────────────────────────────────────────────────────────────
-
-function apiRequest<T = any>(method: string, apiPath: string, body?: unknown): Promise<T> {
-    return new Promise((resolve, reject) => {
-        const payload = body ? JSON.stringify(body) : undefined;
-        const url = new URL(`${API_URL}${apiPath}`);
-
-        const req = http.request({
-            hostname: url.hostname,
-            port: url.port,
-            path: url.pathname + url.search,
-            method,
-            headers: {
-                'Content-Type': 'application/json',
-                ...(payload ? { 'Content-Length': String(Buffer.byteLength(payload)) } : {}),
-            },
-        }, (res) => {
-            let data = '';
-            res.on('data', (chunk) => data += chunk);
-            res.on('end', () => {
-                try { resolve(JSON.parse(data)); } catch { reject(new Error(data)); }
-            });
-        });
-
-        req.on('error', reject);
-        if (payload) req.write(payload);
-        req.end();
-    });
-}
 
 function sendToAgent(message: string, sender: string, chatId: string): Promise<any> {
     return apiRequest('POST', '/api/message', {
