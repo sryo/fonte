@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -23,7 +23,6 @@ import {
   Eye,
   Lightning,
   Check,
-  FilmStrip,
   Plus,
   Trash,
   Pause,
@@ -34,10 +33,8 @@ import {
   X,
 } from "@phosphor-icons/react";
 import {
-  addWatchlistEntry,
   removeTorrent,
   deleteWatchlistEntry,
-  createAutomation,
   updateAutomation,
   getAutomation,
   triggerAutomation,
@@ -47,6 +44,16 @@ import {
   resumeTorrent,
   triggerWatchlistSearch,
 } from "@/lib/api";
+import { usePolling } from "@/hooks/usePolling";
+import { CardAction } from "@/components/home/card-action";
+import { ProgressRing } from "@/components/home/progress-ring";
+import { MediaCard } from "@/components/home/media-card";
+import { EmptyRowCard } from "@/components/home/empty-row-card";
+import { StatusBadge } from "@/components/home/status-badge";
+import { ContentRow } from "@/components/home/content-row";
+import { AddWatchlistModal } from "@/components/home/add-watchlist-modal";
+import { AddAutomationModal } from "@/components/home/add-automation-modal";
+import { EditAutomationModal } from "@/components/home/edit-automation-modal";
 
 // ── Filter types ─────────────────────────────────────────────────────────
 
@@ -58,220 +65,6 @@ const FILTER_CHIPS: { key: FilterChip; label: string }[] = [
   { key: "completed", label: "Completed" },
   { key: "watching", label: "Watching" },
 ];
-
-// ── CardAction (hover action button) ────────────────────────────────────
-
-function CardAction({ icon: Icon, label, onClick, destructive }: {
-  icon: React.ElementType;
-  label: string;
-  onClick: (e: React.MouseEvent) => void;
-  destructive?: boolean;
-}) {
-  return (
-    <button
-      onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      title={label}
-      className={cn(
-        "h-8 w-8 rounded-lg flex items-center justify-center backdrop-blur-sm transition-colors",
-        destructive
-          ? "bg-red-500/80 hover:bg-red-500 text-white"
-          : "bg-white/20 hover:bg-white/30 text-white"
-      )}
-    >
-      <Icon className="h-4 w-4" weight="bold" />
-    </button>
-  );
-}
-
-// ── ProgressRing (shine border, determinate or busy) ─────────────────────
-
-type RingColor = "torrent" | "watchlist" | "automation";
-
-function ProgressRing({
-  progress,
-  busy,
-  color = "torrent",
-}: {
-  progress?: { value: number; stalled?: boolean };
-  busy?: boolean;
-  color?: RingColor;
-}) {
-  const indeterminate = !progress && busy;
-  if (!progress && !busy) return null;
-  if (progress && progress.value >= 1) return null;
-  const style: React.CSSProperties = {
-    ["--ring-color" as string]: `var(--${color})`,
-  };
-  if (progress) {
-    (style as Record<string, string | number>)["--progress"] = Math.min(1, Math.max(0, progress.value));
-  }
-  return (
-    <div
-      aria-hidden
-      className={cn(
-        "progress-ring",
-        progress?.stalled && "progress-ring--stalled",
-        indeterminate && "progress-ring--indeterminate",
-      )}
-      style={style}
-    />
-  );
-}
-
-// ── MediaCard (unified card layout) ──────────────────────────────────────
-
-function MediaCard({
-  posterUrl,
-  title,
-  badges,
-  actions,
-  onClick,
-  children,
-  progress,
-  busy,
-  ringColor,
-}: {
-  posterUrl?: string;
-  title: string;
-  badges?: React.ReactNode;
-  actions?: React.ReactNode;
-  onClick?: () => void;
-  children?: React.ReactNode;
-  progress?: { value: number; stalled?: boolean };
-  busy?: boolean;
-  ringColor?: RingColor;
-}) {
-  return (
-    <div
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter") onClick?.(); }}
-      className="w-44 rounded-xl shadow-sm border bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative"
-    >
-      <div className="aspect-[2/3] w-full bg-muted relative overflow-hidden">
-        {posterUrl ? (
-          <img src={posterUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-            <FilmStrip className="h-10 w-10 text-muted-foreground/30" />
-          </div>
-        )}
-        {badges && (
-          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
-            {badges}
-          </div>
-        )}
-        {actions && (
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2 gap-1.5">
-            {actions}
-          </div>
-        )}
-      </div>
-      <div className="p-3 space-y-1">
-        <p className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-foreground">{title}</p>
-        {children}
-      </div>
-      <ProgressRing progress={progress} busy={busy} color={ringColor} />
-    </div>
-  );
-}
-
-// ── Empty Row Card ───────────────────────────────────────────────────────
-
-function EmptyRowCard({
-  icon: Icon,
-  label,
-  hint,
-  onClick,
-}: {
-  icon: React.ElementType;
-  label: string;
-  hint?: string;
-  onClick?: () => void;
-}) {
-  const interactive = Boolean(onClick);
-  return (
-    <div
-      onClick={onClick}
-      role={interactive ? "button" : undefined}
-      tabIndex={interactive ? 0 : undefined}
-      onKeyDown={interactive ? (e) => { if (e.key === "Enter") onClick?.(); } : undefined}
-      className={cn(
-        "w-44 rounded-xl border border-dashed bg-card/30 overflow-hidden text-left transition-colors",
-        interactive && "hover:bg-accent/50 hover:border-foreground/30 cursor-pointer"
-      )}
-    >
-      <div className="aspect-[2/3] w-full flex items-center justify-center bg-gradient-to-br from-muted/30 to-transparent">
-        <Icon className="h-12 w-12 text-muted-foreground/40" weight="thin" />
-      </div>
-      <div className="p-3 space-y-1">
-        <p className="text-sm font-medium leading-tight text-muted-foreground">{label}</p>
-        {hint && <p className="text-[11px] text-muted-foreground/70 leading-tight">{hint}</p>}
-      </div>
-    </div>
-  );
-}
-
-// ── Status Badge ─────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    downloading: "bg-torrent/15 text-torrent",
-    seeding: "bg-green-500/15 text-green-600 dark:text-green-400",
-    completed: "bg-green-500/15 text-green-600 dark:text-green-400",
-    paused: "bg-muted text-muted-foreground",
-    error: "bg-destructive/15 text-destructive",
-    watching: "bg-watchlist/15 text-watchlist",
-    fulfilled: "bg-green-500/15 text-green-600 dark:text-green-400",
-  };
-
-  return (
-    <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-md capitalize", styles[status] ?? "bg-muted text-muted-foreground")}>
-      {status}
-    </span>
-  );
-}
-
-// ── Content Row ──────────────────────────────────────────────────────────
-
-function ContentRow({
-  title,
-  count,
-  icon: Icon,
-  children,
-  emptyContent,
-  isEmpty,
-  action,
-}: {
-  title: string;
-  count: number;
-  icon: React.ElementType;
-  children: React.ReactNode;
-  emptyContent: React.ReactNode;
-  isEmpty: boolean;
-  action?: React.ReactNode;
-}) {
-  return (
-    <section className="space-y-3 animate-card-enter">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold flex items-center gap-2">
-          <Icon className="h-5 w-5 text-muted-foreground" weight="bold" />
-          {title}
-          {count > 0 && (
-            <span className="text-sm font-normal text-muted-foreground">({count})</span>
-          )}
-        </h2>
-        {action}
-      </div>
-      {isEmpty ? (
-        <div className="flex flex-wrap gap-3">{emptyContent}</div>
-      ) : (
-        <div className="flex flex-wrap gap-3">{children}</div>
-      )}
-    </section>
-  );
-}
 
 // ── Main Page ────────────────────────────────────────────────────────────
 
@@ -288,11 +81,6 @@ export default function HomePage() {
   const [indexerBannerDismissed, setIndexerBannerDismissed] = useState(false);
   const [showAddWatchlist, setShowAddWatchlist] = useState(false);
   const [showAddAutomation, setShowAddAutomation] = useState(false);
-  const [autoForm, setAutoForm] = useState({
-    name: "",
-    triggerType: "torrent:completed",
-    prompt: "",
-  });
   const [editAutoId, setEditAutoId] = useState<string | null>(null);
   const [editAutoForm, setEditAutoForm] = useState({
     name: "",
@@ -304,7 +92,6 @@ export default function HomePage() {
   const [searchingWlIds, setSearchingWlIds] = useState<Set<string>>(new Set());
   const [editAutoLogs, setEditAutoLogs] = useState<AutomationLog[]>([]);
   const [editAutoLastResponse, setEditAutoLastResponse] = useState<{ text: string; ts: number } | null>(null);
-  const [wlForm, setWlForm] = useState({ title: "", mediaType: "movie" as "movie" | "tv" | "music" | "game" | "book" | "app" | "other", year: "", quality: "1080p" });
 
   // Per-torrent progress history: id → { progress: 0-1, ts: ms since epoch when last changed }
   const progressHistoryRef = useRef<Map<string, { progress: number; ts: number }>>(new Map());
@@ -351,11 +138,7 @@ export default function HomePage() {
     return Date.now() - entry.ts > STALL_MS;
   }, []);
 
-  useEffect(() => {
-    fetchAll();
-    const interval = setInterval(fetchAll, 3000);
-    return () => clearInterval(interval);
-  }, [fetchAll]);
+  usePolling(fetchAll, 3000);
 
   // Indexer status is a real Jackett search on every call; check once on
   // mount instead of every poll tick, and respect a persisted dismissal.
@@ -371,6 +154,23 @@ export default function HomePage() {
       localStorage.setItem("fonte.indexer-banner-dismissed", "true");
     }
     setIndexerBannerDismissed(true);
+  };
+
+  const saveEditAutomation = async () => {
+    if (!editAutoId || !editAutoForm.name.trim()) return;
+    const patch: Parameters<typeof updateAutomation>[1] = {
+      name: editAutoForm.name.trim(),
+      prompt: editAutoForm.prompt.trim(),
+      triggerType: editAutoForm.triggerType,
+    };
+    if (editAutoForm.triggerType === "schedule") {
+      patch.triggerConfig = editAutoForm.cron.trim() ? { cron: editAutoForm.cron.trim() } : {};
+    } else {
+      patch.triggerConfig = {};
+    }
+    await updateAutomation(editAutoId, patch);
+    setEditAutoId(null);
+    fetchAll();
   };
 
   const showIndexerBanner = indexerStatus !== null && !indexerStatus.configured && !indexerBannerDismissed;
@@ -742,265 +542,27 @@ export default function HomePage() {
         </ContentRow>
       )}
 
-      {/* Add to Watchlist Modal */}
-      {showAddWatchlist && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onClick={() => setShowAddWatchlist(false)}>
-          <div className="bg-card rounded-xl shadow-lg border p-6 w-full max-w-sm space-y-4 animate-card-enter" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold">Add to Watchlist</h3>
-            <input
-              placeholder="Title"
-              value={wlForm.title}
-              onChange={(e) => setWlForm({ ...wlForm, title: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg border bg-background"
-              autoFocus
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <select
-                value={wlForm.mediaType}
-                onChange={(e) => setWlForm({ ...wlForm, mediaType: e.target.value as "movie" | "tv" | "music" | "game" | "book" | "app" | "other" })}
-                className="px-3 py-2 text-sm rounded-lg border bg-background"
-              >
-                <option value="movie">Movie</option>
-                <option value="tv">TV Show</option>
-                <option value="music">Music</option>
-                <option value="game">Game</option>
-                <option value="book">Book</option>
-                <option value="app">App</option>
-                <option value="other">Other</option>
-              </select>
-              <input
-                placeholder="Year"
-                type="number"
-                value={wlForm.year}
-                onChange={(e) => setWlForm({ ...wlForm, year: e.target.value })}
-                className="px-3 py-2 text-sm rounded-lg border bg-background"
-              />
-            </div>
-            <select
-              value={wlForm.quality}
-              onChange={(e) => setWlForm({ ...wlForm, quality: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg border bg-background"
-            >
-              <option value="720p">720p</option>
-              <option value="1080p">1080p</option>
-              <option value="4K">4K</option>
-            </select>
-            <div className="flex gap-2 pt-1">
-              <button
-                onClick={async () => {
-                  if (!wlForm.title.trim()) return;
-                  await addWatchlistEntry({
-                    title: wlForm.title.trim(),
-                    mediaType: wlForm.mediaType,
-                    year: wlForm.year ? parseInt(wlForm.year) : undefined,
-                    quality: wlForm.quality,
-                  });
-                  setWlForm({ title: "", mediaType: "movie", year: "", quality: "1080p" });
-                  setShowAddWatchlist(false);
-                  fetchAll();
-                }}
-                disabled={!wlForm.title.trim()}
-                className="flex-1 px-4 py-2 text-sm bg-watchlist text-watchlist-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
-              >
-                Add
-              </button>
-              <button
-                onClick={() => setShowAddWatchlist(false)}
-                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddWatchlistModal
+        open={showAddWatchlist}
+        onClose={() => setShowAddWatchlist(false)}
+        onAdded={fetchAll}
+      />
 
-      {/* Add Automation Modal */}
-      {showAddAutomation && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onClick={() => setShowAddAutomation(false)}>
-          <div className="bg-card rounded-xl shadow-lg border p-6 w-full max-w-md space-y-4 animate-card-enter" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold">Create Automation</h3>
-            <input
-              placeholder="Rule name"
-              value={autoForm.name}
-              onChange={(e) => setAutoForm({ ...autoForm, name: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg border bg-background"
-              autoFocus
-            />
-            <div>
-              <label className="text-xs text-muted-foreground">When this happens...</label>
-              <select
-                value={autoForm.triggerType}
-                onChange={(e) => setAutoForm({ ...autoForm, triggerType: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1"
-              >
-                <option value="torrent:completed">Torrent completes</option>
-                <option value="torrent:added">Torrent added</option>
-                <option value="torrent:error">Torrent error</option>
-                <option value="torrent:stalled">Torrent stalled</option>
-                <option value="watchlist:match">Watchlist match found</option>
-                <option value="schedule">On a schedule</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Describe what should happen...</label>
-              <textarea
-                placeholder="e.g., Fetch subtitles in the original language, translate to Spanish, clean up the file name, and move to the right folder based on type."
-                value={autoForm.prompt}
-                onChange={(e) => setAutoForm({ ...autoForm, prompt: e.target.value })}
-                rows={4}
-                className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1 resize-y"
-              />
-            </div>
-            <div className="flex gap-2 pt-1">
-              <button
-                onClick={async () => {
-                  if (!autoForm.name.trim()) return;
-                  await createAutomation({
-                    name: autoForm.name.trim(),
-                    prompt: autoForm.prompt.trim(),
-                    triggerType: autoForm.triggerType,
-                  });
-                  setAutoForm({ name: "", triggerType: "torrent:completed", prompt: "" });
-                  setShowAddAutomation(false);
-                  fetchAll();
-                }}
-                disabled={!autoForm.name.trim()}
-                className="flex-1 px-4 py-2 text-sm bg-automation text-automation-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
-              >
-                Create
-              </button>
-              <button
-                onClick={() => setShowAddAutomation(false)}
-                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AddAutomationModal
+        open={showAddAutomation}
+        onClose={() => setShowAddAutomation(false)}
+        onCreated={fetchAll}
+      />
 
-      {/* Edit Automation Modal */}
       {editAutoId && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onClick={() => setEditAutoId(null)}>
-          <div className="bg-card rounded-xl shadow-lg border p-6 w-full max-w-md space-y-4 animate-card-enter" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold">Edit Automation</h3>
-            <input
-              placeholder="Rule name"
-              value={editAutoForm.name}
-              onChange={(e) => setEditAutoForm({ ...editAutoForm, name: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg border bg-background"
-              autoFocus
-            />
-            <div>
-              <label className="text-xs text-muted-foreground">Trigger</label>
-              <select
-                value={editAutoForm.triggerType}
-                onChange={(e) => setEditAutoForm({ ...editAutoForm, triggerType: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1"
-              >
-                <option value="torrent:completed">Torrent completes</option>
-                <option value="torrent:added">Torrent added</option>
-                <option value="torrent:error">Torrent error</option>
-                <option value="torrent:stalled">Torrent stalled</option>
-                <option value="watchlist:match">Watchlist match found</option>
-                <option value="schedule">On a schedule</option>
-              </select>
-            </div>
-            {editAutoForm.triggerType === "schedule" && (
-              <div>
-                <label className="text-xs text-muted-foreground">Cron expression</label>
-                <input
-                  placeholder="0 9 * * 1   (e.g. Mondays at 9am)"
-                  value={editAutoForm.cron}
-                  onChange={(e) => setEditAutoForm({ ...editAutoForm, cron: e.target.value })}
-                  className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1 font-mono"
-                />
-              </div>
-            )}
-            <div>
-              <label className="text-xs text-muted-foreground">Prompt</label>
-              <textarea
-                placeholder="What should happen when this fires"
-                value={editAutoForm.prompt}
-                onChange={(e) => setEditAutoForm({ ...editAutoForm, prompt: e.target.value })}
-                rows={5}
-                className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1 resize-y"
-              />
-            </div>
-            <div className="flex gap-2 pt-1">
-              <button
-                onClick={async () => {
-                  if (!editAutoId || !editAutoForm.name.trim()) return;
-                  const patch: Parameters<typeof updateAutomation>[1] = {
-                    name: editAutoForm.name.trim(),
-                    prompt: editAutoForm.prompt.trim(),
-                    triggerType: editAutoForm.triggerType,
-                  };
-                  if (editAutoForm.triggerType === "schedule") {
-                    patch.triggerConfig = editAutoForm.cron.trim() ? { cron: editAutoForm.cron.trim() } : {};
-                  } else {
-                    patch.triggerConfig = {};
-                  }
-                  await updateAutomation(editAutoId, patch);
-                  setEditAutoId(null);
-                  fetchAll();
-                }}
-                disabled={!editAutoForm.name.trim()}
-                className="flex-1 px-4 py-2 text-sm bg-automation text-automation-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setEditAutoId(null)}
-                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted"
-              >
-                Cancel
-              </button>
-            </div>
-
-            {/* History — last response + trigger log */}
-            <div className="pt-3 border-t space-y-3">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Last response</label>
-                {editAutoLastResponse ? (
-                  <div className="mt-1.5 rounded-md border bg-muted/30 px-3 py-2 max-h-40 overflow-y-auto">
-                    <p className="text-[10px] text-muted-foreground">
-                      {formatRelativeTime(editAutoLastResponse.ts)}
-                    </p>
-                    <p className="mt-1 text-xs whitespace-pre-wrap leading-relaxed">
-                      {editAutoLastResponse.text}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="mt-1.5 text-xs text-muted-foreground italic">No responses yet.</p>
-                )}
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Recent triggers ({editAutoLogs.length})
-                </label>
-                {editAutoLogs.length === 0 ? (
-                  <p className="mt-1.5 text-xs text-muted-foreground italic">Never triggered.</p>
-                ) : (
-                  <ul className="mt-1.5 space-y-1 max-h-32 overflow-y-auto">
-                    {editAutoLogs.slice(0, 10).map((log) => (
-                      <li key={log.id} className="flex items-center justify-between gap-2 text-[11px]">
-                        <span className={log.conditionsMet ? "text-foreground" : "text-destructive"}>
-                          {log.triggerEvent}{log.errorMessage ? ` — ${log.errorMessage}` : ""}
-                        </span>
-                        <span className="text-muted-foreground tabular-nums shrink-0">
-                          {formatRelativeTime(log.executedAt)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <EditAutomationModal
+          form={editAutoForm}
+          setForm={setEditAutoForm}
+          logs={editAutoLogs}
+          lastResponse={editAutoLastResponse}
+          onClose={() => setEditAutoId(null)}
+          onSave={saveEditAutomation}
+        />
       )}
     </div>
   );

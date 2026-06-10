@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -18,6 +18,7 @@ import {
   type SubtitleRecord,
 } from "@/lib/api";
 import { formatBytes, formatSpeed } from "@/lib/format";
+import { usePolling } from "@/hooks/usePolling";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -78,12 +79,7 @@ export default function TorrentDetailPage() {
     }
   }, [id]);
 
-  // Initial fetch + polling every 2 seconds
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 2000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+  usePolling(fetchData, 2000);
 
   const handlePause = useCallback(async () => {
     setActionLoading(true);
