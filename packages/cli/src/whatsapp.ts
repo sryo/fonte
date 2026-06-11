@@ -12,13 +12,10 @@ import { Client, LocalAuth, Message } from 'whatsapp-web.js';
 // @ts-ignore — no type declarations
 import qrcode from 'qrcode-terminal';
 import path from 'path';
-import { apiRequest } from './shared.ts';
+import { apiRequest, readSettings } from './shared.ts';
 
 const FONTE_HOME = process.env.FONTE_HOME || path.join(require('os').homedir(), '.fonte');
 const SESSION_DIR = path.join(FONTE_HOME, 'whatsapp-session');
-
-// Approved chat IDs (loaded from settings or auto-approved on first message)
-const approvedChats = new Set<string>();
 
 function sendToAgent(message: string, sender: string, chatId: string): Promise<any> {
     return apiRequest('POST', '/api/message', {
@@ -86,8 +83,8 @@ client.on('qr', (qr: string) => {
 
 client.on('ready', () => {
     console.log('  WhatsApp connected!');
-    console.log('  Send a message to any approved chat to control Fonte.');
-    console.log('  First message from a new chat will ask for approval.');
+    console.log('  Messages from the chat in settings.whatsapp.allowed_chat control Fonte.');
+    console.log('  Messages from any other chat are ignored (their chat id is logged here).');
     console.log('');
 
     // Start polling for responses every 2 seconds
@@ -105,14 +102,15 @@ client.on('message', async (msg: Message) => {
 
     if (!text) return;
 
-    console.log(`[WhatsApp] ${sender}: ${text}`);
-
-    // Auto-approve: all chats are approved (you're messaging yourself)
-    // For security, you could add a pairing system here
-    if (!approvedChats.has(chatId)) {
-        approvedChats.add(chatId);
-        console.log(`[WhatsApp] Auto-approved chat: ${chatId}`);
+    // Only the configured chat may talk to the agent (settings.whatsapp.allowed_chat;
+    // null/missing = ignore all). Re-read per message so changes apply without restart.
+    const allowedChat = readSettings().whatsapp?.allowed_chat ?? null;
+    if (!allowedChat || chatId !== allowedChat) {
+        console.log(`[WhatsApp] Ignoring message from non-approved chat ${chatId} (set whatsapp.allowed_chat to approve)`);
+        return;
     }
+
+    console.log(`[WhatsApp] ${sender}: ${text}`);
 
     // Forward to Fonte agent
     try {

@@ -31,6 +31,11 @@ import automationsRoutes from './routes/automations';
 import whatsappRoutes from './routes/whatsapp';
 
 const API_PORT = parseInt(process.env.FONTE_API_PORT || '3777', 10);
+// Loopback-only by default: the API has no authentication, so exposing it
+// beyond this machine (or to arbitrary web origins) hands out full control.
+const API_HOST = process.env.FONTE_API_HOST || '127.0.0.1';
+
+const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 const startedAt = Date.now();
 
@@ -44,7 +49,9 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
     const app = new Hono();
 
     // CORS middleware
-    app.use('/*', cors());
+    app.use('/*', cors({
+        origin: (origin) => (LOCAL_ORIGIN.test(origin) ? origin : null),
+    }));
 
     // Mount route modules
     app.route('/', messagesRoutes);
@@ -74,11 +81,12 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
     // SSE endpoint — needs raw Node.js response for streaming
     app.get('/api/events/stream', (c) => {
         const nodeRes = (c.env as { outgoing: http.ServerResponse }).outgoing;
+        const origin = c.req.header('origin');
         nodeRes.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*',
+            ...(origin && LOCAL_ORIGIN.test(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
         });
         nodeRes.write(`event: connected\ndata: ${JSON.stringify({ timestamp: Date.now() })}\n\n`);
         addSSEClient(nodeRes);
@@ -100,8 +108,9 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
     const server = serve({
         fetch: app.fetch,
         port: API_PORT,
+        hostname: API_HOST,
     }, () => {
-        log('INFO', `API server listening on http://localhost:${API_PORT}`);
+        log('INFO', `API server listening on http://${API_HOST}:${API_PORT}`);
     });
 
     return server as unknown as http.Server;
