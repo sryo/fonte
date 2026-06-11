@@ -36,8 +36,8 @@ export function insertWatchlistEntry(record: {
 export function updateWatchlistEntry(id: string, fields: Partial<{
     title: string;
     mediaType: MediaType;
-    year: number;
-    seasonPattern: string;
+    year: number | null;
+    seasonPattern: string | null;
     quality: string;
     searchQuery: string;
     category: number;
@@ -46,7 +46,7 @@ export function updateWatchlistEntry(id: string, fields: Partial<{
     lastCheckedAt: number;
     lastMatchAt: number;
     matchedTorrentId: string;
-    posterUrl: string;
+    posterUrl: string | null;
 }>): void {
     const sets: string[] = [];
     const values: any[] = [];
@@ -108,6 +108,7 @@ export function deleteWatchlistEntry(id: string): void {
 
 // ── Watchlist Results ────────────────────────────────────────────────────────
 
+/** Insert a search result, or refresh the existing row for the same magnet (keeps repeated checks from growing the table unboundedly). */
 export function insertWatchlistResult(result: {
     watchlistId: string;
     title: string;
@@ -118,9 +119,32 @@ export function insertWatchlistResult(result: {
     qualityMatch: number;
     publishDate?: number;
     indexer?: string;
-}): void {
+}): number {
     const now = Date.now();
-    getDb().prepare(`
+    const existing = getDb().prepare(
+        'SELECT id FROM watchlist_results WHERE watchlist_id = ? AND magnet_uri = ?'
+    ).get(result.watchlistId, result.magnetUri) as { id: number } | undefined;
+
+    if (existing) {
+        getDb().prepare(`
+            UPDATE watchlist_results
+            SET title = ?, seeders = ?, leechers = ?, size = ?, quality_match = ?, publish_date = ?, indexer = ?, found_at = ?
+            WHERE id = ?
+        `).run(
+            result.title,
+            result.seeders,
+            result.leechers,
+            result.size,
+            result.qualityMatch,
+            result.publishDate ?? null,
+            result.indexer ?? null,
+            now,
+            existing.id,
+        );
+        return existing.id;
+    }
+
+    const info = getDb().prepare(`
         INSERT INTO watchlist_results (watchlist_id, title, magnet_uri, seeders, leechers, size, quality_match, publish_date, indexer, found_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -135,6 +159,14 @@ export function insertWatchlistResult(result: {
         result.indexer ?? null,
         now,
     );
+    return Number(info.lastInsertRowid);
+}
+
+export function getWatchlistResultByMagnet(watchlistId: string, magnetUri: string): WatchlistResultRecord | undefined {
+    const row = getDb().prepare(
+        'SELECT * FROM watchlist_results WHERE watchlist_id = ? AND magnet_uri = ?'
+    ).get(watchlistId, magnetUri) as any;
+    return row ? rowToResultRecord(row) : undefined;
 }
 
 export function getWatchlistResults(watchlistId: string, limit?: number): WatchlistResultRecord[] {

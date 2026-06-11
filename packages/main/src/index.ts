@@ -144,6 +144,9 @@ async function sendDirectResponse(
 // ── Queue Processing ────────────────────────────────────────────────────────
 
 const agentChains = new Map<string, Promise<void>>();
+// Bumped when the user kills an agent session; running batches compare their
+// starting epoch and drop remaining messages instead of carrying on.
+const agentKillEpoch = new Map<string, number>();
 
 async function processQueue(): Promise<void> {
     const pendingAgents = getPendingAgents();
@@ -156,7 +159,12 @@ async function processQueue(): Promise<void> {
         const currentChain = agentChains.get(agentId) || Promise.resolve();
         // .catch() prevents a rejected chain from blocking subsequent messages
         const newChain = currentChain.catch(() => {}).then(async () => {
+            const epoch = agentKillEpoch.get(agentId) || 0;
             for (const msg of messages) {
+                if ((agentKillEpoch.get(agentId) || 0) !== epoch) {
+                    failMessage(msg.id, 'Agent killed');
+                    continue;
+                }
                 try {
                     markProcessing(msg.id);
                     await processMessage(msg);
@@ -211,10 +219,12 @@ const apiServer = startApiServer({
 // Event-driven: process queue when a new message arrives
 queueEvents.on('message:enqueued', () => processQueue());
 
-// When user manually kills an agent session, clear its promise chain
+// When user manually kills an agent session, abort the running batch.
+// Deleting the chain here would let a new batch start while the old loop
+// still holds claimed messages — two concurrent processors for one agent.
 queueEvents.on('agent:killed', ({ agentId }: { agentId: string }) => {
-    agentChains.delete(agentId);
-    log('INFO', `Cleared agent chain for ${agentId}`);
+    agentKillEpoch.set(agentId, (agentKillEpoch.get(agentId) || 0) + 1);
+    log('INFO', `Aborting message batch for killed agent ${agentId}`);
 });
 
 // Also poll periodically in case events are missed

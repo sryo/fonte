@@ -3,7 +3,7 @@ import { log, emitEvent, getSettings } from '@fonte/core';
 import { aggregateSearch, filterByTitle, rankResults, computeQualityMatch, extractInfoHash } from './search-aggregator';
 import {
     getWatchlistEntries, updateWatchlistEntry,
-    insertWatchlistResult, getWatchlistResults, markResultSelected,
+    insertWatchlistResult, getWatchlistResultByMagnet, markResultSelected,
 } from './watchlist-db';
 import { getTorrentManager } from './torrent-manager';
 import { getTorrentByHash } from './torrent-db';
@@ -63,6 +63,7 @@ export async function runWatchlistCheck(): Promise<void> {
                 categories: [entry.category],
                 jackettUrl,
                 apiKey,
+                jackettErrors: 'throw',
             });
 
             emitEvent(WATCHLIST_EVENTS.SEARCH, {
@@ -110,11 +111,9 @@ export async function runWatchlistCheck(): Promise<void> {
                         try {
                             const torrent = await getTorrentManager().addTorrent(best.magnetUri);
 
-                            // Mark the result and update watchlist entry
-                            // Find the result we just inserted
-                            const allResults = getWatchlistResults(entry.id, 1);
-                            if (allResults.length > 0) {
-                                markResultSelected(allResults[0].id);
+                            const selected = getWatchlistResultByMagnet(entry.id, best.magnetUri);
+                            if (selected) {
+                                markResultSelected(selected.id);
                             }
 
                             const isOngoing = (entry.mediaType === 'tv' || entry.mediaType === 'music') && !entry.seasonPattern;

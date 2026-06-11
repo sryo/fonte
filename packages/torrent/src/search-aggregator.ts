@@ -11,6 +11,10 @@ export interface AggregateSearchOpts {
     categories?: number[];
     jackettUrl?: string;
     apiKey?: string;
+    // 'warn' (default) logs and continues with remaining sources; 'throw'
+    // propagates Jackett failures so callers can treat the search as failed
+    // rather than silently degrading to bt4g-only results.
+    jackettErrors?: 'warn' | 'throw';
 }
 
 /**
@@ -33,6 +37,7 @@ export async function aggregateSearch(queries: string[], opts: AggregateSearchOp
                     all.push({ ...r, source: r.indexer || 'jackett' });
                 }
             } catch (err) {
+                if (opts.jackettErrors === 'throw') throw err;
                 log('WARN', `[search] Jackett failed for "${query}": ${(err as Error).message}`);
             }
         }

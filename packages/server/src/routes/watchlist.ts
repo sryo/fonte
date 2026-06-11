@@ -2,10 +2,10 @@ import { Hono } from 'hono';
 import {
     insertWatchlistEntry, updateWatchlistEntry, getWatchlistEntry,
     getWatchlistEntries, deleteWatchlistEntry,
-    getWatchlistResults, markResultSelected,
+    getWatchlistResults, insertWatchlistResult, markResultSelected,
     getTorrentManager,
     runWatchlistCheck,
-    aggregateSearch, filterByTitle, sortBySeedersThenSize,
+    aggregateSearch, filterByTitle, sortBySeedersThenSize, computeQualityMatch,
     searchTmdb,
 } from '@fonte/torrent';
 import type { WatchlistStatus, MediaType } from '@fonte/torrent';
@@ -256,9 +256,27 @@ app.post('/api/watchlist/:id/search', async (c) => {
     }
 
     try {
-        const results = await multiSearch(entry.title, entry.year, entry.quality, entry.category);
+        const found = await multiSearch(entry.title, entry.year, entry.quality, entry.category);
+
+        // Persist so the results have real ids (Add-as-Torrent needs them)
+        // and survive the page's periodic re-fetch from the DB.
+        for (const r of found.slice(0, 50)) {
+            insertWatchlistResult({
+                watchlistId: id,
+                title: r.title,
+                magnetUri: r.magnetUri,
+                seeders: r.seeders ?? 0,
+                leechers: r.leechers ?? 0,
+                size: r.size ?? 0,
+                qualityMatch: computeQualityMatch(r.title, entry.quality),
+                publishDate: r.publishDate,
+                indexer: r.indexer,
+            });
+        }
         updateWatchlistEntry(id, { lastCheckedAt: Date.now() });
-        return c.json({ ok: true, resultCount: results.length, results: results.slice(0, 50) });
+
+        const results = getWatchlistResults(id, 50);
+        return c.json({ ok: true, resultCount: results.length, results });
     } catch (err) {
         const msg = (err as Error).message;
         log('ERROR', `[watchlist] Search failed for ${id}: ${msg}`);

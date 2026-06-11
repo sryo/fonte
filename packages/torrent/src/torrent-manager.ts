@@ -30,6 +30,7 @@ export class TorrentManager {
     private config: TorrentConfig;
     private updateInterval: ReturnType<typeof setInterval> | null = null;
     private stalledTimers = new Map<string, number>();
+    private stalledNotified = new Set<string>();
     // Map our internal IDs to Transmission torrent IDs
     private transmissionIds = new Map<string, number>();
 
@@ -150,6 +151,7 @@ export class TorrentManager {
         } catch (err) {
             updateTorrent(id, { status: 'error', errorMessage: (err as Error).message });
             log('ERROR', `Failed to add torrent to Transmission: ${(err as Error).message}`);
+            throw err;
         }
 
         emitEvent(TORRENT_EVENTS.ADDED, { id, infoHash: tempHash, magnetUri });
@@ -412,12 +414,14 @@ export class TorrentManager {
                 log('INFO', `Torrent completed: ${t.name}`);
             }
 
-            // Stall detection
+            // Stall detection — emit once per stall episode, re-arm when peers return
             if ((t.peersConnected ?? 0) > 0) {
                 this.stalledTimers.set(hash, Date.now());
+                this.stalledNotified.delete(hash);
             } else if (!isDone) {
                 const lastHadPeers = this.stalledTimers.get(hash) ?? record.addedAt;
-                if (Date.now() - lastHadPeers > 5 * 60 * 1000) {
+                if (Date.now() - lastHadPeers > 5 * 60 * 1000 && !this.stalledNotified.has(hash)) {
+                    this.stalledNotified.add(hash);
                     emitEvent(TORRENT_EVENTS.STALLED, {
                         id: record.id,
                         name: record.name,
