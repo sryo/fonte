@@ -9,6 +9,8 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
   onAdded: () => void;
 }) {
   const [wlForm, setWlForm] = useState({ title: "", mediaType: "movie" as "movie" | "tv" | "music" | "game" | "book" | "app" | "other", year: "", quality: "1080p" });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!open) return null;
 
@@ -54,24 +56,33 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
           <option value="1080p">1080p</option>
           <option value="4K">4K</option>
         </select>
+        {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="flex gap-2 pt-1">
           <button
             onClick={async () => {
-              if (!wlForm.title.trim()) return;
-              await addWatchlistEntry({
-                title: wlForm.title.trim(),
-                mediaType: wlForm.mediaType,
-                year: wlForm.year ? parseInt(wlForm.year) : undefined,
-                quality: wlForm.quality,
-              });
-              setWlForm({ title: "", mediaType: "movie", year: "", quality: "1080p" });
-              onClose();
-              onAdded();
+              if (!wlForm.title.trim() || submitting) return;
+              setSubmitting(true);
+              setError(null);
+              try {
+                await addWatchlistEntry({
+                  title: wlForm.title.trim(),
+                  mediaType: wlForm.mediaType,
+                  year: wlForm.year ? parseInt(wlForm.year) : undefined,
+                  quality: wlForm.quality,
+                });
+                setWlForm({ title: "", mediaType: "movie", year: "", quality: "1080p" });
+                onClose();
+                onAdded();
+              } catch (err) {
+                setError((err as Error).message);
+              } finally {
+                setSubmitting(false);
+              }
             }}
-            disabled={!wlForm.title.trim()}
+            disabled={!wlForm.title.trim() || submitting}
             className="flex-1 px-4 py-2 text-sm bg-watchlist text-watchlist-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
           >
-            Add
+            {submitting ? "Adding..." : "Add"}
           </button>
           <button
             onClick={onClose}

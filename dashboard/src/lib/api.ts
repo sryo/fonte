@@ -524,7 +524,16 @@ export async function addWatchlistEntry(data: { title: string; mediaType: MediaT
   return apiFetch("/api/watchlist", { method: "POST", body: JSON.stringify(data) });
 }
 
-export async function updateWatchlistEntry(id: string, data: Partial<WatchlistRecord>): Promise<{ ok: boolean; entry: WatchlistRecord }> {
+// year/seasonPattern/posterUrl accept null to clear the stored value
+// (undefined is dropped by JSON.stringify, so the server would skip them).
+export async function updateWatchlistEntry(
+  id: string,
+  data: Partial<Omit<WatchlistRecord, "year" | "seasonPattern" | "posterUrl">> & {
+    year?: number | null;
+    seasonPattern?: string | null;
+    posterUrl?: string | null;
+  },
+): Promise<{ ok: boolean; entry: WatchlistRecord }> {
   return apiFetch(`/api/watchlist/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(data) });
 }
 

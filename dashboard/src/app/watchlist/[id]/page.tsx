@@ -177,10 +177,10 @@ export default function WatchlistDetailPage() {
       await updateWatchlistEntry(id, {
         title: editForm.title.trim(),
         mediaType: editForm.mediaType,
-        year: editForm.year ? parseInt(editForm.year) : undefined,
+        year: editForm.year ? parseInt(editForm.year) : null,
         quality: editForm.quality,
-        seasonPattern: editForm.seasonPattern.trim() || undefined,
-        posterUrl: editForm.posterUrl.trim() || undefined,
+        seasonPattern: editForm.seasonPattern.trim() || null,
+        posterUrl: editForm.posterUrl.trim() || null,
       });
       setActionError(null);
       setShowEdit(false);

@@ -13,6 +13,8 @@ export function AddAutomationModal({ open, onClose, onCreated }: {
     triggerType: "torrent:completed",
     prompt: "",
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!open) return null;
 
@@ -52,23 +54,32 @@ export function AddAutomationModal({ open, onClose, onCreated }: {
             className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1 resize-y"
           />
         </div>
+        {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="flex gap-2 pt-1">
           <button
             onClick={async () => {
-              if (!autoForm.name.trim()) return;
-              await createAutomation({
-                name: autoForm.name.trim(),
-                prompt: autoForm.prompt.trim(),
-                triggerType: autoForm.triggerType,
-              });
-              setAutoForm({ name: "", triggerType: "torrent:completed", prompt: "" });
-              onClose();
-              onCreated();
+              if (!autoForm.name.trim() || submitting) return;
+              setSubmitting(true);
+              setError(null);
+              try {
+                await createAutomation({
+                  name: autoForm.name.trim(),
+                  prompt: autoForm.prompt.trim(),
+                  triggerType: autoForm.triggerType,
+                });
+                setAutoForm({ name: "", triggerType: "torrent:completed", prompt: "" });
+                onClose();
+                onCreated();
+              } catch (err) {
+                setError((err as Error).message);
+              } finally {
+                setSubmitting(false);
+              }
             }}
-            disabled={!autoForm.name.trim()}
+            disabled={!autoForm.name.trim() || submitting}
             className="flex-1 px-4 py-2 text-sm bg-automation text-automation-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
           >
-            Create
+            {submitting ? "Creating..." : "Create"}
           </button>
           <button
             onClick={onClose}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { type Settings } from "@/lib/api";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -34,14 +34,26 @@ export function SubtitleSettingsCard({
   const [targetLanguages, setTargetLanguages] = useState((raw?.target_languages ?? []).join(", "));
   const [tmdbApiKey, setTmdbApiKey] = useState(raw?.tmdb_api_key ?? "");
 
+  // Resync when settings are refetched (e.g. after another section saves),
+  // so saving this card doesn't write back a stale snapshot.
+  useEffect(() => {
+    setEnabled(raw?.enabled ?? false);
+    setAutoDownload(raw?.auto_download ?? false);
+    setTranslate(raw?.translate ?? false);
+    setTargetLanguages((raw?.target_languages ?? []).join(", "));
+    setTmdbApiKey(raw?.tmdb_api_key ?? "");
+  }, [raw]);
+
   const handleSave = () => {
     const languages = targetLanguages
       .split(",")
       .map((l) => l.trim())
       .filter(Boolean);
+    // Send only this section, spreading the existing sub-object so fields
+    // this card doesn't edit (e.g. opensubtitles_api_key) survive the save.
     onSave({
-      ...settings,
       subtitles: {
+        ...raw,
         enabled,
         auto_download: autoDownload,
         translate,

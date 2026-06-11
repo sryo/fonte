@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { type Settings } from "@/lib/api";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -43,10 +43,23 @@ export function WatchlistSettingsCard({
   const [jackettUrl, setJackettUrl] = useState(raw?.jackett_url ?? "");
   const [jackettApiKey, setJackettApiKey] = useState(raw?.jackett_api_key ?? "");
 
+  // Resync when settings are refetched (e.g. after another section saves),
+  // so saving this card doesn't write back a stale snapshot.
+  useEffect(() => {
+    setEnabled(raw?.enabled ?? false);
+    setCheckInterval(raw?.check_interval ?? 30);
+    setAutoAdd(raw?.auto_add ?? true);
+    setPreferredQuality(raw?.preferred_quality ?? "1080p");
+    setJackettUrl(raw?.jackett_url ?? "");
+    setJackettApiKey(raw?.jackett_api_key ?? "");
+  }, [raw]);
+
   const handleSave = () => {
+    // Send only this section; spreading the whole settings object would
+    // overwrite keys edited elsewhere with this card's stale copy.
     onSave({
-      ...settings,
       watchlist: {
+        ...raw,
         enabled,
         check_interval: checkInterval,
         auto_add: autoAdd,

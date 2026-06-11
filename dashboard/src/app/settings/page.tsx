@@ -70,14 +70,14 @@ export default function SettingsPage() {
   }, []);
 
   // Save general settings
-  const saveGeneralSettings = useCallback(async (updates: Partial<Settings>) => {
-    setSavingSection("general");
+  const saveGeneralSettings = useCallback(async (updates: Partial<Settings>, section: string) => {
+    setSavingSection(section);
     setErrorMsg(null);
     try {
       const result = await updateSettings(updates);
       setSettings(result.settings);
       setRawJson(JSON.stringify(result.settings, null, 2));
-      setSavedSection("general");
+      setSavedSection(section);
       setTimeout(() => setSavedSection(null), 2000);
     } catch (err) {
       setErrorMsg((err as Error).message);
@@ -179,9 +179,9 @@ export default function SettingsPage() {
       {settings && (
         <WatchlistSettingsCard
           settings={settings}
-          onSave={saveGeneralSettings}
-          saving={savingSection === "general"}
-          saved={savedSection === "general"}
+          onSave={(updates) => saveGeneralSettings(updates, "watchlist")}
+          saving={savingSection === "watchlist"}
+          saved={savedSection === "watchlist"}
         />
       )}
 
@@ -189,9 +189,9 @@ export default function SettingsPage() {
       {settings && (
         <SubtitleSettingsCard
           settings={settings}
-          onSave={saveGeneralSettings}
-          saving={savingSection === "general"}
-          saved={savedSection === "general"}
+          onSave={(updates) => saveGeneralSettings(updates, "subtitles")}
+          saving={savingSection === "subtitles"}
+          saved={savedSection === "subtitles"}
         />
       )}
 
