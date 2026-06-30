@@ -128,6 +128,12 @@ export function initTorrentDb(): void {
         db.exec('ALTER TABLE watchlist ADD COLUMN poster_url TEXT');
     }
 
+    // Migration: add poster_url to torrents
+    const torrentCols = db.prepare("PRAGMA table_info(torrents)").all() as { name: string }[];
+    if (!torrentCols.some(c => c.name === 'poster_url')) {
+        db.exec('ALTER TABLE torrents ADD COLUMN poster_url TEXT');
+    }
+
     // Migration: add prompt column to automation_rules
     const autoRuleCols = getDb().prepare("PRAGMA table_info(automation_rules)").all() as { name: string }[];
     if (!autoRuleCols.some(c => c.name === 'prompt')) {
@@ -170,6 +176,7 @@ export function updateTorrent(id: string, fields: Partial<{
     completedAt: number;
     errorMessage: string;
     tags: string[];
+    posterUrl: string;
 }>): void {
     const sets: string[] = [];
     const values: any[] = [];
@@ -186,6 +193,7 @@ export function updateTorrent(id: string, fields: Partial<{
     if (fields.completedAt !== undefined) { sets.push('completed_at = ?'); values.push(fields.completedAt); }
     if (fields.errorMessage !== undefined) { sets.push('error_message = ?'); values.push(fields.errorMessage); }
     if (fields.tags !== undefined) { sets.push('tags = ?'); values.push(JSON.stringify(fields.tags)); }
+    if (fields.posterUrl !== undefined) { sets.push('poster_url = ?'); values.push(fields.posterUrl); }
 
     if (sets.length === 0) return;
     sets.push('updated_at = ?');
@@ -297,5 +305,6 @@ function rowToRecord(row: any): TorrentRecord {
         completedAt: row.completed_at ?? undefined,
         errorMessage: row.error_message ?? undefined,
         tags: row.tags ? JSON.parse(row.tags) : undefined,
+        posterUrl: row.poster_url ?? undefined,
     };
 }

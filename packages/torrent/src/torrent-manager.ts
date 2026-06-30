@@ -11,6 +11,7 @@ import {
     getTorrents, getActiveTorrents, deleteTorrent,
     insertTorrentFiles, getTorrentFiles, updateTorrentFileProgress, setFileSelection,
 } from './torrent-db';
+import { fetchTorrentPoster } from './poster-manager';
 
 const DEFAULT_CONFIG: TorrentConfig = {
     download_dir: path.join(require('os').homedir(), 'Downloads', 'fonte'),
@@ -398,7 +399,8 @@ export class TorrentManager {
                 status: newStatus,
             };
 
-            if (t.name && !record.name) {
+            const nameJustResolved = t.name && !record.name;
+            if (nameJustResolved) {
                 updates.name = t.name;
             }
             if (t.error && t.error > 0) {
@@ -406,6 +408,10 @@ export class TorrentManager {
             }
 
             updateTorrent(record.id, updates);
+
+            if (nameJustResolved) {
+                fetchTorrentPoster(record.id).catch(() => {});
+            }
 
             // Completion detection — only fire once per torrent
             if (isDone && wasPending && !record.completedAt) {

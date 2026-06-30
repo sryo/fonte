@@ -245,6 +245,48 @@ body {
   .animate-chat-backdrop-in, .animate-chat-backdrop-out { animation: none; }
 }
 
+/* Card poof — the authentic macOS Dock "poof": a 5-frame smoke sprite
+   (128×128 each, stacked vertically in /poof.webp) played with steps(5).
+   The card itself just vanishes (no fade) while the smoke plays over its
+   spot; the layout slot then collapses to pull neighbours in. The per-card
+   stagger comes from an animation-delay set in JS. The 11rem width / 0.75rem
+   margin match the card's w-44 and the row's gap-3. */
+@keyframes card-poof-sprite {
+  from { background-position: 0 0; }
+  to   { background-position: 0 -800px; } /* 5 frames × 160px */
+}
+.card-poof-sprite {
+  width: 160px;
+  height: 160px;
+  background-image: url(/poof.webp);
+  background-repeat: no-repeat;
+  background-size: 160px 800px;
+  pointer-events: none;
+  animation: card-poof-sprite 500ms steps(5) forwards;
+}
+
+/* The card snaps out (no fade) exactly when its own poof fires — a 1ms snap
+   gated by the same per-card animation-delay the sprite uses. */
+@keyframes card-poof-vanish {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+.card-poof-vanishing {
+  animation: card-poof-vanish 1ms linear both;
+}
+
+@keyframes card-poof-collapse {
+  0%, 45% { width: 11rem; margin-right: 0; }
+  100%    { width: 0;     margin-right: -0.75rem; }
+}
+.card-poof-collapsing {
+  animation: card-poof-collapse 520ms ease-in forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-poof-sprite, .card-poof-collapsing, .card-poof-vanishing { animation: none; }
+}
+
 /* Progress ring — paints the card's own border as the progress indicator,
    plus a shine that sweeps around the perimeter. The arc length tracks
    --progress (0–1); the rotating overlay is the eye candy from
@@ -256,11 +298,12 @@ body {
 }
 .progress-ring {
   --progress: 0;
-  --ring-thickness: 2px;
+  --ring-thickness: 4px;
+  --ring-inset: 3px;
   --ring-color: var(--torrent);
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
+  inset: var(--ring-inset);
+  border-radius: calc(var(--radius-xl) - var(--ring-inset));
   padding: var(--ring-thickness);
   pointer-events: none;
   background:

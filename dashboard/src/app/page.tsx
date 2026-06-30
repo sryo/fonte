@@ -90,6 +90,8 @@ export default function HomePage() {
   });
   const [runningAutoId, setRunningAutoId] = useState<string | null>(null);
   const [searchingWlIds, setSearchingWlIds] = useState<Set<string>>(new Set());
+  // id → stagger delay (ms) for cards currently playing the poof-out animation
+  const [exitingIds, setExitingIds] = useState<Map<string, number>>(new Map());
   const [editAutoLogs, setEditAutoLogs] = useState<AutomationLog[]>([]);
   const [editAutoLastResponse, setEditAutoLastResponse] = useState<{ text: string; ts: number } | null>(null);
 
@@ -129,6 +131,40 @@ export default function HomePage() {
       setLoading(false);
     }
   }, []);
+
+  // Play the staggered macOS-style poof, then actually delete server-side and
+  // refetch. Cards stay mounted (still present in state) for the duration, so
+  // the animation runs before they leave the DOM. Honours reduced-motion.
+  const poofThenRemove = useCallback(
+    (ids: string[], remove: (id: string) => Promise<unknown>) => {
+      if (ids.length === 0) return;
+      const reduce =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduce) {
+        Promise.all(ids.map((id) => remove(id))).then(() => fetchAll());
+        return;
+      }
+      // Clamp total stagger to ~900ms so a big "Clear" never drags on.
+      const stagger = ids.length > 1 ? Math.min(70, 900 / (ids.length - 1)) : 0;
+      setExitingIds((prev) => {
+        const next = new Map(prev);
+        ids.forEach((id, i) => next.set(id, Math.round(i * stagger)));
+        return next;
+      });
+      const maxDelay = Math.round((ids.length - 1) * stagger);
+      window.setTimeout(async () => {
+        await Promise.all(ids.map((id) => remove(id)));
+        setExitingIds((prev) => {
+          const next = new Map(prev);
+          ids.forEach((id) => next.delete(id));
+          return next;
+        });
+        fetchAll();
+      }, maxDelay + 560);
+    },
+    [fetchAll],
+  );
 
   const isStalled = useCallback((torrent: TorrentRecord): boolean => {
     if (torrent.status !== "downloading") return false;
@@ -288,6 +324,9 @@ export default function HomePage() {
             <MediaCard
               key={torrent.id}
               title={torrent.name}
+              posterUrl={torrent.posterUrl}
+              exiting={exitingIds.has(torrent.id)}
+              exitDelay={exitingIds.get(torrent.id)}
               onClick={() => router.push(`/torrents/${torrent.id}`)}
               progress={{ value: torrent.progress, stalled: isStalled(torrent) || torrent.status === "paused" }}
               badges={
@@ -307,7 +346,7 @@ export default function HomePage() {
                     <CardAction icon={Play} label="Resume" onClick={() => { resumeTorrent(torrent.id); fetchAll(); }} />
                   )}
                   <CardAction icon={Trash} label="Remove" destructive onClick={() => {
-                    if (confirm(`Remove "${torrent.name}"?`)) { removeTorrent(torrent.id); fetchAll(); }
+                    if (confirm(`Remove "${torrent.name}"?`)) poofThenRemove([torrent.id], removeTorrent);
                   }} />
                 </>
               }
@@ -351,6 +390,8 @@ export default function HomePage() {
               key={entry.id}
               title={entry.title}
               posterUrl={entry.posterUrl}
+              exiting={exitingIds.has(entry.id)}
+              exitDelay={exitingIds.get(entry.id)}
               onClick={() => router.push(`/watchlist/${entry.id}`)}
               busy={searchingWlIds.has(entry.id)}
               ringColor="watchlist"
@@ -376,7 +417,7 @@ export default function HomePage() {
                     }}
                   />
                   <CardAction icon={Trash} label="Remove" destructive onClick={() => {
-                    if (confirm(`Remove "${entry.title}" from watchlist?`)) { deleteWatchlistEntry(entry.id); fetchAll(); }
+                    if (confirm(`Remove "${entry.title}" from watchlist?`)) poofThenRemove([entry.id], deleteWatchlistEntry);
                   }} />
                 </>
               }
@@ -399,10 +440,7 @@ export default function HomePage() {
           emptyContent={null}
           action={completedTorrents.length > 0 ? (
             <button
-              onClick={async () => {
-                await Promise.all(completedTorrents.map((t) => removeTorrent(t.id)));
-                fetchAll();
-              }}
+              onClick={() => poofThenRemove(completedTorrents.map((t) => t.id), removeTorrent)}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-lg px-2.5 py-1.5 hover:bg-muted"
             >
               <Trash className="h-3.5 w-3.5" />
@@ -414,6 +452,9 @@ export default function HomePage() {
             <MediaCard
               key={torrent.id}
               title={torrent.name}
+              posterUrl={torrent.posterUrl}
+              exiting={exitingIds.has(torrent.id)}
+              exitDelay={exitingIds.get(torrent.id)}
               onClick={() => router.push(`/torrents/${torrent.id}`)}
               badges={
                 torrent.status === "seeding" ? (
@@ -431,7 +472,7 @@ export default function HomePage() {
                   {torrent.status === "seeding" && (
                     <CardAction icon={Stop} label="Stop seeding" onClick={() => { pauseTorrent(torrent.id); fetchAll(); }} />
                   )}
-                  <CardAction icon={Trash} label="Remove" destructive onClick={() => { removeTorrent(torrent.id); fetchAll(); }} />
+                  <CardAction icon={Trash} label="Remove" destructive onClick={() => poofThenRemove([torrent.id], removeTorrent)} />
                 </>
               }
             >

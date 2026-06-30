@@ -298,8 +298,7 @@ export function parseTorrentName(name: string): { title: string; year?: number; 
     // Remove common suffixes and quality markers
     let cleaned = name
         .replace(/\.(mkv|mp4|avi|m4v)$/i, '')
-        .replace(/\./g, ' ')
-        .replace(/_/g, ' ');
+        .replace(/[._+]/g, ' ');
 
     // Detect TV show pattern (S01E01, etc.)
     const isTv = /S\d{2}E?\d{0,2}/i.test(cleaned);

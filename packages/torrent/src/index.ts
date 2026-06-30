@@ -17,6 +17,7 @@ export * from './opensubtitles-client';
 export * from './bt4g-client';
 export * from './watchlist-runner';
 export * from './subtitle-manager';
+export * from './poster-manager';
 export * from './automation-events';
 export * from './automation-db';
 export * from './automation-engine';

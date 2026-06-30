@@ -364,6 +364,7 @@ export interface TorrentRecord {
   completedAt?: number;
   errorMessage?: string;
   tags?: string[];
+  posterUrl?: string;
 }
 
 export interface TorrentFileRecord {

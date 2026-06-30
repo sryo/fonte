@@ -24,7 +24,7 @@ import {
     startScheduler, stopScheduler,
 } from '@fonte/core';
 import { startApiServer } from '@fonte/server';
-import { createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted, createAutomationEngine, getWhatsAppService } from '@fonte/torrent';
+import { createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted, createAutomationEngine, getWhatsAppService, backfillPosters } from '@fonte/torrent';
 
 // Ensure directories exist
 [FILES_DIR, path.dirname(LOG_FILE)].forEach(dir => {
@@ -248,6 +248,11 @@ startScheduler();
 const torrentManager = createTorrentManager(getSettings().torrent);
 torrentManager.start().catch(err => {
     log('ERROR', `Failed to start TorrentManager: ${err.message}`);
+});
+
+// Backfill TMDB posters for existing torrents/watchlist entries missing one
+backfillPosters().catch(err => {
+    log('ERROR', `Poster backfill failed: ${(err as Error).message}`);
 });
 
 // Start watchlist runner (if enabled)
