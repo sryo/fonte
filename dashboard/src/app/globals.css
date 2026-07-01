@@ -41,6 +41,7 @@
   --color-watchlist-foreground: var(--watchlist-foreground);
   --color-automation: var(--automation);
   --color-automation-foreground: var(--automation-foreground);
+  --color-done: var(--done);
   --color-subtitle: var(--subtitle);
   --color-subtitle-foreground: var(--subtitle-foreground);
   --color-agent: var(--agent);
@@ -83,6 +84,7 @@
   --watchlist-foreground: #ffffff;
   --automation: #f97316;
   --automation-foreground: #ffffff;
+  --done: #22c55e;
   --subtitle: #10b981;
   --subtitle-foreground: #ffffff;
   --agent: #6366f1;
@@ -116,6 +118,7 @@
   --watchlist-foreground: #0f172a;
   --automation: #fb923c;
   --automation-foreground: #0f172a;
+  --done: #4ade80;
   --subtitle: #34d399;
   --subtitle-foreground: #0f172a;
   --agent: #818cf8;
@@ -359,4 +362,30 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .progress-ring { animation: none; }
+}
+
+/* Progress bar shine — a highlight that sweeps across the filled portion,
+   echoing the ring's perimeter shine and sharing its --ring-shine token. */
+.progress-bar-fill {
+  position: relative;
+  overflow: hidden;
+}
+.progress-bar-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--ring-shine) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: progress-bar-shine 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes progress-bar-shine {
+  to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar-fill::after { animation: none; }
 }

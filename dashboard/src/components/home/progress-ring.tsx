@@ -1,9 +1,10 @@
 "use client";
 
 import React from "react";
-import { cn } from "@/lib/utils";
+// Progress & status UI conventions: ../ui/README.md
+import { cn, type DomainColor } from "@/lib/utils";
 
-export type RingColor = "torrent" | "watchlist" | "automation";
+export type RingColor = DomainColor;
 
 export function ProgressRing({
   progress,
@@ -21,7 +22,10 @@ export function ProgressRing({
     ["--ring-color" as string]: `var(--${color})`,
   };
   if (progress) {
-    (style as Record<string, string | number>)["--progress"] = Math.min(1, Math.max(0, progress.value));
+    const value = Number.isFinite(progress.value)
+      ? Math.min(1, Math.max(0, progress.value))
+      : 0;
+    (style as Record<string, string | number>)["--progress"] = value;
   }
   return (
     <div

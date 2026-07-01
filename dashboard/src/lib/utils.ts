@@ -5,6 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// The three activity domains, each with a registered --torrent/--watchlist/
+// --automation color token. Shared so the progress ring and bar can't drift.
+export type DomainColor = "torrent" | "watchlist" | "automation";
+
 export const AGENT_COLORS = [
   "bg-blue-500", "bg-emerald-500", "bg-purple-500", "bg-orange-500",
   "bg-pink-500", "bg-cyan-500", "bg-yellow-500", "bg-red-500",

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { getTorrentStats, getTorrents } from "@/lib/api";
 import { formatSpeed, formatBytes } from "@/lib/format";
+import { ProgressBar } from "@/components/ui/progress-bar";
 
 export function StatusStrip() {
   const [downloadSpeed, setDownloadSpeed] = useState(0);
@@ -53,12 +54,13 @@ export function StatusStrip() {
   return (
     <div className="border-t bg-card/80 backdrop-blur-sm">
       {/* Progress bar */}
-      <div className="h-0.5 bg-muted">
-        <div
-          className="h-full bg-torrent transition-all duration-500"
-          style={{ width: `${Math.min(100, aggregateProgress)}%` }}
-        />
-      </div>
+      <ProgressBar
+        value={aggregateProgress / 100}
+        variant="ambient"
+        shine={downloadSpeed > 0}
+        done={aggregateProgress >= 100}
+        label={`Overall download progress: ${Math.round(aggregateProgress)}%`}
+      />
 
       {/* Stats text */}
       <div className="max-w-6xl mx-auto text-xs text-muted-foreground text-center py-2 flex items-center justify-center gap-1">

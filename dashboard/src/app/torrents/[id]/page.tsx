@@ -20,6 +20,7 @@ import {
   type SubtitleRecord,
 } from "@/lib/api";
 import { formatBytes, formatSpeed } from "@/lib/format";
+import { ProgressBar, toPct } from "@/components/ui/progress-bar";
 import { usePolling } from "@/hooks/usePolling";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -178,8 +179,9 @@ export default function TorrentDetailPage() {
     );
   }
 
-  const pct = Math.round(torrent.progress * 100);
+  const pct = toPct(torrent.progress);
   const isPaused = torrent.status === "paused";
+  const isStalled = torrent.status === "downloading" && torrent.numPeers === 0;
   const canPauseResume =
     torrent.status === "downloading" ||
     torrent.status === "seeding" ||
@@ -271,12 +273,15 @@ export default function TorrentDetailPage() {
             <span className="text-sm font-medium tabular-nums">{pct}%</span>
           </div>
           {/* Progress bar */}
-          <div className="w-full h-3 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-300"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
+          <ProgressBar
+            value={torrent.progress}
+            variant="hero"
+            shine={torrent.status === "downloading"}
+            stalled={isStalled}
+            done={torrent.status === "completed" || torrent.status === "seeding"}
+            className="w-full"
+            label={`Download progress: ${pct}%`}
+          />
           <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
             <span>
               {formatBytes(torrent.downloaded)} / {formatBytes(torrent.size)}
@@ -332,7 +337,7 @@ export default function TorrentDetailPage() {
           ) : (
             <div className="space-y-2">
               {files.map((file, idx) => {
-                const filePct = Math.round(file.progress * 100);
+                const filePct = toPct(file.progress);
                 const onToggle = async () => {
                   // Optimistic flip
                   setFiles((prev) =>
@@ -369,12 +374,15 @@ export default function TorrentDetailPage() {
                         {file.name}
                       </p>
                       <div className="mt-1 flex items-center gap-2">
-                        <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-primary transition-all duration-300"
-                            style={{ width: `${filePct}%` }}
-                          />
-                        </div>
+                        <ProgressBar
+                          value={file.progress}
+                          variant="list"
+                          shine={torrent.status === "downloading" && file.selected && file.progress < 1}
+                          stalled={isStalled}
+                          done={file.progress >= 1}
+                          className="flex-1"
+                          label={`${file.name}: ${filePct}%`}
+                        />
                         <span className="text-[11px] tabular-nums text-muted-foreground w-9 text-right">
                           {filePct}%
                         </span>
