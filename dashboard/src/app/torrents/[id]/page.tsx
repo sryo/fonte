@@ -10,6 +10,8 @@ import {
   pauseTorrent,
   resumeTorrent,
   removeTorrent,
+  verifyTorrent,
+  reannounceTorrent,
   getTorrentSubtitles,
   fetchTorrentSubtitles,
   translateSubtitleApi,
@@ -38,6 +40,8 @@ function statusColor(status: TorrentRecord["status"]): string {
       return "bg-yellow-500/15 text-yellow-400 border-yellow-500/30";
     case "error":
       return "bg-red-500/15 text-red-400 border-red-500/30";
+    case "checking":
+      return "bg-amber-500/15 text-amber-400 border-amber-500/30";
     case "adding":
       return "bg-purple-500/15 text-purple-400 border-purple-500/30";
     case "removed":
@@ -97,6 +101,30 @@ export default function TorrentDetailPage() {
     setActionLoading(true);
     try {
       await resumeTorrent(id);
+      await fetchData();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setActionLoading(false);
+    }
+  }, [id, fetchData]);
+
+  const handleVerify = useCallback(async () => {
+    setActionLoading(true);
+    try {
+      await verifyTorrent(id);
+      await fetchData();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setActionLoading(false);
+    }
+  }, [id, fetchData]);
+
+  const handleReannounce = useCallback(async () => {
+    setActionLoading(true);
+    try {
+      await reannounceTorrent(id);
       await fetchData();
     } catch (err) {
       setError((err as Error).message);
@@ -199,6 +227,20 @@ export default function TorrentDetailPage() {
               {isPaused ? "Resume" : "Pause"}
             </button>
           )}
+          <button
+            onClick={handleVerify}
+            disabled={actionLoading}
+            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            Verify
+          </button>
+          <button
+            onClick={handleReannounce}
+            disabled={actionLoading}
+            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            Update trackers
+          </button>
           <button
             onClick={handleRemove}
             disabled={actionLoading}
@@ -361,7 +403,7 @@ export default function TorrentDetailPage() {
                   fetchData();
                 } catch {}
               }}
-              disabled={torrent.status !== "completed" && torrent.status !== "seeding"}
+              disabled={torrent.status === "adding" || torrent.status === "error"}
               className="px-3 py-1 text-xs bg-foreground text-background rounded hover:opacity-90 disabled:opacity-40"
             >
               Fetch Subtitles
@@ -369,7 +411,7 @@ export default function TorrentDetailPage() {
           </div>
           {subtitles.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No subtitles yet. Complete the download first, then fetch.
+              No subtitles yet. Fetch to search by title — you don&apos;t have to wait for the download.
             </p>
           ) : (
             <div className="space-y-2">

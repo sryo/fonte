@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 export function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     downloading: "bg-torrent/15 text-torrent",
+    checking: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
     seeding: "bg-green-500/15 text-green-600 dark:text-green-400",
     completed: "bg-green-500/15 text-green-600 dark:text-green-400",
     paused: "bg-muted text-muted-foreground",

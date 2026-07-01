@@ -1,4 +1,4 @@
-export type TorrentStatus = 'adding' | 'downloading' | 'seeding' | 'paused' | 'completed' | 'error' | 'removed';
+export type TorrentStatus = 'adding' | 'downloading' | 'checking' | 'seeding' | 'paused' | 'completed' | 'error' | 'removed';
 
 export interface TorrentRecord {
     id: string;

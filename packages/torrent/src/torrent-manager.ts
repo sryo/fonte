@@ -204,6 +204,27 @@ export class TorrentManager {
         log('INFO', `Removed torrent: ${record.name || id} (files ${deleteFiles ? 'deleted' : 'kept'})`);
     }
 
+    async verifyTorrent(id: string): Promise<void> {
+        const record = this.getRequiredTorrent(id);
+        const tId = this.transmissionIds.get(id);
+        if (tId !== undefined && this.rpc) {
+            await this.rpc.call('torrent-verify', { ids: [tId] });
+        }
+        updateTorrent(id, { status: 'checking' });
+        emitEvent(TORRENT_EVENTS.VERIFYING, { id, name: record.name });
+        log('INFO', `Verifying torrent: ${record.name || id}`);
+    }
+
+    async reannounceTrackers(id: string): Promise<void> {
+        const record = this.getRequiredTorrent(id);
+        const tId = this.transmissionIds.get(id);
+        if (tId !== undefined && this.rpc) {
+            await this.rpc.call('torrent-reannounce', { ids: [tId] });
+        }
+        emitEvent(TORRENT_EVENTS.REANNOUNCED, { id, name: record.name });
+        log('INFO', `Reannounced trackers: ${record.name || id}`);
+    }
+
     // ── Queries ────────────────────────────────────────────────────────────────
 
     getTorrent(id: string): TorrentRecord | undefined {
@@ -372,6 +393,8 @@ export class TorrentManager {
             let newStatus: TorrentStatus = record.status;
             if (t.error && t.error > 0) {
                 newStatus = 'error';
+            } else if (t.status === 1 || t.status === 2) {
+                newStatus = 'checking';
             } else if (isDone && wasPending) {
                 newStatus = 'completed';
             } else if (t.status === 4 || t.status === 3) {
@@ -430,9 +453,11 @@ export class TorrentManager {
                 }
             }
 
-            // Sync files if missing
+            // Insert files once, then keep per-file progress fresh while
+            // downloading, plus a final sync on completion so files reach 100%.
             const files = getTorrentFiles(record.id);
-            if (files.length === 0) {
+            const justCompleted = isDone && wasPending && !record.completedAt;
+            if (files.length === 0 || newStatus === 'downloading' || justCompleted) {
                 await this.syncTorrentFiles(record.id, t.id);
             }
         }

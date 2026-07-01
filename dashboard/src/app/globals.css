@@ -60,7 +60,7 @@
   --foreground: #0a0a0a;
   --card: #ffffff;
   --card-foreground: #0a0a0a;
-  --ring-shine: hsl(0 0% 70% / 0.9);
+  --ring-shine: hsl(42 95% 55% / 0.9);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.05), 0 0 0 1px rgb(0 0 0 / 0.05);
   --popover: #ffffff;
   --popover-foreground: #0a0a0a;
@@ -102,7 +102,7 @@
   --foreground: #fafafa;
   --card: #1c1917;
   --card-foreground: #fafafa;
-  --ring-shine: hsl(0 0% 100% / 0.85);
+  --ring-shine: hsl(42 96% 65% / 0.85);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.30), 0 4px 12px rgb(0 0 0 / 0.25), 0 0 0 1px rgb(255 255 255 / 0.06);
   --popover: #0a0a0a;
   --popover-foreground: #fafafa;

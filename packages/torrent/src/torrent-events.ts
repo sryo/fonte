@@ -9,4 +9,6 @@ export const TORRENT_EVENTS = {
     STATS: 'torrent:stats',
     STALLED: 'torrent:stalled',
     METADATA: 'torrent:metadata',
+    VERIFYING: 'torrent:verifying',
+    REANNOUNCED: 'torrent:reannounced',
 } as const;

@@ -344,7 +344,7 @@ export async function deleteCustomProvider(id: string): Promise<{ ok: boolean }>
 
 // ── Torrents ─────────────────────────────────────────────────────────────
 
-export type TorrentStatus = "adding" | "downloading" | "seeding" | "paused" | "completed" | "error" | "removed";
+export type TorrentStatus = "adding" | "downloading" | "checking" | "seeding" | "paused" | "completed" | "error" | "removed";
 
 export interface TorrentRecord {
   id: string;
@@ -429,6 +429,14 @@ export async function resumeTorrent(id: string): Promise<{ ok: boolean }> {
 export async function removeTorrent(id: string, deleteFiles = false): Promise<{ ok: boolean }> {
   const params = deleteFiles ? "?deleteFiles=true" : "";
   return apiFetch(`/api/torrents/${encodeURIComponent(id)}${params}`, { method: "DELETE" });
+}
+
+export async function verifyTorrent(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/torrents/${encodeURIComponent(id)}/verify`, { method: "POST" });
+}
+
+export async function reannounceTorrent(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/torrents/${encodeURIComponent(id)}/reannounce`, { method: "POST" });
 }
 
 export async function getTorrentFiles(id: string): Promise<{ ok: boolean; files: TorrentFileRecord[] }> {

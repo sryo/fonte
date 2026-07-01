@@ -107,6 +107,28 @@ app.post('/api/torrents/:id/resume', (c) => {
     }
 });
 
+// POST /api/torrents/:id/verify — re-check downloaded data
+app.post('/api/torrents/:id/verify', async (c) => {
+    const id = c.req.param('id');
+    try {
+        await getTorrentManager().verifyTorrent(id);
+        return c.json({ ok: true });
+    } catch (err) {
+        return c.json({ ok: false, error: (err as Error).message }, 404);
+    }
+});
+
+// POST /api/torrents/:id/reannounce — ask trackers for peers now
+app.post('/api/torrents/:id/reannounce', async (c) => {
+    const id = c.req.param('id');
+    try {
+        await getTorrentManager().reannounceTrackers(id);
+        return c.json({ ok: true });
+    } catch (err) {
+        return c.json({ ok: false, error: (err as Error).message }, 404);
+    }
+});
+
 // GET /api/torrents/:id/files — list files within a torrent
 app.get('/api/torrents/:id/files', (c) => {
     const id = c.req.param('id');
