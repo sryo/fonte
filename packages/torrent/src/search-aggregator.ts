@@ -1,4 +1,4 @@
-import { log } from '@fonte/core';
+import { log, getSettings } from '@fonte/core';
 import { searchJackett, JackettResult } from './jackett-client';
 import { searchBt4g } from './bt4g-client';
 
@@ -70,6 +70,39 @@ export async function aggregateSearch(queries: string[], opts: AggregateSearchOp
     }
 
     return all;
+}
+
+/**
+ * Search all sources for a known release: build query variations from
+ * title/year/quality, aggregate, filter to matching titles, and sort by health.
+ * Reads Jackett config from settings. Shared by the watchlist runner and the
+ * "find alternatives" flow.
+ */
+export async function searchReleases(opts: {
+    title: string;
+    year?: number;
+    quality?: string;
+    category?: number;
+    seasonPattern?: string;
+}): Promise<AggregatedResult[]> {
+    const { title, year, quality, category, seasonPattern } = opts;
+    const settings = getSettings();
+    const jackettUrl = settings.watchlist?.jackett_url;
+    const apiKey = settings.watchlist?.jackett_api_key;
+
+    const queries = new Set<string>();
+    queries.add(`${title} ${year || ''} ${quality || ''}`.trim());
+    queries.add(`${title} ${year || ''}`.trim());
+    queries.add(title);
+
+    const allResults = await aggregateSearch([...queries], {
+        categories: category ? [category] : [],
+        jackettUrl,
+        apiKey,
+    });
+
+    const filtered = filterByTitle(allResults, { title, year, seasonPattern });
+    return sortBySeedersThenSize(filtered);
 }
 
 export interface TitleFilterOpts {

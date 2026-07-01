@@ -439,6 +439,25 @@ export async function reannounceTorrent(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/torrents/${encodeURIComponent(id)}/reannounce`, { method: "POST" });
 }
 
+export interface AlternativeResult {
+  title: string;
+  magnetUri: string;
+  seeders: number;
+  leechers: number;
+  size: number;
+  indexer?: string;
+  publishDate?: number;
+  qualityMatch: number;
+}
+
+export async function searchTorrentAlternatives(id: string): Promise<{ ok: boolean; results: AlternativeResult[] }> {
+  return apiFetch(`/api/torrents/${encodeURIComponent(id)}/alternatives`, { method: "POST" });
+}
+
+export async function swapTorrent(id: string, magnetUri: string): Promise<{ ok: boolean; torrent: TorrentRecord }> {
+  return apiFetch(`/api/torrents/${encodeURIComponent(id)}/swap`, { method: "POST", body: JSON.stringify({ magnetUri }) });
+}
+
 export async function getTorrentFiles(id: string): Promise<{ ok: boolean; files: TorrentFileRecord[] }> {
   return apiFetch(`/api/torrents/${encodeURIComponent(id)}/files`);
 }

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { getTorrentManager } from '@fonte/torrent';
+import { getTorrentManager, parseTorrentName, searchReleases, computeQualityMatch } from '@fonte/torrent';
 import type { TorrentStatus } from '@fonte/torrent';
 import { log } from '@fonte/core';
 
@@ -126,6 +126,51 @@ app.post('/api/torrents/:id/reannounce', async (c) => {
         return c.json({ ok: true });
     } catch (err) {
         return c.json({ ok: false, error: (err as Error).message }, 404);
+    }
+});
+
+// POST /api/torrents/:id/alternatives — search indexers for other releases of the same title
+app.post('/api/torrents/:id/alternatives', async (c) => {
+    const id = c.req.param('id');
+    try {
+        const torrent = getTorrentManager().getTorrent(id);
+        if (!torrent) return c.json({ ok: false, error: 'Torrent not found' }, 404);
+
+        const parsed = parseTorrentName(torrent.name);
+        const quality = torrent.name.match(/(2160p|1080p|720p|480p)/i)?.[1] || '1080p';
+        const category = parsed.isTv ? 5000 : 2000;
+        const seasonPattern = parsed.isTv ? torrent.name.match(/S\d{2}E\d{2}/i)?.[0] : undefined;
+
+        const results = await searchReleases({ title: parsed.title, year: parsed.year, quality, category, seasonPattern });
+        const mapped = results.slice(0, 25).map(r => ({
+            title: r.title,
+            magnetUri: r.magnetUri,
+            seeders: r.seeders,
+            leechers: r.leechers,
+            size: r.size,
+            indexer: r.indexer,
+            publishDate: r.publishDate,
+            qualityMatch: Math.round(computeQualityMatch(r.title, quality) * 100),
+        }));
+        return c.json({ ok: true, results: mapped });
+    } catch (err) {
+        return c.json({ ok: false, error: (err as Error).message }, 500);
+    }
+});
+
+// POST /api/torrents/:id/swap — add an alternative release and remove the stuck torrent
+app.post('/api/torrents/:id/swap', async (c) => {
+    const id = c.req.param('id');
+    try {
+        const body = await c.req.json() as { magnetUri?: string };
+        if (!body.magnetUri) return c.json({ ok: false, error: 'magnetUri required' }, 400);
+
+        const manager = getTorrentManager();
+        const created = await manager.addTorrent(body.magnetUri);
+        await manager.removeTorrent(id, true);
+        return c.json({ ok: true, torrent: created });
+    } catch (err) {
+        return c.json({ ok: false, error: (err as Error).message }, 400);
     }
 });
 

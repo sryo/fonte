@@ -12,12 +12,15 @@ import {
   removeTorrent,
   verifyTorrent,
   reannounceTorrent,
+  searchTorrentAlternatives,
+  swapTorrent,
   getTorrentSubtitles,
   fetchTorrentSubtitles,
   translateSubtitleApi,
   type TorrentRecord,
   type TorrentFileRecord,
   type SubtitleRecord,
+  type AlternativeResult,
 } from "@/lib/api";
 import { formatBytes, formatSpeed } from "@/lib/format";
 import { ProgressBar, toPct } from "@/components/ui/progress-bar";
@@ -52,6 +55,12 @@ function statusColor(status: TorrentRecord["status"]): string {
   }
 }
 
+function qualityMatchColor(score: number): string {
+  if (score >= 80) return "text-green-600 dark:text-green-400";
+  if (score >= 50) return "text-yellow-600 dark:text-yellow-400";
+  return "text-red-600 dark:text-red-400";
+}
+
 // ── Component ────────────────────────────────────────────────────────────
 
 export default function TorrentDetailPage() {
@@ -65,6 +74,10 @@ export default function TorrentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showAlternatives, setShowAlternatives] = useState(false);
+  const [alternatives, setAlternatives] = useState<AlternativeResult[]>([]);
+  const [altSearching, setAltSearching] = useState(false);
+  const [altError, setAltError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -142,6 +155,32 @@ export default function TorrentDetailPage() {
       router.push("/");
     } catch (err) {
       setError((err as Error).message);
+      setActionLoading(false);
+    }
+  }, [id, router]);
+
+  const handleFindAlternatives = useCallback(async () => {
+    setShowAlternatives(true);
+    setAltSearching(true);
+    setAltError(null);
+    try {
+      const res = await searchTorrentAlternatives(id);
+      setAlternatives(res.results);
+    } catch (err) {
+      setAltError((err as Error).message);
+    } finally {
+      setAltSearching(false);
+    }
+  }, [id]);
+
+  const handleSwap = useCallback(async (magnetUri: string) => {
+    if (!confirm("Swap in this release? The current torrent and its partial files will be removed.")) return;
+    setActionLoading(true);
+    try {
+      const res = await swapTorrent(id, magnetUri);
+      router.push(`/torrents/${res.torrent.id}`);
+    } catch (err) {
+      setAltError((err as Error).message);
       setActionLoading(false);
     }
   }, [id, router]);
@@ -230,20 +269,6 @@ export default function TorrentDetailPage() {
             </button>
           )}
           <button
-            onClick={handleVerify}
-            disabled={actionLoading}
-            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
-          >
-            Verify
-          </button>
-          <button
-            onClick={handleReannounce}
-            disabled={actionLoading}
-            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
-          >
-            Update trackers
-          </button>
-          <button
             onClick={handleRemove}
             disabled={actionLoading}
             className="inline-flex items-center gap-2 rounded-md border border-red-500/30 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
@@ -259,6 +284,18 @@ export default function TorrentDetailPage() {
         {(error || torrent.errorMessage) && (
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
             {torrent.errorMessage || error}
+          </div>
+        )}
+
+        {/* Stall banner */}
+        {isStalled && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Stalled — no peers available</p>
+            <p className="text-xs text-muted-foreground mt-0.5 mb-2">This torrent isn&apos;t finding peers. Try updating trackers, or swap to a healthier release.</p>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={handleReannounce} disabled={actionLoading} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent transition-colors disabled:opacity-50">Update trackers</button>
+              <button onClick={handleFindAlternatives} disabled={altSearching} className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/25 transition-colors disabled:opacity-50">{altSearching ? "Searching…" : "Find alternatives"}</button>
+            </div>
           </div>
         )}
 
@@ -287,6 +324,11 @@ export default function TorrentDetailPage() {
               {formatBytes(torrent.downloaded)} / {formatBytes(torrent.size)}
             </span>
             <span>Uploaded: {formatBytes(torrent.uploaded)}</span>
+          </div>
+          <div className="mt-4 pt-3 border-t flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground mr-1">Maintenance</span>
+            <button onClick={handleVerify} disabled={actionLoading} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent transition-colors disabled:opacity-50">Verify</button>
+            <button onClick={handleReannounce} disabled={actionLoading} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-accent transition-colors disabled:opacity-50">Update trackers</button>
           </div>
         </div>
 
@@ -467,6 +509,75 @@ export default function TorrentDetailPage() {
             </div>
           )}
         </div>
+
+        {/* ── Alternatives modal ─────────────────────────────────────── */}
+        {showAlternatives && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onClick={() => setShowAlternatives(false)}>
+            <div className="bg-card rounded-xl shadow-lg border p-6 w-full max-w-3xl space-y-4 animate-card-enter" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-base font-bold">Find alternatives</h3>
+              {altError && <p className="text-xs text-destructive">{altError}</p>}
+              {altSearching ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  Searching indexers…
+                </div>
+              ) : alternatives.length === 0 ? (
+                <p className="py-12 text-center text-sm text-muted-foreground">No alternatives found.</p>
+              ) : (
+                <div className="overflow-x-auto max-h-[60vh]">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-xs text-muted-foreground">
+                        <th className="px-3 py-2 font-medium">Title</th>
+                        <th className="px-3 py-2 font-medium">Seeders</th>
+                        <th className="px-3 py-2 font-medium">Size</th>
+                        <th className="px-3 py-2 font-medium">Quality</th>
+                        <th className="px-3 py-2 font-medium">Indexer</th>
+                        <th className="px-3 py-2 font-medium text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {alternatives.map((result, idx) => (
+                        <tr key={idx} className="border-b last:border-b-0 hover:bg-muted/50 transition-colors">
+                          <td className="px-3 py-2">
+                            <p className="font-medium truncate max-w-xs" title={result.title}>{result.title}</p>
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="text-green-600 dark:text-green-400">{result.seeders}</span>
+                            <span className="text-muted-foreground mx-1">/</span>
+                            <span className="text-red-600 dark:text-red-400">{result.leechers}</span>
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground">{formatBytes(result.size)}</td>
+                          <td className="px-3 py-2">
+                            <span className={`font-medium ${qualityMatchColor(result.qualityMatch)}`}>{result.qualityMatch}%</span>
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground">{result.indexer || "-"}</td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              onClick={() => handleSwap(result.magnetUri)}
+                              disabled={actionLoading}
+                              className="bg-primary text-primary-foreground rounded px-3 py-1 text-xs hover:opacity-90 disabled:opacity-50"
+                            >
+                              Swap in
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="flex justify-end pt-1">
+                <button
+                  onClick={() => setShowAlternatives(false)}
+                  className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

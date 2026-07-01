@@ -6,7 +6,7 @@ import {
     getTorrentManager,
     runWatchlistCheck,
     aggregateSearch, filterByTitle, sortBySeedersThenSize, computeQualityMatch,
-    searchTmdb,
+    searchReleases, searchTmdb,
 } from '@fonte/torrent';
 import type { WatchlistStatus, MediaType } from '@fonte/torrent';
 import { log, genId, getSettings } from '@fonte/core';
@@ -26,26 +26,7 @@ const app = new Hono();
 // ── Smart search: try multiple query strategies across all sources ────────
 
 async function multiSearch(title: string, year?: number, quality?: string, category?: number): Promise<any[]> {
-    const settings = getSettings();
-    const jackettUrl = settings.watchlist?.jackett_url;
-    const apiKey = settings.watchlist?.jackett_api_key;
-
-    // Build multiple query variations to maximize coverage
-    const queries = new Set<string>();
-    queries.add(`${title} ${year || ''} ${quality || ''}`.trim());
-    queries.add(`${title} ${year || ''}`.trim());
-    queries.add(title);
-
-    const allResults = await aggregateSearch([...queries], {
-        categories: category ? [category] : [],
-        jackettUrl,
-        apiKey,
-    });
-
-    const filtered = filterByTitle(allResults, { title, year });
-
-    // Sort: seeders desc, then size desc (bigger = better quality usually)
-    return sortBySeedersThenSize(filtered);
+    return searchReleases({ title, year, quality, category });
 }
 
 // ── POST /api/search — universal "find me this" endpoint ─────────────────
