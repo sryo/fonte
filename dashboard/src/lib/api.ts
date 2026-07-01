@@ -3,7 +3,7 @@ const STORAGE_KEY = "fonte_api_base";
 
 /** Resolve the API base URL. Priority: env > localStorage > default. */
 export function getApiBase(): string {
-  // Env var always wins (set at build time via NEXT_PUBLIC_*)
+  // NEXT_PUBLIC_* is inlined at build time, so it can't be overridden later.
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   if (typeof window !== "undefined") {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -706,7 +706,6 @@ export function subscribeToEvents(
     try { onEvent(JSON.parse(e.data)); } catch { /* ignore parse errors */ }
   };
 
-  // Listen to all known event types
   const types = eventTypes ?? [
     "message:incoming", "agent:invoke", "agent:progress",
     "agent:response", "agent:mention", "message:done",

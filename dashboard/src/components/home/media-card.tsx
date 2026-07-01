@@ -47,7 +47,7 @@ export function MediaCard({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter") onClick?.(); }}
-      className={`w-44 h-full rounded-xl shadow-sm border bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative${exiting ? " card-poof-vanishing" : ""}`}
+      className={`w-44 h-full rounded-xl shadow-card bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative${exiting ? " card-poof-vanishing" : ""}`}
       style={delayStyle}
     >
       <div className="aspect-[2/3] w-full bg-muted relative overflow-hidden">

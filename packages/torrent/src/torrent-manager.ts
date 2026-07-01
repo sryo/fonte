@@ -50,15 +50,11 @@ export class TorrentManager {
 
         this.rpc = new TransmissionRpc();
 
-        // Verify Transmission is running
         const available = await this.rpc.isAvailable();
         if (!available) {
             log('WARN', 'Transmission daemon not available at localhost:9091. Torrents will queue until it starts.');
         } else {
-            // Configure Transmission with our settings
             await this.applyConfig();
-
-            // Build mapping of existing torrents
             await this.buildTransmissionIdMap();
         }
 
@@ -146,7 +142,6 @@ export class TorrentManager {
                     updateTorrent(id, { name, status: 'downloading' });
                 }
 
-                // Fetch file list
                 await this.syncTorrentFiles(id, tId);
             }
         } catch (err) {
@@ -367,7 +362,6 @@ export class TorrentManager {
             if (!record) continue;
             if (record.status === 'paused' || record.status === 'removed') continue;
 
-            // Cache Transmission ID
             this.transmissionIds.set(record.id, t.id);
 
             const progress = t.percentDone ?? 0;

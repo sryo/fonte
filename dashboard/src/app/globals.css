@@ -3,6 +3,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Layered card surface: soft drop-shadows + a hairline that replaces the border
+   (theme-aware — a light hairline delineates cards on the near-black dark bg). */
+@utility shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -54,6 +60,8 @@
   --foreground: #0a0a0a;
   --card: #ffffff;
   --card-foreground: #0a0a0a;
+  --ring-shine: hsl(0 0% 70% / 0.9);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.05), 0 0 0 1px rgb(0 0 0 / 0.05);
   --popover: #ffffff;
   --popover-foreground: #0a0a0a;
   --primary: #171717;
@@ -94,6 +102,8 @@
   --foreground: #fafafa;
   --card: #1c1917;
   --card-foreground: #fafafa;
+  --ring-shine: hsl(0 0% 100% / 0.85);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.30), 0 4px 12px rgb(0 0 0 / 0.25), 0 0 0 1px rgb(255 255 255 / 0.06);
   --popover: #0a0a0a;
   --popover-foreground: #fafafa;
   --primary: #fafafa;
@@ -245,12 +255,11 @@ body {
   .animate-chat-backdrop-in, .animate-chat-backdrop-out { animation: none; }
 }
 
-/* Card poof — the authentic macOS Dock "poof": a 5-frame smoke sprite
-   (128×128 each, stacked vertically in /poof.webp) played with steps(5).
-   The card itself just vanishes (no fade) while the smoke plays over its
-   spot; the layout slot then collapses to pull neighbours in. The per-card
-   stagger comes from an animation-delay set in JS. The 11rem width / 0.75rem
-   margin match the card's w-44 and the row's gap-3. */
+/* Card poof — macOS Dock "poof": a 5-frame vertical smoke sprite from
+   /poof.webp (128px frames) scaled up to 160px and played with steps(5).
+   The card vanishes (no fade) while smoke plays over its spot; the slot then
+   collapses to pull neighbours in. Per-card stagger comes from a JS
+   animation-delay. The 11rem width / 0.75rem margin match w-44 and gap-3. */
 @keyframes card-poof-sprite {
   from { background-position: 0 0; }
   to   { background-position: 0 -800px; } /* 5 frames × 160px */
@@ -310,7 +319,7 @@ body {
     conic-gradient(
       from var(--shine-angle),
       transparent 0%,
-      hsl(0 0% 100% / 0.85) 6%,
+      var(--ring-shine) 6%,
       transparent 18%
     ),
     conic-gradient(

@@ -1,5 +1,7 @@
 "use client";
 
+// Dashboard home page: filterable rows of torrents, watchlist, and automations.
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -132,9 +134,9 @@ export default function HomePage() {
     }
   }, []);
 
-  // Play the staggered macOS-style poof, then actually delete server-side and
-  // refetch. Cards stay mounted (still present in state) for the duration, so
-  // the animation runs before they leave the DOM. Honours reduced-motion.
+  // Play the staggered macOS-style poof, then delete server-side and refetch.
+  // Cards stay mounted for the animation's duration so it runs before they
+  // leave the DOM. Honours reduced-motion.
   const poofThenRemove = useCallback(
     (ids: string[], remove: (id: string) => Promise<unknown>) => {
       if (ids.length === 0) return;
@@ -549,7 +551,7 @@ export default function HomePage() {
                 tabIndex={0}
                 onClick={onEdit}
                 onKeyDown={(e) => { if (e.key === "Enter") onEdit(); }}
-                className="w-56 rounded-xl shadow-sm border bg-card p-4 flex flex-col text-left hover:bg-accent/50 transition-colors group cursor-pointer relative overflow-hidden"
+                className="w-56 rounded-xl shadow-card bg-card p-4 flex flex-col text-left hover:bg-accent/50 transition-colors group cursor-pointer relative overflow-hidden"
               >
                 <p className="text-sm font-medium leading-tight line-clamp-1 group-hover:text-foreground">{rule.name}</p>
                 <div className="mt-2">

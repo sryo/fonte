@@ -134,7 +134,7 @@ export function initTorrentDb(): void {
         db.exec('ALTER TABLE torrents ADD COLUMN poster_url TEXT');
     }
 
-    // Migration: add prompt column to automation_rules
+    // Migration: add prompt to automation_rules
     const autoRuleCols = getDb().prepare("PRAGMA table_info(automation_rules)").all() as { name: string }[];
     if (!autoRuleCols.some(c => c.name === 'prompt')) {
         getDb().exec("ALTER TABLE automation_rules ADD COLUMN prompt TEXT DEFAULT ''");

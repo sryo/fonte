@@ -30,7 +30,7 @@ export function TorrentSettingsCard({
   };
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+    <div className="rounded-xl bg-card shadow-card overflow-hidden">
       <div className="p-4 pb-0">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <svg className="h-4 w-4 text-torrent" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

@@ -31,7 +31,7 @@ export function AgentPersonalitySection() {
   if (loading) return null;
 
   return (
-    <div className="rounded-xl border shadow-sm bg-card">
+    <div className="rounded-xl shadow-card bg-card">
       <div className="p-4 pb-0">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <svg className="h-4 w-4 text-agent" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

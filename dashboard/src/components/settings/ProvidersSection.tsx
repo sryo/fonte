@@ -77,7 +77,7 @@ export function ProvidersSection() {
   const entries = Object.entries(providers);
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm">
+    <div className="rounded-xl bg-card shadow-card">
       <div className="p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>

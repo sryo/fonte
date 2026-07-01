@@ -39,7 +39,6 @@ export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void>
         return;
     }
 
-    // Find video files
     const files = getTorrentFiles(torrentId);
     const videoFiles = files.filter(f => VIDEO_EXTENSIONS.has(path.extname(f.name).toLowerCase()));
     if (videoFiles.length === 0) {
@@ -47,7 +46,6 @@ export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void>
         return;
     }
 
-    // Parse title/year from torrent name
     const parsed = parseTorrentName(torrent.name);
     log('INFO', `Subtitles: processing "${parsed.title}" (${parsed.year || 'unknown year'})`);
 
@@ -295,7 +293,7 @@ async function callAnthropicTranslate(apiKey: string, text: string, sourceLang: 
 // ── Name Parsing ──────────────────────────────────────────────────────────────
 
 export function parseTorrentName(name: string): { title: string; year?: number; isTv: boolean } {
-    // Remove common suffixes and quality markers
+    // Strip file extension and normalize separators to spaces
     let cleaned = name
         .replace(/\.(mkv|mp4|avi|m4v)$/i, '')
         .replace(/[._+]/g, ' ');

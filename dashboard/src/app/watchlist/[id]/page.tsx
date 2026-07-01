@@ -222,7 +222,7 @@ export default function WatchlistDetailPage() {
   if (error || !entry) {
     return (
       <div className="p-8">
-        <div className="rounded-xl border bg-card p-12 text-center shadow-sm">
+        <div className="rounded-xl bg-card p-12 text-center shadow-card">
           <p className="text-lg font-medium">Entry not found</p>
           <p className="text-sm text-muted-foreground mt-1">
             {error || `No watchlist entry with ID "${id}" exists.`}
@@ -309,7 +309,7 @@ export default function WatchlistDetailPage() {
       </div>
 
       {/* ── Title card with poster ─────────────────────────────────────── */}
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
+      <div className="rounded-xl bg-card p-6 shadow-card">
         <div className="flex gap-6">
           {/* Poster */}
           <div className="w-32 shrink-0 aspect-[2/3] rounded-xl overflow-hidden bg-muted">
@@ -428,7 +428,7 @@ export default function WatchlistDetailPage() {
       </div>
 
       {/* ── Search Results ─────────────────────────────────────────────── */}
-      <div className="rounded-xl border bg-card shadow-sm">
+      <div className="rounded-xl bg-card shadow-card">
         <div className="flex items-center justify-between px-5 py-4 border-b">
           <h2 className="text-sm font-semibold">
             Search Results
@@ -566,7 +566,7 @@ function InfoCard({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
+    <div className="rounded-xl bg-card p-4 shadow-card">
       <div className="flex items-center gap-1.5">
         {icon}
         <p className="text-xs text-muted-foreground">{label}</p>

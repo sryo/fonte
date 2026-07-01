@@ -91,7 +91,7 @@ export function WhatsAppSection() {
   };
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm">
+    <div className="rounded-xl bg-card shadow-card">
       <div className="p-5 space-y-4">
         <div>
           <h3 className="text-sm font-semibold">WhatsApp</h3>

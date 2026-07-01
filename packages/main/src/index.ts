@@ -1,10 +1,5 @@
 #!/usr/bin/env node
-/**
- * Fonte Queue Processor — Entry point.
- *
- * Initializes the SQLite queue, starts the API server, processes messages,
- * and manages lifecycle. This is the only file that should be run directly.
- */
+// Fonte daemon entry point: SQLite queue processor, API server, and lifecycle.
 
 import fs from 'fs';
 import path from 'path';
@@ -26,7 +21,6 @@ import {
 import { startApiServer } from '@fonte/server';
 import { createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted, createAutomationEngine, getWhatsAppService, backfillPosters } from '@fonte/torrent';
 
-// Ensure directories exist
 [FILES_DIR, path.dirname(LOG_FILE)].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
@@ -94,9 +88,8 @@ async function processMessage(dbMsg: any): Promise<void> {
             log('INFO', `Agent ${agentId}: ${text}`);
             insertAgentMessage({ agentId, role: 'assistant', channel, sender: agentId, messageId, content: text });
             emitEvent('agent:progress', { agentId, agentName: agent.name, text, messageId });
-            // NOTE: Don't send intermediate chunks to the channel. Some adapters emit the full response
-            // as a single chunk, which would duplicate the final send below. Only the final response
-            // (line ~122) goes to the channel.
+            // Don't send intermediate chunks to the channel: some adapters emit the
+            // full response as one chunk, which would duplicate the final send below.
         });
     } catch (error) {
         const provider = agent.provider || 'anthropic';
@@ -216,7 +209,6 @@ const apiServer = startApiServer({
     },
 });
 
-// Event-driven: process queue when a new message arrives
 queueEvents.on('message:enqueued', () => processQueue());
 
 // When user manually kills an agent session, abort the running batch.
@@ -230,39 +222,32 @@ queueEvents.on('agent:killed', ({ agentId }: { agentId: string }) => {
 // Also poll periodically in case events are missed
 const pollInterval = setInterval(() => processQueue(), 5000);
 
-// Periodic maintenance (prune old completed/acked records)
 const maintenanceInterval = setInterval(() => {
     pruneAckedResponses();
     pruneCompletedMessages();
 }, 60 * 1000);
 
-// Load plugins
 (async () => {
     await loadPlugins();
 })();
 
-// Start in-process cron scheduler
 startScheduler();
 
-// Start torrent manager
 const torrentManager = createTorrentManager(getSettings().torrent);
 torrentManager.start().catch(err => {
     log('ERROR', `Failed to start TorrentManager: ${err.message}`);
 });
 
-// Backfill TMDB posters for existing torrents/watchlist entries missing one
 backfillPosters().catch(err => {
     log('ERROR', `Poster backfill failed: ${(err as Error).message}`);
 });
 
-// Start watchlist runner (if enabled)
 const watchlistSettings = getSettings().watchlist;
 if (watchlistSettings?.enabled) {
     const intervalMinutes = watchlistSettings.check_interval_minutes || 30;
     startWatchlistRunner(intervalMinutes);
 }
 
-// Start automation engine
 const automationEngine = createAutomationEngine();
 automationEngine.start();
 
@@ -275,7 +260,6 @@ if (fs.existsSync(waAuthDir) && fs.readdirSync(waAuthDir).length > 0) {
     });
 }
 
-// Auto-fetch subtitles when a torrent completes
 onEvent((type, data) => {
     if (type === 'torrent:completed' && data.id) {
         handleTorrentCompleted(data.id as string).catch(err => {

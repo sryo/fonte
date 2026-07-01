@@ -205,7 +205,7 @@ export default function SettingsPage() {
       <ProvidersSection />
 
       {/* Advanced: Raw JSON */}
-      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+      <div className="rounded-xl bg-card shadow-card overflow-hidden">
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
           className="w-full flex items-center justify-between p-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
