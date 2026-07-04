@@ -39,7 +39,7 @@ export async function checkConnection(baseUrl?: string): Promise<boolean> {
   }
 }
 
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+async function apiFetch<T>(path: string, options?: RequestInit, unwrapKey?: string): Promise<T> {
   const API_BASE = getApiBase();
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -49,7 +49,13 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(body.error || res.statusText);
   }
-  return res.json();
+  const body = await res.json();
+  // Envelope tolerance: routes are migrating to { ok: true, <key>: payload }.
+  // With an unwrapKey, accept both the enveloped and the bare legacy shape.
+  if (unwrapKey && body && typeof body === "object" && body.ok === true && unwrapKey in body) {
+    return body[unwrapKey];
+  }
+  return body;
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────
