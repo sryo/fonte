@@ -239,7 +239,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
               aria-label={label}
               title={label}
               className={cn(
-                "h-9 w-9 rounded-lg flex items-center justify-center transition-colors",
+                "h-9 w-9 rounded-md flex items-center justify-center transition-colors",
                 active
                   ? "bg-primary/10 text-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -254,7 +254,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
       {/* ===== Center: Search input ===== */}
       <div className="flex-1 relative" ref={searchWrapperRef}>
         {/* Input wrapper */}
-        <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all">
+        <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all">
           {/* Left icon */}
           {loading ? (
             <SpinnerGap className="h-[18px] w-[18px] text-muted-foreground animate-spin shrink-0" />
@@ -299,7 +299,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="flex items-center justify-center h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 shrink-0"
+              className="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 shrink-0"
               aria-label="Submit"
             >
               <PaperPlaneTilt className="h-4 w-4" />
@@ -376,7 +376,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
                 {/* Add button */}
                 <button
                   onClick={() => handleAddResult(result)}
-                  className="flex items-center gap-1.5 shrink-0 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium hover:bg-primary/20 transition-colors"
+                  className="flex items-center gap-1.5 shrink-0 rounded-md bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium hover:bg-primary/20 transition-colors"
                   aria-label={`Add ${result.title}`}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -395,7 +395,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
           onClick={() =>
             setTheme(resolvedTheme === "dark" ? "light" : "dark")
           }
-          className="h-9 w-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="h-9 w-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label={
             mounted && resolvedTheme === "dark" ? "Light mode" : "Dark mode"
           }
@@ -410,7 +410,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         {/* Chat button */}
         <button
           onClick={onOpenChat}
-          className="h-9 w-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="h-9 w-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label="Open chat"
         >
           <Robot className="h-[18px] w-[18px]" weight="bold" />

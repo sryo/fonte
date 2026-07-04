@@ -123,7 +123,7 @@ export function ScheduleFormModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <Card className="w-full max-w-lg shadow-lg">
-        <div className="flex items-center justify-between px-5 py-3 border-b">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="text-sm font-semibold">New Schedule</div>
           <Button
             variant="ghost"
@@ -134,7 +134,7 @@ export function ScheduleFormModal({
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <CardContent className="p-5 space-y-5">
+        <CardContent className="p-4 space-y-5">
           <Input
             value={formLabel}
             onChange={(e) => setFormLabel(e.target.value)}

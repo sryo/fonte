@@ -128,14 +128,14 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
         {/* Header */}
         <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-primary/10">
+            <div className="flex items-center justify-center h-7 w-7 rounded-md bg-primary/10">
               <Robot className="h-4 w-4 text-primary" />
             </div>
             <span className="text-sm font-semibold">Fonte Agent</span>
           </div>
           <button
             onClick={handleClose}
-            className="flex items-center justify-center h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             aria-label="Close chat panel"
           >
             <X className="h-4 w-4" />
@@ -199,12 +199,12 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
             }}
             placeholder="Type a message..."
             disabled={sending}
-            className="flex-1 bg-muted/50 rounded-lg border px-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all disabled:opacity-60"
+            className="flex-1 bg-muted/50 rounded-md border px-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all disabled:opacity-60"
           />
           <button
             onClick={handleSend}
             disabled={sending || !input.trim()}
-            className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 shrink-0"
+            className="flex items-center justify-center h-9 w-9 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 shrink-0"
             aria-label="Send message"
           >
             <PaperPlaneTilt className="h-4 w-4" />

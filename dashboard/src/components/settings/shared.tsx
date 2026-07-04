@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
 // ── Setting Row ─────────────────────────────────────────────────────────
@@ -41,16 +42,12 @@ export function SectionSaveButton({
 }) {
   return (
     <div className="flex items-center gap-3 pt-2 mt-2 border-t border-border/50">
-      <button
-        onClick={onClick}
-        disabled={saving}
-        className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${accentClass}`}
-      >
+      <Button onClick={onClick} disabled={saving} className={accentClass}>
         {saving && (
           <div className="h-3 w-3 animate-spin border-2 border-current border-t-transparent rounded-full" />
         )}
         Save
-      </button>
+      </Button>
       {saved && (
         <span className="text-sm text-subtitle flex items-center gap-1">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

@@ -12,6 +12,7 @@ import {
   type AgentConfig,
   type CustomProvider,
 } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -101,7 +102,7 @@ export function AgentsSection() {
 
   return (
     <div className="rounded-xl bg-card shadow-card">
-      <div className="p-5 space-y-4">
+      <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold">Agents</h3>
@@ -110,12 +111,9 @@ export function AgentsSection() {
             </p>
           </div>
           {!showAdd && (
-            <button
-              onClick={() => setShowAdd(true)}
-              className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-            >
+            <Button size="sm" onClick={() => setShowAdd(true)} className="text-xs">
               Add Agent
-            </button>
+            </Button>
           )}
         </div>
 
@@ -135,18 +133,22 @@ export function AgentsSection() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="xs"
                     onClick={() => handleReset(id)}
-                    className="px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                    className="text-muted-foreground"
                   >
                     Reset
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="xs"
                     onClick={() => handleDelete(id)}
-                    className="px-2.5 py-1 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                   >
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -159,7 +161,7 @@ export function AgentsSection() {
 
         {/* Add agent form */}
         {showAdd && (
-          <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+          <div className="border rounded-xl p-4 space-y-3 bg-muted/30">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">ID</Label>
@@ -220,7 +222,7 @@ export function AgentsSection() {
 
             {/* Inline custom-provider creation */}
             {showAddProvider && (
-              <div className="border rounded-lg p-3 space-y-2 bg-background">
+              <div className="border rounded-xl p-3 space-y-2 bg-background">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium">New custom provider</p>
                   <button
@@ -275,36 +277,37 @@ export function AgentsSection() {
                   placeholder="API key"
                   className="text-xs"
                 />
-                <button
+                <Button
+                  size="sm"
                   onClick={handleSaveProvider}
                   disabled={savingProvider || !providerForm.id || !providerForm.name || !providerForm.base_url || !providerForm.api_key}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  className="text-xs"
                 >
                   {savingProvider && (
                     <div className="h-3 w-3 animate-spin border-2 border-primary-foreground border-t-transparent rounded-full" />
                   )}
                   Save provider
-                </button>
+                </Button>
               </div>
             )}
 
             <div className="flex items-center gap-2 pt-1">
-              <button
+              <Button
                 onClick={handleSave}
                 disabled={saving || !form.id || !form.name || !form.model}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 {saving && (
                   <div className="h-3 w-3 animate-spin border-2 border-primary-foreground border-t-transparent rounded-full" />
                 )}
                 Save
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={() => { setShowAdd(false); setShowAddProvider(false); setForm({ id: "", name: "", provider: "anthropic", model: "sonnet" }); }}
-                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-muted-foreground"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         )}

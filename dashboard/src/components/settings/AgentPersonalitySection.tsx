@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { getSoul, saveSoul } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 // ── Agent Personality Section ───────────────────────────────────────────
 
@@ -45,23 +47,23 @@ export function AgentPersonalitySection() {
       </div>
 
       <div className="px-4 pb-4 pt-3 space-y-3">
-        <textarea
+        <Textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className="w-full min-h-32 p-3 text-sm font-mono rounded-lg border bg-background resize-y"
+          className="min-h-32 font-mono resize-y"
           placeholder={"# Soul\n\nYou are..."}
         />
         <div className="flex items-center gap-3 pt-2 border-t border-border/50">
-          <button
+          <Button
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-agent text-agent-foreground rounded-lg hover:bg-agent/90 transition-colors disabled:opacity-50"
+            className="bg-agent text-agent-foreground hover:bg-agent/90"
           >
             {saving && (
               <div className="h-3 w-3 animate-spin border-2 border-current border-t-transparent rounded-full" />
             )}
             {saved ? "Saved" : saving ? "Saving..." : "Save Personality"}
-          </button>
+          </Button>
           {saved && (
             <span className="text-sm text-subtitle flex items-center gap-1">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

@@ -290,7 +290,7 @@ export default function HomePage() {
           action={
             <button
               onClick={() => setShowAddWatchlist(true)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg px-2.5 py-1.5 hover:bg-muted"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
             >
               <Plus className="h-3.5 w-3.5" />
               Add
@@ -322,7 +322,7 @@ export default function HomePage() {
           action={completedTorrents.length > 0 ? (
             <button
               onClick={() => poofThenRemove(completedTorrents.map((t) => t.id), removeTorrent)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-lg px-2.5 py-1.5 hover:bg-muted"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
             >
               <Trash className="h-3.5 w-3.5" />
               Clear
@@ -360,7 +360,7 @@ export default function HomePage() {
           action={
             <button
               onClick={() => setShowAddAutomation(true)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-lg px-2.5 py-1.5 hover:bg-muted"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
             >
               <Plus className="h-3.5 w-3.5" />
               Add

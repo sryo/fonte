@@ -35,7 +35,7 @@ export function IndexerBanner({ status }: { status: IndexerStatus | null }) {
           href={status.jackettUrl || "http://localhost:9117"}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-foreground text-background hover:opacity-90 transition-opacity shrink-0"
+          className="text-xs font-medium px-3 py-1.5 rounded-md bg-foreground text-background hover:opacity-90 transition-opacity shrink-0"
         >
           Open Jackett
         </a>

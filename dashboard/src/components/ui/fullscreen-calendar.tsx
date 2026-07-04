@@ -95,11 +95,11 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
       <div className="flex flex-col space-y-4 p-4 md:flex-row md:items-center md:justify-between md:space-y-0 lg:flex-none">
         <div className="flex flex-auto">
           <div className="flex items-center gap-4">
-            <div className="hidden w-20 flex-col items-center justify-center rounded-lg border bg-muted p-0.5 md:flex">
+            <div className="hidden w-20 flex-col items-center justify-center rounded-xl border bg-muted p-0.5 md:flex">
               <h1 className="p-1 text-xs uppercase text-muted-foreground">
                 {format(today, "MMM")}
               </h1>
-              <div className="flex w-full items-center justify-center rounded-lg border bg-background p-0.5 text-lg font-bold">
+              <div className="flex w-full items-center justify-center rounded-md border bg-background p-0.5 text-lg font-bold">
                 <span>{format(today, "d")}</span>
               </div>
             </div>
@@ -116,10 +116,10 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
         </div>
 
         <div className="flex flex-col items-center gap-4 md:flex-row md:gap-6">
-          <div className="inline-flex w-full -space-x-px rounded-lg shadow-sm shadow-black/5 md:w-auto rtl:space-x-reverse">
+          <div className="inline-flex w-full -space-x-px rounded-md shadow-sm shadow-black/5 md:w-auto rtl:space-x-reverse">
             <Button
               onClick={previousMonth}
-              className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10"
+              className="rounded-none shadow-none first:rounded-s-md last:rounded-e-md focus-visible:z-10"
               variant="outline"
               size="icon"
               aria-label="Navigate to previous month"
@@ -128,14 +128,14 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
             </Button>
             <Button
               onClick={goToToday}
-              className="w-full rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 md:w-auto"
+              className="w-full rounded-none shadow-none first:rounded-s-md last:rounded-e-md focus-visible:z-10 md:w-auto"
               variant="outline"
             >
               Today
             </Button>
             <Button
               onClick={nextMonth}
-              className="rounded-none shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10"
+              className="rounded-none shadow-none first:rounded-s-md last:rounded-e-md focus-visible:z-10"
               variant="outline"
               size="icon"
               aria-label="Navigate to next month"
@@ -297,7 +297,7 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
                               {dayData.events.slice(0, 1).map((event) => (
                                 <div
                                   key={event.id}
-                                  className="flex flex-col items-start gap-1 rounded-lg border bg-muted/50 p-2 text-xs leading-tight"
+                                  className="flex flex-col items-start gap-1 rounded-md border bg-muted/50 p-2 text-xs leading-tight"
                                 >
                                   <p className="font-medium leading-none">
                                     {event.name}
@@ -330,7 +330,7 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
                         {dayEvents.flatMap((d) => d.events).map((event) => (
                           <div
                             key={event.id}
-                            className="flex items-start gap-2 rounded-lg border bg-muted/50 p-2 text-xs"
+                            className="flex items-start gap-2 rounded-md border bg-muted/50 p-2 text-xs"
                           >
                             <span className="text-muted-foreground shrink-0 pt-px">
                               {event.time}

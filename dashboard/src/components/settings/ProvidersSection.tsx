@@ -8,6 +8,7 @@ import {
   BUILTIN_PROVIDERS,
   type CustomProvider,
 } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -78,7 +79,7 @@ export function ProvidersSection() {
 
   return (
     <div className="rounded-xl bg-card shadow-card">
-      <div className="p-5 space-y-4">
+      <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold">Providers</h3>
@@ -87,12 +88,9 @@ export function ProvidersSection() {
             </p>
           </div>
           {!showAdd && (
-            <button
-              onClick={() => setShowAdd(true)}
-              className="px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-            >
+            <Button size="sm" onClick={() => setShowAdd(true)} className="text-xs">
               Add Custom
-            </button>
+            </Button>
           )}
         </div>
 
@@ -134,12 +132,14 @@ export function ProvidersSection() {
                     </span>
                   )}
                 </div>
-                <button
+                <Button
+                  variant="ghost"
+                  size="xs"
                   onClick={() => handleDelete(id)}
-                  className="px-2.5 py-1 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors shrink-0"
+                  className="shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 >
                   Delete
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -151,7 +151,7 @@ export function ProvidersSection() {
 
         {/* Add provider form */}
         {showAdd && (
-          <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+          <div className="border rounded-xl p-4 space-y-3 bg-muted/30">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Provider ID</Label>
@@ -216,25 +216,25 @@ export function ProvidersSection() {
               />
             </div>
             <div className="flex items-center gap-2 pt-1">
-              <button
+              <Button
                 onClick={handleSave}
                 disabled={saving || !form.id || !form.name || !form.base_url || !form.api_key}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 {saving && (
                   <div className="h-3 w-3 animate-spin border-2 border-primary-foreground border-t-transparent rounded-full" />
                 )}
                 Save
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={() => {
                   setShowAdd(false);
                   setForm({ id: "", name: "", harness: "claude", base_url: "", api_key: "", model: "" });
                 }}
-                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-muted-foreground"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         )}

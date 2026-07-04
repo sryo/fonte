@@ -23,7 +23,7 @@ export function SystemPromptTab({
   saved: boolean;
 }) {
   return (
-    <div className="p-6 space-y-6 max-w-5xl">
+    <div className="p-4 space-y-6 max-w-5xl">
       <Card>
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">

@@ -11,6 +11,8 @@ import {
   requestWhatsAppPairingCode,
   type WhatsAppChat,
 } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 // ── WhatsApp Section ────────────────────────────────────────────────────
 
@@ -92,7 +94,7 @@ export function WhatsAppSection() {
 
   return (
     <div className="rounded-xl bg-card shadow-card">
-      <div className="p-5 space-y-4">
+      <div className="p-4 space-y-4">
         <div>
           <h3 className="text-sm font-semibold">WhatsApp</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -106,20 +108,20 @@ export function WhatsAppSection() {
               Connect WhatsApp to manage torrents and get notifications on your phone.
             </p>
             <div className="flex gap-2">
-              <button
+              <Button
                 onClick={handleConnect}
                 disabled={connectLoading}
-                className="px-4 py-2 text-sm bg-done text-white rounded-lg hover:bg-done/90 disabled:opacity-50 transition-colors"
+                className="bg-done text-white hover:bg-done/90"
               >
                 {connectLoading ? "Connecting..." : "Connect with QR"}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => { setShowPairing(true); setPairingCode(null); }}
                 disabled={connectLoading}
-                className="px-4 py-2 text-sm border rounded-lg hover:bg-accent disabled:opacity-50 transition-colors"
               >
                 Pair with phone number
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -146,38 +148,41 @@ export function WhatsAppSection() {
         )}
 
         {showPairing && status !== "connected" && (
-          <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+          <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
             {!pairingCode ? (
               <>
                 <p className="text-sm font-medium">Pair with phone number</p>
                 <p className="text-xs text-muted-foreground">
                   Enter your phone number (country code + number, digits only).
                 </p>
-                <input
+                <Input
                   type="tel"
                   inputMode="numeric"
                   placeholder="14155551234"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-md border bg-background font-mono"
+                  className="font-mono"
                 />
                 {pairingError && (
                   <p className="text-xs text-destructive">{pairingError}</p>
                 )}
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    size="sm"
                     onClick={handleRequestPairing}
                     disabled={pairingLoading || !phone.trim()}
-                    className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50"
+                    className="text-xs"
                   >
                     {pairingLoading ? "Requesting..." : "Get pairing code"}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => { setShowPairing(false); setPhone(""); setPairingError(null); }}
-                    className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                    className="text-xs text-muted-foreground"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : (
@@ -201,13 +206,15 @@ export function WhatsAppSection() {
                 <span className="h-2.5 w-2.5 rounded-full bg-done animate-pulse" />
                 <span className="text-sm font-medium">Connected</span>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleDisconnect}
                 disabled={connectLoading}
-                className="px-3 py-1.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                className="text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
               >
                 Disconnect
-              </button>
+              </Button>
             </div>
             <WhatsAppChatPicker />
           </div>
@@ -260,12 +267,12 @@ function WhatsAppChatPicker() {
         Only messages from this chat will be sent to the agent. Defaults to none — pick a chat to enable.
       </p>
       {loading ? (
-        <div className="h-9 rounded-lg border bg-muted/30 animate-pulse" />
+        <div className="h-9 rounded-md border bg-muted/30 animate-pulse" />
       ) : (
         <select
           value={selected ?? ""}
           onChange={(e) => handleChange(e.target.value)}
-          className="w-full h-9 px-3 text-sm rounded-lg border bg-background"
+          className="w-full h-9 px-3 text-sm rounded-md border bg-background"
         >
           <option value="">— Ignore everything —</option>
           {chats.map((c) => (

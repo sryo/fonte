@@ -9,6 +9,7 @@ import {
   type Settings,
   type TorrentConfig,
 } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AgentPersonalitySection } from "@/components/settings/AgentPersonalitySection";
 import { AgentsSection } from "@/components/settings/AgentsSection";
@@ -234,16 +235,12 @@ export default function SettingsPage() {
               spellCheck={false}
             />
             <div className="flex items-center gap-3">
-              <button
-                onClick={saveRawJson}
-                disabled={savingSection === "advanced"}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50"
-              >
+              <Button onClick={saveRawJson} disabled={savingSection === "advanced"}>
                 {savingSection === "advanced" && (
                   <div className="h-3 w-3 animate-spin border-2 border-primary-foreground border-t-transparent rounded-full" />
                 )}
                 Save JSON
-              </button>
+              </Button>
               {savedSection === "advanced" && (
                 <span className="text-sm text-subtitle flex items-center gap-1">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

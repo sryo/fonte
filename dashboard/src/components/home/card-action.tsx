@@ -14,7 +14,7 @@ export function CardAction({ icon: Icon, label, onClick, destructive }: {
       onClick={(e) => { e.stopPropagation(); onClick(e); }}
       title={label}
       className={cn(
-        "h-8 w-8 rounded-lg flex items-center justify-center backdrop-blur-sm transition-colors",
+        "h-8 w-8 rounded-md flex items-center justify-center backdrop-blur-sm transition-colors",
         destructive
           ? "bg-red-500/80 hover:bg-red-500 text-white"
           : "bg-white/20 hover:bg-white/30 text-white"

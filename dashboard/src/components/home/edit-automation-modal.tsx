@@ -2,6 +2,19 @@
 
 import type { AutomationLog } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { TRIGGER_TYPES } from "@/components/home/add-automation-modal";
 
 export type EditAutomationForm = {
   name: string;
@@ -26,72 +39,70 @@ export function EditAutomationModal({
   onSave: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center" onClick={onClose}>
-      <div className="bg-card rounded-xl shadow-lg border p-6 w-full max-w-md space-y-4 animate-card-enter" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-base font-bold">Edit Automation</h3>
-        <input
+    <Modal open onClose={onClose} title="Edit Automation">
+      <div className="space-y-4">
+        <Input
           placeholder="Rule name"
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
-          className="w-full px-3 py-2 text-sm rounded-lg border bg-background"
           autoFocus
         />
-        <div>
-          <label className="text-xs text-muted-foreground">Trigger</label>
-          <select
+        <div className="space-y-1.5">
+          <Label>Trigger</Label>
+          <Select
             value={form.triggerType}
-            onChange={(e) => setForm({ ...form, triggerType: e.target.value })}
-            className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1"
+            onValueChange={(v) => setForm({ ...form, triggerType: v })}
           >
-            <option value="torrent:completed">Torrent completes</option>
-            <option value="torrent:added">Torrent added</option>
-            <option value="torrent:error">Torrent error</option>
-            <option value="torrent:stalled">Torrent stalled</option>
-            <option value="watchlist:match">Watchlist match found</option>
-            <option value="schedule">On a schedule</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TRIGGER_TYPES.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {form.triggerType === "schedule" && (
-          <div>
-            <label className="text-xs text-muted-foreground">Cron expression</label>
-            <input
+          <div className="space-y-1.5">
+            <Label>Cron expression</Label>
+            <Input
               placeholder="0 9 * * 1   (e.g. Mondays at 9am)"
               value={form.cron}
               onChange={(e) => setForm({ ...form, cron: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1 font-mono"
+              className="font-mono"
             />
           </div>
         )}
-        <div>
-          <label className="text-xs text-muted-foreground">Prompt</label>
-          <textarea
+        <div className="space-y-1.5">
+          <Label>Prompt</Label>
+          <Textarea
             placeholder="What should happen when this fires"
             value={form.prompt}
             onChange={(e) => setForm({ ...form, prompt: e.target.value })}
             rows={5}
-            className="w-full px-3 py-2 text-sm rounded-lg border bg-background mt-1 resize-y"
+            className="resize-y"
           />
         </div>
         <div className="flex gap-2 pt-1">
-          <button
+          <Button
             onClick={onSave}
             disabled={!form.name.trim()}
-            className="flex-1 px-4 py-2 text-sm bg-automation text-automation-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
+            className="flex-1 bg-automation text-automation-foreground hover:bg-automation/90"
           >
             Save
-          </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-lg hover:bg-muted"
-          >
+          </Button>
+          <Button variant="ghost" onClick={onClose} className="text-muted-foreground">
             Cancel
-          </button>
+          </Button>
         </div>
 
         {/* History — last response + trigger log */}
         <div className="pt-3 border-t space-y-3">
           <div>
-            <label className="text-xs font-medium text-muted-foreground">Last response</label>
+            <Label className="text-xs text-muted-foreground">Last response</Label>
             {lastResponse ? (
               <div className="mt-1.5 rounded-md border bg-muted/30 px-3 py-2 max-h-40 overflow-y-auto">
                 <p className="text-2xs text-muted-foreground">
@@ -106,9 +117,9 @@ export function EditAutomationModal({
             )}
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground">
+            <Label className="text-xs text-muted-foreground">
               Recent triggers ({logs.length})
-            </label>
+            </Label>
             {logs.length === 0 ? (
               <p className="mt-1.5 text-xs text-muted-foreground italic">Never triggered.</p>
             ) : (
@@ -128,6 +139,6 @@ export function EditAutomationModal({
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
