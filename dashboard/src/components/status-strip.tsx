@@ -70,7 +70,7 @@ export function StatusStrip() {
         </span>
         <span className="mx-1 opacity-40">&bull;</span>
         <span>
-          <span aria-label="Upload speed" className="text-green-500">&#8593;</span>{" "}
+          <span aria-label="Upload speed" className="text-done">&#8593;</span>{" "}
           {formatSpeed(uploadSpeed)}
         </span>
         <span className="mx-1 opacity-40">&bull;</span>

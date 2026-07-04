@@ -258,7 +258,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
             className={cn(
               "absolute right-3 -bottom-8 z-30 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium shadow-md transition-all animate-in fade-in slide-in-from-top-1 duration-200",
               toast.type === "success"
-                ? "bg-emerald-500/90 text-white"
+                ? "bg-done/90 text-white"
                 : "bg-destructive/90 text-destructive-foreground"
             )}
           >
@@ -285,7 +285,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
                     {result.seeders !== undefined && (
-                      <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                      <span className="inline-flex items-center rounded-full bg-done/10 px-2 py-0.5 text-xs font-medium text-done">
                         {result.seeders} seeders
                       </span>
                     )}

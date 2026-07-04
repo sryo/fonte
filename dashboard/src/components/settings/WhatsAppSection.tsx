@@ -109,7 +109,7 @@ export function WhatsAppSection() {
               <button
                 onClick={handleConnect}
                 disabled={connectLoading}
-                className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                className="px-4 py-2 text-sm bg-done text-white rounded-lg hover:bg-done/90 disabled:opacity-50 transition-colors"
               >
                 {connectLoading ? "Connecting..." : "Connect with QR"}
               </button>
@@ -126,7 +126,7 @@ export function WhatsAppSection() {
 
         {status === "connecting" && (
           <div className="text-center py-4">
-            <div className="h-5 w-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin mx-auto" />
+            <div className="h-5 w-5 border-2 border-done border-t-transparent rounded-full animate-spin mx-auto" />
             <p className="text-sm text-muted-foreground mt-2">Initializing WhatsApp...</p>
           </div>
         )}
@@ -198,7 +198,7 @@ export function WhatsAppSection() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="h-2.5 w-2.5 rounded-full bg-done animate-pulse" />
                 <span className="text-sm font-medium">Connected</span>
               </div>
               <button

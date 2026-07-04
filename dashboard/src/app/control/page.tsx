@@ -199,7 +199,7 @@ function DaemonSection({ status, refresh }: { status: any; refresh: () => void }
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${status?.ok ? "bg-green-500" : "bg-red-500"}`} />
+            <span className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${status?.ok ? "bg-done" : "bg-destructive"}`} />
             <p className="text-sm font-semibold">Daemon</p>
             <p className="text-xs text-muted-foreground">
               {status?.ok
@@ -243,7 +243,7 @@ function ApiConnectionSection() {
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <WifiHigh className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+            <WifiHigh className="h-3.5 w-3.5 text-done flex-shrink-0" />
             <p className="text-sm font-semibold">API Connection</p>
             {!editingUrl && (
               <p className="text-xs text-muted-foreground">{getApiBase()}</p>
@@ -341,7 +341,7 @@ function AgentSessionRow({ msg, onKill }: { msg: ProcessingMessage; onKill: () =
             {isStale ? (
               <Badge variant="destructive" className="text-2xs px-1 py-0">stale</Badge>
             ) : msg.status === "processing" ? (
-              <Badge variant="default" className="bg-green-600 text-2xs px-1 py-0">processing</Badge>
+              <Badge variant="default" className="bg-done text-2xs px-1 py-0">processing</Badge>
             ) : (
               <Badge variant="secondary" className="text-2xs px-1 py-0">queued</Badge>
             )}
@@ -455,8 +455,8 @@ function LogsSection() {
 function LogLine({ line }: { line: string }) {
   let levelClass = "text-muted-foreground";
   if (line.includes("[ERROR]")) levelClass = "text-destructive";
-  else if (line.includes("[WARN]")) levelClass = "text-yellow-500";
-  else if (line.includes("[INFO]") && line.includes("\u2713")) levelClass = "text-emerald-500";
+  else if (line.includes("[WARN]")) levelClass = "text-warning";
+  else if (line.includes("[INFO]") && line.includes("\u2713")) levelClass = "text-done";
 
   return (
     <div className={`${levelClass} py-0.5 border-b border-border/20`}>
@@ -468,11 +468,11 @@ function LogLine({ line }: { line: string }) {
 
 function EventDot({ type }: { type: string }) {
   const colors: Record<string, string> = {
-    message_received: "bg-blue-500", agent_routed: "bg-primary",
-    chain_step_start: "bg-yellow-500", chain_step_done: "bg-green-500",
-    response_ready: "bg-emerald-500", team_chain_start: "bg-purple-500",
-    team_chain_end: "bg-purple-400", chain_handoff: "bg-orange-500",
-    message_enqueued: "bg-cyan-500", processor_start: "bg-primary",
+    message_received: "bg-torrent", agent_routed: "bg-primary",
+    chain_step_start: "bg-warning", chain_step_done: "bg-done",
+    response_ready: "bg-done", team_chain_start: "bg-agent",
+    team_chain_end: "bg-agent/60", chain_handoff: "bg-automation",
+    message_enqueued: "bg-torrent/60", processor_start: "bg-primary",
   };
   return <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${colors[type] || "bg-muted-foreground"}`} />;
 }
