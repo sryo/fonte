@@ -13,6 +13,7 @@ import {
     decodeTorrentName,
 } from './torrent-db';
 import { fetchTorrentPoster } from './poster-manager';
+import { extractInfoHash } from './search-aggregator';
 
 const DEFAULT_CONFIG: TorrentConfig = {
     download_dir: path.join(require('os').homedir(), 'Downloads', 'fonte'),
@@ -96,7 +97,7 @@ export class TorrentManager {
         }
 
         const tempHash = typeof source === 'string'
-            ? this.extractInfoHash(source) || id
+            ? extractInfoHash(source) || id
             : id;
 
         // Check for duplicates
@@ -432,7 +433,9 @@ export class TorrentManager {
             updateTorrent(record.id, updates);
 
             if (nameChanged) {
-                fetchTorrentPoster(record.id).catch(err => log('WARN', `Poster: fetch failed for ${record.id}: ${(err as Error).message}`));
+                // A poster fetched under the magnet dn name may have matched the
+                // wrong title; force re-matches against the resolved name.
+                fetchTorrentPoster(record.id, undefined, { force: true }).catch(err => log('WARN', `Poster: fetch failed for ${record.id}: ${(err as Error).message}`));
             }
 
             // Completion detection — only fire once per torrent
@@ -485,14 +488,6 @@ export class TorrentManager {
         const record = getTorrent(id);
         if (!record) throw new Error(`Torrent not found: ${id}`);
         return record;
-    }
-
-    private extractInfoHash(magnetUri: string): string | undefined {
-        const match = magnetUri.match(/xt=urn:btih:([a-fA-F0-9]{40})/);
-        if (match) return match[1].toLowerCase();
-        const b32Match = magnetUri.match(/xt=urn:btih:([A-Z2-7]{32})/i);
-        if (b32Match) return b32Match[1].toLowerCase();
-        return undefined;
     }
 }
 

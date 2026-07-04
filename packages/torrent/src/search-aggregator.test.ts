@@ -37,9 +37,10 @@ describe('extractInfoHash', () => {
         expect(extractInfoHash(`magnet:?xt=urn:btih:${hex.toUpperCase()}`)).toBe(hex);
     });
 
-    it('extracts a base32 hash, lowercased', () => {
-        const b32 = 'RLFNM6442KMUEILUWLLO2RUWUCU2BT2M';
-        expect(extractInfoHash(`magnet:?xt=urn:btih:${b32}`)).toBe(b32.toLowerCase());
+    it('decodes a base32 hash to 40-char lowercase hex', () => {
+        const b32 = 'RLFN464ZBXYNZSEZN4YQPIP2FCU2BT3G'; // base32 encoding of `hex`
+        expect(extractInfoHash(`magnet:?xt=urn:btih:${b32}`)).toBe(hex);
+        expect(extractInfoHash(`magnet:?xt=urn:btih:${b32.toLowerCase()}`)).toBe(hex);
     });
 
     it('returns undefined when no hash is present', () => {
@@ -175,13 +176,20 @@ describe('rankResults quality preference and seeder demotion', () => {
         expect(ranked.map(r => r.title)).toEqual(['Alive 1080p', 'Dead 1080p']);
     });
 
-    it('lets a zero-seeder exact match tie a fully-seeded adjacent match', () => {
-        // characterizes current behavior: 1.0*0.6 + 0 equals 0.5*0.6 + 0.3, so
-        // the stable sort preserves input order instead of demoting the dead copy
+    it('breaks a composite-score tie by seeders desc', () => {
+        // 1.0*0.6 + 0 equals 0.5*0.6 + 0.3, so the seeded copy wins the
+        // tiebreak regardless of input order
         const zeroSeederExact = { title: 'X 1080p', seeders: 0 };
         const seededAdjacent = { title: 'X 720p', seeders: 100 };
         expect(computeScore(zeroSeederExact, '1080p')).toBe(computeScore(seededAdjacent, '1080p'));
         expect(rankResults([seededAdjacent, zeroSeederExact], '1080p')[0].title).toBe('X 720p');
+        expect(rankResults([zeroSeederExact, seededAdjacent], '1080p')[0].title).toBe('X 720p');
+    });
+
+    it('breaks a score-and-seeders tie by size desc', () => {
+        const small = { title: 'X 1080p', seeders: 10, size: 1_000 };
+        const large = { title: 'X 1080p', seeders: 10, size: 2_000 };
+        expect(rankResults([small, large], '1080p').map(r => r.size)).toEqual([2_000, 1_000]);
     });
 });
 
@@ -228,9 +236,7 @@ describe('aggregateSearch info-hash dedup', () => {
         expect(out[0].title).toBe('From Jackett');
     });
 
-    it('treats hex and base32 encodings of the same hash as distinct', async () => {
-        // characterizes current behavior: dedup compares extracted strings, so
-        // the two encodings of one info hash are never collapsed
+    it('dedupes hex and base32 encodings of the same hash', async () => {
         const hex = '8acade7b990df0dcc8996f3107a1fa28a9a0cf66';
         const sameHashB32 = 'RLFN464ZBXYNZSEZN4YQPIP2FCU2BT3G';
         vi.mocked(searchJackett).mockResolvedValue([
@@ -239,6 +245,21 @@ describe('aggregateSearch info-hash dedup', () => {
         ]);
 
         const out = await aggregateSearch(['query'], jackettOpts);
-        expect(out.map(r => r.title)).toEqual(['Hex form', 'Base32 form']);
+        expect(out.map(r => r.title)).toEqual(['Hex form']);
+    });
+
+    it('dedupes a base32 magnet against a hex bt4g infoHash field', async () => {
+        const hex = '8acade7b990df0dcc8996f3107a1fa28a9a0cf66';
+        const sameHashB32 = 'RLFN464ZBXYNZSEZN4YQPIP2FCU2BT3G';
+        vi.mocked(searchJackett).mockResolvedValue([
+            jackettResult('From Jackett', `magnet:?xt=urn:btih:${sameHashB32}`),
+        ]);
+        vi.mocked(searchBt4g).mockResolvedValue([
+            bt4gResult('From bt4g', 'magnet:?dn=no-hash-here', hex),
+        ]);
+
+        const out = await aggregateSearch(['query'], jackettOpts);
+        expect(out).toHaveLength(1);
+        expect(out[0].title).toBe('From Jackett');
     });
 });

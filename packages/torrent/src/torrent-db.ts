@@ -237,12 +237,17 @@ export function getTorrentByHash(infoHash: string): TorrentRecord | undefined {
 }
 
 export function getTorrents(filter?: { status?: TorrentStatus; limit?: number }): TorrentRecord[] {
-    let sql = 'SELECT * FROM torrents WHERE status != ?';
-    const params: any[] = ['removed'];
+    // Unfiltered listings hide removed torrents; an explicit status filter
+    // matches exactly, so { status: 'removed' } is satisfiable.
+    let sql = 'SELECT * FROM torrents WHERE ';
+    const params: any[] = [];
 
     if (filter?.status) {
-        sql += ' AND status = ?';
+        sql += 'status = ?';
         params.push(filter.status);
+    } else {
+        sql += 'status != ?';
+        params.push('removed');
     }
     sql += ' ORDER BY added_at DESC';
     if (filter?.limit) {

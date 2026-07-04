@@ -89,15 +89,13 @@ describe('getTorrents status filtering', () => {
         expect(db.getTorrent('t2')?.status).toBe('removed');
     });
 
-    it('filters by status on top of the removed exclusion', () => {
+    it('filters by status, including an explicit removed filter', () => {
         insertBasic('t1');
         insertBasic('t2', { status: 'removed' });
         insertBasic('t3', { status: 'completed' });
 
         expect(db.getTorrents({ status: 'completed' }).map(t => t.id)).toEqual(['t3']);
-        // characterizes current behavior: the base WHERE already excludes
-        // 'removed', so explicitly filtering for it can never match
-        expect(db.getTorrents({ status: 'removed' })).toEqual([]);
+        expect(db.getTorrents({ status: 'removed' }).map(t => t.id)).toEqual(['t2']);
     });
 });
 

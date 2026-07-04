@@ -48,7 +48,7 @@ export async function aggregateSearch(queries: string[], opts: AggregateSearchOp
                 if (!r.magnetUri) continue;
                 const cat = r.category?.toLowerCase();
                 if (cat === 'doc' || cat === 'audio') continue;
-                const hash = extractInfoHash(r.magnetUri) || r.infoHash?.toLowerCase();
+                const hash = extractInfoHash(r.magnetUri) || (r.infoHash ? normalizeInfoHash(r.infoHash) : undefined);
                 if (hash && seenHashes.has(hash)) continue;
                 if (hash) seenHashes.add(hash);
                 all.push({
@@ -133,12 +133,14 @@ export function sortBySeedersThenSize<T extends { seeders?: number; size?: numbe
 
 // ── Quality Ranking ───────────────────────────────────────────────────────────
 
-export function rankResults<T extends { title: string; seeders: number; publishDate?: number }>(
+export function rankResults<T extends { title: string; seeders: number; publishDate?: number; size?: number }>(
     results: T[], preferredQuality: string): T[] {
     return [...results].sort((a, b) => {
         const scoreA = computeScore(a, preferredQuality);
         const scoreB = computeScore(b, preferredQuality);
-        return scoreB - scoreA;
+        return (scoreB - scoreA)
+            || (b.seeders - a.seeders)
+            || ((b.size || 0) - (a.size || 0));
     });
 }
 
@@ -174,12 +176,42 @@ export function computeQualityMatch(title: string, preferred: string): number {
 
 // ── Parsing helpers ───────────────────────────────────────────────────────────
 
-/** Extract a lowercase info hash from a magnet URI (hex or base32 form). */
+const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+/** Decode a 32-char RFC 4648 base32 string to 40-char lowercase hex. */
+function base32ToHex(b32: string): string | undefined {
+    let bits = 0;
+    let value = 0;
+    let hex = '';
+    for (const char of b32.toUpperCase()) {
+        const index = BASE32_ALPHABET.indexOf(char);
+        if (index === -1) return undefined;
+        value = (value << 5) | index;
+        bits += 5;
+        if (bits >= 8) {
+            bits -= 8;
+            hex += ((value >> bits) & 0xff).toString(16).padStart(2, '0');
+        }
+    }
+    return hex;
+}
+
+/**
+ * Normalize a raw info hash to 40-char lowercase hex, decoding the base32
+ * form so both encodings of one hash dedup to the same key.
+ */
+export function normalizeInfoHash(hash: string): string | undefined {
+    if (/^[a-fA-F0-9]{40}$/.test(hash)) return hash.toLowerCase();
+    if (/^[A-Za-z2-7]{32}$/.test(hash)) return base32ToHex(hash);
+    return undefined;
+}
+
+/** Extract a normalized (40-char lowercase hex) info hash from a magnet URI. */
 export function extractInfoHash(magnetUri: string): string | undefined {
     const match = magnetUri.match(/xt=urn:btih:([a-fA-F0-9]{40})/);
     if (match) return match[1].toLowerCase();
     const b32 = magnetUri.match(/xt=urn:btih:([A-Z2-7]{32})/i);
-    if (b32) return b32[1].toLowerCase();
+    if (b32) return base32ToHex(b32[1]);
     return undefined;
 }
 
