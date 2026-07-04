@@ -255,11 +255,23 @@ export class TorrentManager {
     }
 
     async resumeTorrent(id: string): Promise<void> {
+        if (!this.rpc) throw new Error('TorrentManager not started');
         const record = this.getRequiredTorrent(id);
-        const tId = this.transmissionIds.get(id);
-        if (tId !== undefined && this.rpc) {
-            await this.rpc.call('torrent-start', { ids: [tId] });
+        let tId = this.transmissionIds.get(id);
+        if (tId === undefined) {
+            // The map covers every non-removed record after startup, so a miss
+            // means Transmission lost the torrent — unless it came back since
+            // the last sync; check by hash before giving up. Writing an active
+            // status without a live Transmission entry would get flipped to
+            // 'removed' by the next syncStats pass.
+            const res = await this.rpc.call('torrent-get', { ids: [record.infoHash], fields: ['id'] });
+            tId = res.torrents?.[0]?.id;
+            if (tId === undefined) {
+                throw new Error(`Torrent "${record.name || id}" is no longer in Transmission — re-add it to resume`);
+            }
+            this.transmissionIds.set(id, tId);
         }
+        await this.rpc.call('torrent-start', { ids: [tId] });
         const newStatus: TorrentStatus = record.progress >= 1 ? 'seeding' : 'downloading';
         updateTorrent(id, { status: newStatus });
         emitEvent(TORRENT_EVENTS.RESUMED, { id, name: record.name });
