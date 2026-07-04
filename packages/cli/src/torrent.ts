@@ -65,7 +65,9 @@ async function torrentList() {
 
     for (const t of torrents) {
         const name = (t.name || t.infoHash || '').substring(0, 34);
-        const speed = t.status === 'downloading' ? formatSpeed(t.downloadSpeed) : '';
+        const speed =
+            t.status === 'downloading' ? `↓ ${formatSpeed(t.downloadSpeed)}` :
+            t.status === 'seeding' ? `↑ ${formatSpeed(t.uploadSpeed)}` : '';
         console.log(
             padRight(t.id, 14) +
             padRight(name, 36) +

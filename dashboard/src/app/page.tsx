@@ -177,10 +177,10 @@ export default function HomePage() {
     (t) => t.status === "downloading" || t.status === "paused"
   );
 
-  // Seeding torrents have finished downloading; group them with completed so
-  // the user sees finished work in one place. Transmission only reports the
-  // transient "completed" status briefly before the daemon flips it to
-  // "seeding", so without this Recently Completed is almost always empty.
+  // Both statuses mean the download has finished: "seeding" is still
+  // uploading, "completed" is finished and stopped (user-paused or
+  // auto-stopped at the seed-ratio limit). Group them so all finished
+  // work lives in one row.
   const completedTorrents = torrents
     .filter((t) => t.status === "completed" || t.status === "seeding")
     .sort((a, b) => (b.completedAt ?? b.addedAt ?? 0) - (a.completedAt ?? a.addedAt ?? 0))

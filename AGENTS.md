@@ -48,6 +48,13 @@ DELETE /api/torrents/:id           Remove (?deleteFiles=true)
 GET    /api/torrents/stats        Speed + counts
 ```
 
+Torrent `status` values: `adding` → `downloading` → `seeding` → `completed`.
+- `seeding` — download finished, still uploading to peers.
+- `completed` — download finished AND stopped (user paused it, or the seed-ratio limit auto-stopped it). Resuming a completed torrent starts seeding again.
+- Others: `checking` (verifying local data), `paused` (stopped before finishing), `error`, `removed`.
+
+A torrent is fully downloaded iff `progress` is 1 — check that, not `status === "completed"`.
+
 ## Watchlist (auto-monitor)
 
 ```

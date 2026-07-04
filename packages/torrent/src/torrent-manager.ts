@@ -250,8 +250,11 @@ export class TorrentManager {
             uploadSpeed: 0,
             ...(isComplete && !record.completedAt ? { completedAt: Date.now() } : {}),
         });
-        emitEvent(isComplete ? TORRENT_EVENTS.COMPLETED : TORRENT_EVENTS.PAUSED, { id, name: record.name });
-        log('INFO', `${isComplete ? 'Completed' : 'Paused'} torrent: ${record.name || id}`);
+        if (isComplete && !record.completedAt) {
+            emitEvent(TORRENT_EVENTS.COMPLETED, { id, name: record.name });
+        }
+        emitEvent(TORRENT_EVENTS.PAUSED, { id, name: record.name });
+        log('INFO', `Paused torrent: ${record.name || id}`);
     }
 
     async resumeTorrent(id: string): Promise<void> {
@@ -386,7 +389,9 @@ export class TorrentManager {
                 fields: ['id', 'hashString', 'name'],
             });
             const torrents = result.torrents || [];
-            const dbTorrents = getActiveTorrents();
+            // Include stopped records (completed/paused) so resume after a
+            // daemon restart can still reach them in Transmission.
+            const dbTorrents = getTorrents();
 
             for (const dbRecord of dbTorrents) {
                 const match = torrents.find((t: any) =>
@@ -465,7 +470,7 @@ export class TorrentManager {
             const hash = (t.hashString as string || '').toLowerCase();
             const record = getTorrentByHash(hash);
             if (!record) continue;
-            if (record.status === 'paused' || record.status === 'removed') continue;
+            if (record.status === 'removed') continue;
 
             this.transmissionIds.set(record.id, t.id);
 
@@ -473,21 +478,25 @@ export class TorrentManager {
             const wasPending = record.status === 'downloading' || record.status === 'adding';
             const isDone = progress >= 1;
 
-            // Map Transmission status: 0=stopped, 1=check-wait, 2=checking, 3=dl-wait, 4=downloading, 5=seed-wait, 6=seeding
+            // Map Transmission status: 0=stopped, 1=check-wait, 2=checking, 3=dl-wait,
+            // 4=downloading, 5=seed-wait, 6=seeding.
+            // 'completed' means finished AND stopped; a finished torrent still
+            // uploading is 'seeding'.
             let newStatus: TorrentStatus = record.status;
             if (t.error && t.error > 0) {
                 newStatus = 'error';
             } else if (t.status === 1 || t.status === 2) {
                 newStatus = 'checking';
-            } else if (isDone && wasPending) {
-                newStatus = 'completed';
-            } else if (t.status === 4 || t.status === 3) {
+            } else if (t.status === 3 || t.status === 4) {
                 newStatus = 'downloading';
-            } else if (t.status === 6 || t.status === 5) {
+            } else if (t.status === 5 || t.status === 6) {
                 newStatus = 'seeding';
-            } else if (record.status === 'adding' && t.name) {
-                newStatus = 'downloading';
+            } else if (t.status === 0 && record.status !== 'adding') {
+                // Stopped: seed-ratio auto-stop, Fonte pause, or an external client stop.
+                newStatus = isDone ? 'completed' : 'paused';
             }
+            // While 'adding', a transiently-stopped torrent stays 'adding' until
+            // Transmission starts it; codes 1-6 promote it out on later ticks.
 
             const updates: Parameters<typeof updateTorrent>[1] = {
                 progress,
@@ -528,7 +537,7 @@ export class TorrentManager {
             if ((t.peersConnected ?? 0) > 0) {
                 this.stalledTimers.set(hash, Date.now());
                 this.stalledNotified.delete(hash);
-            } else if (!isDone) {
+            } else if (!isDone && t.status !== 0) {
                 const lastHadPeers = this.stalledTimers.get(hash) ?? record.addedAt;
                 if (Date.now() - lastHadPeers > 5 * 60 * 1000 && !this.stalledNotified.has(hash)) {
                     this.stalledNotified.add(hash);

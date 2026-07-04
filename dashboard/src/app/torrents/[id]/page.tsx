@@ -142,9 +142,9 @@ export default function TorrentDetailPage() {
   }
 
   const pct = toPct(torrent.progress);
-  const isPaused = torrent.status === "paused";
+  const isStopped = torrent.status === "paused" || torrent.status === "completed";
   const isStalled = torrent.status === "downloading" && torrent.numPeers === 0;
-  const canPauseResume = ["downloading", "seeding", "paused"].includes(torrent.status);
+  const canPauseResume = ["downloading", "seeding", "paused", "completed"].includes(torrent.status);
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-6 space-y-6 animate-card-enter">
@@ -153,8 +153,8 @@ export default function TorrentDetailPage() {
         actions={
           <>
             {canPauseResume && (
-              <Button variant="outline" size="sm" onClick={isPaused ? handleResume : handlePause} disabled={actionLoading}>
-                {isPaused ? "Resume" : "Pause"}
+              <Button variant="outline" size="sm" onClick={isStopped ? handleResume : handlePause} disabled={actionLoading}>
+                {torrent.status === "completed" ? "Seed" : isStopped ? "Resume" : "Pause"}
               </Button>
             )}
             <Button variant="ghost" size="sm" className="text-destructive" onClick={handleRemove} disabled={actionLoading}>Remove</Button>

@@ -15,13 +15,11 @@ const STATUS_TONE: Record<string, Tone> = {
   downloaded: "done",
   translated: "done",
   checking: "warn",
-  stalled: "warn",
+  stalled: "warn", // client-derived (use-stall-detection), not a server status
   error: "error",
-  failed: "error",
   paused: "neutral",
   pending: "neutral",
   removed: "neutral",
-  queued: "neutral",
 };
 
 export function statusTone(status: string): Tone {
