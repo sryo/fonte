@@ -93,13 +93,13 @@ app.get('/api/torrents/:id', (c) => {
 });
 
 // DELETE /api/torrents/:id — remove a torrent
-app.delete('/api/torrents/:id', (c) => {
+app.delete('/api/torrents/:id', async (c) => {
     const id = c.req.param('id');
     const deleteFiles = c.req.query('deleteFiles') === 'true';
 
     try {
         const manager = getTorrentManager();
-        manager.removeTorrent(id, deleteFiles);
+        await manager.removeTorrent(id, deleteFiles);
         return ok(c);
     } catch (err) {
         return fail(c, (err as Error).message, 404);
@@ -107,11 +107,11 @@ app.delete('/api/torrents/:id', (c) => {
 });
 
 // POST /api/torrents/:id/pause — pause a torrent
-app.post('/api/torrents/:id/pause', (c) => {
+app.post('/api/torrents/:id/pause', async (c) => {
     const id = c.req.param('id');
     try {
         const manager = getTorrentManager();
-        manager.pauseTorrent(id);
+        await manager.pauseTorrent(id);
         return ok(c);
     } catch (err) {
         return fail(c, (err as Error).message, 404);
@@ -119,11 +119,11 @@ app.post('/api/torrents/:id/pause', (c) => {
 });
 
 // POST /api/torrents/:id/resume — resume a torrent
-app.post('/api/torrents/:id/resume', (c) => {
+app.post('/api/torrents/:id/resume', async (c) => {
     const id = c.req.param('id');
     try {
         const manager = getTorrentManager();
-        manager.resumeTorrent(id);
+        await manager.resumeTorrent(id);
         return ok(c);
     } catch (err) {
         return fail(c, (err as Error).message, 404);
