@@ -12,6 +12,7 @@
     "prepare": "git config core.hooksPath .githooks 2>/dev/null || true",
     "build": "tsc --build",
     "test": "vitest run",
+    "sync:types": "node scripts/sync-api-types.mjs",
     "dev": "concurrently -k -n core,server,main \"npm run dev -w @fonte/core\" \"npm run dev -w @fonte/server\" \"npm run dev -w @fonte/main\"",
     "build:core": "npm run build -w @fonte/core",
     "build:server": "npm run build -w @fonte/server",

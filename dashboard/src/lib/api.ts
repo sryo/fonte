@@ -1,3 +1,10 @@
+// Wire types are synced from packages/torrent/src/types.ts — see api-types.ts.
+export * from "./api-types";
+import type {
+  TorrentStatus, TorrentRecord, TorrentFileRecord, TorrentConfig, TorrentStats,
+  WatchlistStatus, MediaType, WatchlistRecord, WatchlistResultRecord, SubtitleRecord,
+} from "./api-types";
+
 const DEFAULT_API_BASE = "http://localhost:3777";
 const STORAGE_KEY = "fonte_api_base";
 
@@ -344,55 +351,6 @@ export async function deleteCustomProvider(id: string): Promise<{ ok: boolean }>
 
 // ── Torrents ─────────────────────────────────────────────────────────────
 
-export type TorrentStatus = "adding" | "downloading" | "checking" | "seeding" | "paused" | "completed" | "error" | "removed";
-
-export interface TorrentRecord {
-  id: string;
-  infoHash: string;
-  name: string;
-  magnetUri?: string;
-  status: TorrentStatus;
-  progress: number;
-  downloadSpeed: number;
-  uploadSpeed: number;
-  downloaded: number;
-  uploaded: number;
-  size: number;
-  numPeers: number;
-  savePath: string;
-  addedAt: number;
-  completedAt?: number;
-  errorMessage?: string;
-  tags?: string[];
-  posterUrl?: string;
-}
-
-export interface TorrentFileRecord {
-  name: string;
-  path: string;
-  size: number;
-  progress: number;
-  selected: boolean;
-}
-
-export interface TorrentConfig {
-  download_dir: string;
-  max_concurrent: number;
-  max_download_speed: number;
-  max_upload_speed: number;
-  seed_ratio_limit: number;
-  auto_start: boolean;
-  port: number;
-  dht: boolean;
-}
-
-export interface TorrentStats {
-  downloadSpeed: number;
-  uploadSpeed: number;
-  activeTorrents: number;
-  totalTorrents: number;
-}
-
 export async function getTorrents(status?: TorrentStatus): Promise<{ ok: boolean; torrents: TorrentRecord[] }> {
   const params = status ? `?status=${status}` : "";
   return apiFetch(`/api/torrents${params}`);
@@ -486,58 +444,6 @@ export async function updateTorrentConfig(config: Partial<TorrentConfig>): Promi
 }
 
 // ── Watchlist ────────────────────────────────────────────────────────────
-
-export type WatchlistStatus = "watching" | "fulfilled" | "paused";
-export type MediaType = "movie" | "tv" | "music" | "game" | "book" | "app" | "other";
-
-export interface WatchlistRecord {
-  id: string;
-  title: string;
-  mediaType: MediaType;
-  year?: number;
-  seasonPattern?: string;
-  quality: string;
-  searchQuery: string;
-  category: number;
-  enabled: boolean;
-  status: WatchlistStatus;
-  posterUrl?: string;
-  lastCheckedAt?: number;
-  lastMatchAt?: number;
-  matchedTorrentId?: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface WatchlistResultRecord {
-  id: number;
-  watchlistId: string;
-  title: string;
-  magnetUri: string;
-  seeders: number;
-  leechers: number;
-  size: number;
-  qualityMatch: number;
-  publishDate?: number;
-  indexer?: string;
-  wasSelected: boolean;
-  foundAt: number;
-}
-
-export type SubtitleStatus = "pending" | "downloading" | "downloaded" | "translating" | "translated" | "error";
-
-export interface SubtitleRecord {
-  id: number;
-  torrentId: string;
-  filePath: string;
-  language: string;
-  isOriginal: boolean;
-  sourceSubtitleId?: number;
-  status: SubtitleStatus;
-  errorMessage?: string;
-  createdAt: number;
-  updatedAt: number;
-}
 
 export async function getWatchlist(status?: WatchlistStatus): Promise<{ ok: boolean; entries: WatchlistRecord[] }> {
   const params = status ? `?status=${status}` : "";
