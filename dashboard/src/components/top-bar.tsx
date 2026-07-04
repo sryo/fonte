@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import {
@@ -18,7 +18,9 @@ import {
   Check,
   SpinnerGap,
 } from "@phosphor-icons/react";
-import { addTorrent, sendMessage } from "@/lib/api";
+import { addTorrent, sendMessage, getTorrents, getWatchlist } from "@/lib/api";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { formatBytes } from "@/lib/format";
 
 /* ---------- Types ---------- */
 
@@ -27,6 +29,14 @@ interface SearchResult {
   magnetUri: string;
   seeders?: number;
   size?: number;
+}
+
+/** A loaded torrent or watchlist entry the search box can jump to directly. */
+interface JumpItem {
+  type: "torrent" | "watchlist";
+  id: string;
+  title: string;
+  status: string;
 }
 
 interface TopBarProps {
@@ -41,20 +51,11 @@ const NAV_ITEMS = [
   { href: "/settings", label: "Settings", icon: Gear, exact: false },
 ] as const;
 
-/* ---------- Helpers ---------- */
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  const value = bytes / Math.pow(1024, i);
-  return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-}
-
 /* ---------- TopBar component ---------- */
 
 export function TopBar({ onOpenChat }: TopBarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -62,6 +63,8 @@ export function TopBar({ onOpenChat }: TopBarProps) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [jumpPool, setJumpPool] = useState<JumpItem[] | null>(null);
+  const [selIdx, setSelIdx] = useState(-1);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -111,6 +114,40 @@ export function TopBar({ onOpenChat }: TopBarProps) {
       setToast({ message, type });
     },
     []
+  );
+
+  /* ---- Jump-to: instant matches over already-loaded torrents/watchlist ---- */
+  const ensureJumpPool = useCallback(async () => {
+    if (jumpPool) return;
+    try {
+      const [t, w] = await Promise.all([getTorrents(), getWatchlist()]);
+      setJumpPool([
+        ...(t.torrents ?? [])
+          .filter((x) => x.status !== "removed")
+          .map((x) => ({ type: "torrent" as const, id: x.id, title: x.name || x.infoHash, status: x.status })),
+        ...(w.entries ?? []).map((x) => ({ type: "watchlist" as const, id: x.id, title: x.title, status: x.status })),
+      ]);
+    } catch {
+      setJumpPool([]);
+    }
+  }, [jumpPool]);
+
+  const jumpMatches = useMemo(() => {
+    const q = input.trim().toLowerCase();
+    if (q.length < 2 || q.startsWith("magnet:") || /^[a-f0-9]{40}$/i.test(q) || !jumpPool) return [];
+    return jumpPool.filter((item) => item.title.toLowerCase().includes(q)).slice(0, 6);
+  }, [input, jumpPool]);
+
+  const jumpTo = useCallback(
+    (item: JumpItem) => {
+      router.push(item.type === "torrent" ? `/torrents/${item.id}` : `/watchlist/${item.id}`);
+      setInput("");
+      setResults([]);
+      setJumpPool(null);
+      setSelIdx(-1);
+      inputRef.current?.blur();
+    },
+    [router]
   );
 
   /* ---- Submit handler (magnet / hash / IMDB / agent) ---- */
@@ -230,9 +267,27 @@ export function TopBar({ onOpenChat }: TopBarProps) {
             ref={inputRef}
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setInput(v);
+              setSelIdx(-1);
+              if (v.trim().length >= 2) ensureJumpPool();
+              else if (!v.trim()) setJumpPool(null);
+            }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleSubmit();
+              if (e.key === "ArrowDown" && jumpMatches.length) {
+                e.preventDefault();
+                setSelIdx((i) => Math.min(i + 1, jumpMatches.length - 1));
+              } else if (e.key === "ArrowUp" && jumpMatches.length) {
+                e.preventDefault();
+                setSelIdx((i) => Math.max(i - 1, -1));
+              } else if (e.key === "Escape") {
+                setResults([]);
+                setSelIdx(-1);
+              } else if (e.key === "Enter") {
+                if (selIdx >= 0 && jumpMatches[selIdx]) jumpTo(jumpMatches[selIdx]);
+                else handleSubmit();
+              }
             }}
             placeholder="Search, paste a magnet link, or ask anything... (⌘K)"
             disabled={loading}
@@ -267,9 +322,30 @@ export function TopBar({ onOpenChat }: TopBarProps) {
           </div>
         )}
 
-        {/* Search results dropdown */}
-        {results.length > 0 && (
-          <div className="absolute w-full bg-card rounded-xl border shadow-lg mt-1 max-h-64 overflow-y-auto z-40">
+        {/* Jump-to + search results dropdown */}
+        {(jumpMatches.length > 0 || results.length > 0) && (
+          <div className="absolute w-full bg-card rounded-xl shadow-card mt-1 max-h-72 overflow-y-auto z-40">
+            {jumpMatches.length > 0 && (
+              <div className="border-b last:border-b-0">
+                <p className="px-4 pt-2 pb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Jump to
+                </p>
+                {jumpMatches.map((item, idx) => (
+                  <button
+                    key={`${item.type}-${item.id}`}
+                    onClick={() => jumpTo(item)}
+                    onMouseEnter={() => setSelIdx(idx)}
+                    className={cn(
+                      "flex w-full items-center gap-3 px-4 py-2 text-left transition-colors",
+                      idx === selIdx && "bg-muted/50"
+                    )}
+                  >
+                    <p className="min-w-0 flex-1 truncate text-sm font-medium">{item.title}</p>
+                    <StatusBadge status={item.status} />
+                  </button>
+                ))}
+              </div>
+            )}
             {results.map((result, idx) => (
               <div
                 key={idx}
