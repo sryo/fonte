@@ -134,14 +134,16 @@ export class TorrentManager {
             ? extractInfoHash(source) || id
             : id;
 
-        // Check for duplicates. A 'removed' row is a tombstone: drop it so the
-        // torrent can be re-added as a fresh record (its torrent_files cascade).
+        // Check for duplicates. 'removed' tombstones and 'error' rows (a failed
+        // add would otherwise block every retry) are dead records: drop them so
+        // the torrent can be re-added as a fresh record (torrent_files cascade).
         const existing = getTorrentByHash(tempHash);
         if (existing) {
-            if (existing.status !== 'removed') {
+            if (existing.status !== 'removed' && existing.status !== 'error') {
                 throw new Error(`Torrent already exists: ${existing.name || existing.infoHash} (${existing.id})`);
             }
             deleteTorrent(existing.id);
+            this.transmissionIds.delete(existing.id);
         }
 
         insertTorrent({ id, infoHash: tempHash, name: '', magnetUri, status: 'adding', savePath });
@@ -180,12 +182,13 @@ export class TorrentManager {
                     // check above may have missed a record holding the real one.
                     const collision = getTorrentByHash(hash);
                     if (collision) {
-                        if (collision.status !== 'removed') {
+                        if (collision.status !== 'removed' && collision.status !== 'error') {
                             deleteTorrent(id);
                             this.transmissionIds.delete(id);
                             throw new Error(`Torrent already exists: ${collision.name || collision.infoHash} (${collision.id})`);
                         }
                         deleteTorrent(collision.id);
+                        this.transmissionIds.delete(collision.id);
                     }
                     updateTorrentInfoHash(id, hash);
                 }

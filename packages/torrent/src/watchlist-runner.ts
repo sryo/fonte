@@ -109,11 +109,14 @@ export async function runWatchlistCheck(): Promise<void> {
                 const best = ranked[0];
 
                 if (best && best.seeders > 0 && computeQualityMatch(best.title, preferredQuality) >= 0.5) {
-                    // Check for duplicate
+                    // Skip releases already tracked by a live torrent row.
+                    // 'removed' tombstones and 'error' rows don't count: a
+                    // failed add (e.g. a transient RPC error) must not block
+                    // this release forever — addTorrent replaces such rows.
                     const infoHash = extractInfoHash(best.magnetUri);
                     const existing = infoHash ? getTorrentByHash(infoHash) : null;
 
-                    if (!existing || existing.status === 'removed') {
+                    if (!existing || existing.status === 'removed' || existing.status === 'error') {
                         try {
                             const torrent = await getTorrentManager().addTorrent(best.magnetUri);
 

@@ -270,6 +270,46 @@ describe('addTorrent duplicate handling', () => {
         expect(db.getTorrents()).toHaveLength(1);
     });
 
+    it('re-adds a magnet whose previous add failed, replacing the errored row', async () => {
+        let failAdds = 1;
+        const manager = new TM.TorrentManager();
+        (manager as any).rpc = {
+            call: async (method: string) => {
+                if (method === 'torrent-add') {
+                    if (failAdds > 0) {
+                        failAdds--;
+                        throw new Error("Transmission RPC: Couldn't fetch torrent: Internal Server Error (500)");
+                    }
+                    return { 'torrent-added': { id: 7, hashString: hex, name: 'Re-Add Me' } };
+                }
+                if (method === 'torrent-get') return { torrents: [] };
+                return {};
+            },
+        };
+
+        await expect(manager.addTorrent(magnet, { savePath: '/downloads' })).rejects.toThrow(/500/);
+        const errored = db.getTorrents({ status: 'error' });
+        expect(errored).toHaveLength(1);
+
+        const second = await manager.addTorrent(magnet, { savePath: '/downloads' });
+        expect(second.id).not.toBe(errored[0].id);
+        expect(second.status).toBe('downloading');
+        expect(db.getTorrent(errored[0].id)).toBeUndefined();
+        expect(db.getTorrents()).toHaveLength(1);
+        expect(db.getTorrents({ status: 'error' })).toHaveLength(0);
+    });
+
+    it('re-adds via the temp-hash path when the errored row holds the real hash', async () => {
+        insertBasic('stale', { infoHash: hex, status: 'error' });
+
+        const manager = managerWithAdd(hex);
+        const second = await manager.addTorrent(Buffer.from('d4:infoe'), { savePath: '/downloads' });
+        expect(second.infoHash).toBe(hex);
+        expect(db.getTorrent('stale')).toBeUndefined();
+        expect(db.getTorrents()).toHaveLength(1);
+        expect(db.getTorrents({ status: 'error' })).toHaveLength(0);
+    });
+
     it('still rejects a duplicate of an active record', async () => {
         const manager = managerWithAdd(hex);
         await manager.addTorrent(magnet, { savePath: '/downloads' });
