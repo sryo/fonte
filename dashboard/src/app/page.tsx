@@ -34,7 +34,6 @@ import {
 } from "@phosphor-icons/react";
 import { usePolling } from "@/hooks/usePolling";
 import { usePoofRemoval } from "@/hooks/use-poof-removal";
-import { useStallDetection } from "@/hooks/use-stall-detection";
 import { EmptyRowCard } from "@/components/home/empty-row-card";
 import { AddTorrentCard } from "@/components/home/add-torrent-card";
 import { ContentRow } from "@/components/home/content-row";
@@ -82,8 +81,6 @@ export default function HomePage() {
   const [editAutoLogs, setEditAutoLogs] = useState<AutomationLog[]>([]);
   const [editAutoLastResponse, setEditAutoLastResponse] = useState<{ text: string; ts: number } | null>(null);
 
-  const { recordProgress, isStalled } = useStallDetection();
-
   // usePoofRemoval needs to trigger refetches and fetchAll needs filterHidden;
   // the ref breaks the cycle.
   const fetchAllRef = useRef<() => void>(() => {});
@@ -96,7 +93,6 @@ export default function HomePage() {
         getWatchlist(),
         getAutomations(),
       ]);
-      recordProgress(torrentsRes.torrents);
       setTorrents(filterHidden(torrentsRes.torrents));
       setWatchlist(filterHidden(watchlistRes.entries));
       setAutomations(automationsRes.rules);
@@ -105,7 +101,7 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [recordProgress, filterHidden]);
+  }, [filterHidden]);
   fetchAllRef.current = fetchAll;
 
   usePolling(fetchAll, 3000);
@@ -255,7 +251,7 @@ export default function HomePage() {
               torrent={torrent}
               exiting={exitingIds.has(torrent.id)}
               exitDelay={exitingIds.get(torrent.id)}
-              stalled={isStalled(torrent)}
+              stalled={!!torrent.stalledSince}
               onRefresh={fetchAll}
               onPoofRemove={() => poofThenRemove([torrent.id], removeTorrent)}
             />

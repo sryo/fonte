@@ -16,6 +16,12 @@ import {
 import { fetchTorrentPoster } from './poster-manager';
 import { extractInfoHash } from './search-aggregator';
 
+// The single stall definition, shared by every surface: a downloading,
+// incomplete torrent that has received no payload data for this long is
+// stalled. Persisted as TorrentRecord.stalledSince and announced once per
+// episode via the torrent:stalled event.
+const STALL_TIMEOUT_MS = 3 * 60 * 1000;
+
 const DEFAULT_CONFIG: TorrentConfig = {
     download_dir: path.join(require('os').homedir(), 'Downloads', 'fonte'),
     max_concurrent: 5,
@@ -58,7 +64,9 @@ export class TorrentManager {
     private rpc: TransmissionRpc | null = null;
     private config: TorrentConfig;
     private updateInterval: ReturnType<typeof setInterval> | null = null;
-    private stalledTimers = new Map<string, number>();
+    // Per-hash download activity backing stall detection: byte count at last
+    // sync and when payload data last arrived.
+    private downloadActivity = new Map<string, { downloaded: number; lastDataAt: number }>();
     private stalledNotified = new Set<string>();
     // Map our internal IDs to Transmission torrent IDs
     private transmissionIds = new Map<string, number>();
@@ -244,10 +252,13 @@ export class TorrentManager {
         }
         // If fully downloaded, mark as completed (not paused)
         const isComplete = record.progress >= 1;
+        this.downloadActivity.delete(record.infoHash);
+        this.stalledNotified.delete(record.infoHash);
         updateTorrent(id, {
             status: isComplete ? 'completed' : 'paused',
             downloadSpeed: 0,
             uploadSpeed: 0,
+            stalledSince: null,
             ...(isComplete && !record.completedAt ? { completedAt: Date.now() } : {}),
         });
         emitEvent(isComplete ? TORRENT_EVENTS.COMPLETED : TORRENT_EVENTS.PAUSED, { id, name: record.name });
@@ -274,12 +285,13 @@ export class TorrentManager {
         }
 
         this.transmissionIds.delete(id);
-        this.stalledTimers.delete(record.infoHash);
+        this.downloadActivity.delete(record.infoHash);
+        this.stalledNotified.delete(record.infoHash);
 
         if (deleteFiles) {
             deleteTorrent(id);
         } else {
-            updateTorrent(id, { status: 'removed', downloadSpeed: 0, uploadSpeed: 0 });
+            updateTorrent(id, { status: 'removed', downloadSpeed: 0, uploadSpeed: 0, stalledSince: null });
         }
 
         emitEvent(TORRENT_EVENTS.REMOVED, { id, name: record.name, filesDeleted: deleteFiles });
@@ -489,6 +501,25 @@ export class TorrentManager {
                 newStatus = 'downloading';
             }
 
+            // Stall tracking — seed from the persisted flag so a daemon
+            // restart neither clears an ongoing stall nor re-announces it.
+            let activity = this.downloadActivity.get(hash);
+            if (!activity) {
+                activity = { downloaded: t.downloadedEver ?? 0, lastDataAt: record.stalledSince ?? Date.now() };
+                if (record.stalledSince) this.stalledNotified.add(hash);
+                this.downloadActivity.set(hash, activity);
+            }
+            const receivedData = (t.rateDownload ?? 0) > 0 || (t.downloadedEver ?? 0) > activity.downloaded;
+            activity.downloaded = t.downloadedEver ?? 0;
+            // The stall clock only accumulates while actively downloading;
+            // checking/paused/errored stretches don't count against it.
+            if (receivedData || newStatus !== 'downloading' || isDone) {
+                activity.lastDataAt = Date.now();
+            }
+            const stalledSince = newStatus === 'downloading' && !isDone && Date.now() - activity.lastDataAt > STALL_TIMEOUT_MS
+                ? activity.lastDataAt
+                : null;
+
             const updates: Parameters<typeof updateTorrent>[1] = {
                 progress,
                 downloadSpeed: t.rateDownload ?? 0,
@@ -498,6 +529,7 @@ export class TorrentManager {
                 numPeers: t.peersConnected ?? 0,
                 size: t.totalSize || record.size,
                 status: newStatus,
+                stalledSince,
             };
 
             const decodedName = t.name ? decodeTorrentName(t.name) : '';
@@ -524,20 +556,19 @@ export class TorrentManager {
                 log('INFO', `Torrent completed: ${t.name}`);
             }
 
-            // Stall detection — emit once per stall episode, re-arm when peers return
-            if ((t.peersConnected ?? 0) > 0) {
-                this.stalledTimers.set(hash, Date.now());
-                this.stalledNotified.delete(hash);
-            } else if (!isDone) {
-                const lastHadPeers = this.stalledTimers.get(hash) ?? record.addedAt;
-                if (Date.now() - lastHadPeers > 5 * 60 * 1000 && !this.stalledNotified.has(hash)) {
+            // Announce once per stall episode, re-arm when data flows again
+            if (stalledSince !== null) {
+                if (!this.stalledNotified.has(hash)) {
                     this.stalledNotified.add(hash);
                     emitEvent(TORRENT_EVENTS.STALLED, {
                         id: record.id,
                         name: record.name,
-                        minutesWithoutPeers: Math.round((Date.now() - lastHadPeers) / 60000),
+                        stalledSince,
+                        minutesStalled: Math.round((Date.now() - stalledSince) / 60000),
                     });
                 }
+            } else {
+                this.stalledNotified.delete(hash);
             }
 
             // Insert files once, then keep per-file progress fresh while
@@ -554,8 +585,10 @@ export class TorrentManager {
         const activeDbRecords = getActiveTorrents();
         for (const record of activeDbRecords) {
             if (!transmissionHashes.has(record.infoHash.toLowerCase())) {
-                updateTorrent(record.id, { status: 'removed', downloadSpeed: 0, uploadSpeed: 0 });
+                updateTorrent(record.id, { status: 'removed', downloadSpeed: 0, uploadSpeed: 0, stalledSince: null });
                 this.transmissionIds.delete(record.id);
+                this.downloadActivity.delete(record.infoHash.toLowerCase());
+                this.stalledNotified.delete(record.infoHash.toLowerCase());
                 log('INFO', `Torrent missing from Transmission, marked removed: ${record.name || record.id}`);
             }
         }

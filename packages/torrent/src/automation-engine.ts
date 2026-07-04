@@ -96,7 +96,7 @@ export class AutomationEngine {
             case 'torrent:error':
                 return `Torrent "${data.name}" failed with error: ${data.errorMessage || data.error}. Torrent ID: ${data.id}.`;
             case 'torrent:stalled':
-                return `Torrent "${data.name}" has been stalled for ${data.minutesWithoutPeers} minutes with no peers. Torrent ID: ${data.id}.`;
+                return `Torrent "${data.name}" has been stalled for ${data.minutesStalled} minutes — downloading but receiving no data (${data.numPeers ?? 0} peers connected). Torrent ID: ${data.id}.`;
             case 'watchlist:match':
                 return `Watchlist match found for "${data.title}". Torrent "${data.torrentName}" was auto-added. Torrent ID: ${data.torrentId}.`;
             case 'schedule':

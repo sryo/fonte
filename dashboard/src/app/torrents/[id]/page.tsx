@@ -143,7 +143,7 @@ export default function TorrentDetailPage() {
 
   const pct = toPct(torrent.progress);
   const isPaused = torrent.status === "paused";
-  const isStalled = torrent.status === "downloading" && torrent.numPeers === 0;
+  const isStalled = !!torrent.stalledSince;
   const canPauseResume = ["downloading", "seeding", "paused"].includes(torrent.status);
 
   return (
@@ -184,8 +184,11 @@ export default function TorrentDetailPage() {
           tone="warn"
           action={<Button size="xs" variant="ghost" onClick={handleFindAlternatives} disabled={altSearching}>{altSearching ? "Searching…" : "Find alternatives"}</Button>}
         >
-          <p className="font-medium">Stalled &mdash; no peers available</p>
-          <p className="text-xs opacity-80">This torrent isn&apos;t finding peers. Try updating trackers, or swap to a healthier release.</p>
+          <p className="font-medium">Stalled &mdash; {torrent.numPeers === 0 ? "no peers available" : "not receiving data"}</p>
+          <p className="text-xs opacity-80">
+            {torrent.numPeers === 0 ? "This torrent isn't finding peers." : "Peers are connected but nothing is arriving."}
+            {" "}Try updating trackers, or swap to a healthier release.
+          </p>
         </Callout>
       )}
 

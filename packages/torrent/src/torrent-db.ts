@@ -23,6 +23,7 @@ export function initTorrentDb(): void {
             error_message TEXT,
             added_at INTEGER NOT NULL,
             completed_at INTEGER,
+            stalled_since INTEGER,
             updated_at INTEGER NOT NULL
         );
 
@@ -134,6 +135,11 @@ export function initTorrentDb(): void {
         db.exec('ALTER TABLE torrents ADD COLUMN poster_url TEXT');
     }
 
+    // Migration: add stalled_since to torrents
+    if (!torrentCols.some(c => c.name === 'stalled_since')) {
+        db.exec('ALTER TABLE torrents ADD COLUMN stalled_since INTEGER');
+    }
+
     // Migration: add prompt to automation_rules
     const autoRuleCols = getDb().prepare("PRAGMA table_info(automation_rules)").all() as { name: string }[];
     if (!autoRuleCols.some(c => c.name === 'prompt')) {
@@ -195,6 +201,7 @@ export function updateTorrent(id: string, fields: Partial<{
     size: number;
     numPeers: number;
     completedAt: number;
+    stalledSince: number | null;
     errorMessage: string;
     tags: string[];
     posterUrl: string;
@@ -213,6 +220,7 @@ export function updateTorrent(id: string, fields: Partial<{
     if (fields.size !== undefined) { sets.push('size = ?'); values.push(fields.size); }
     if (fields.numPeers !== undefined) { sets.push('num_peers = ?'); values.push(fields.numPeers); }
     if (fields.completedAt !== undefined) { sets.push('completed_at = ?'); values.push(fields.completedAt); }
+    if (fields.stalledSince !== undefined) { sets.push('stalled_since = ?'); values.push(fields.stalledSince); }
     if (fields.errorMessage !== undefined) { sets.push('error_message = ?'); values.push(fields.errorMessage); }
     if (fields.tags !== undefined) { sets.push('tags = ?'); values.push(JSON.stringify(fields.tags)); }
     if (fields.magnetUri !== undefined) { sets.push('magnet_uri = ?'); values.push(fields.magnetUri); }
@@ -331,6 +339,7 @@ function rowToRecord(row: any): TorrentRecord {
         files: [],
         addedAt: row.added_at,
         completedAt: row.completed_at ?? undefined,
+        stalledSince: row.stalled_since ?? undefined,
         errorMessage: row.error_message ?? undefined,
         tags: row.tags ? JSON.parse(row.tags) : undefined,
         posterUrl: row.poster_url ?? undefined,

@@ -17,6 +17,7 @@ export interface TorrentRecord {
     files: TorrentFileRecord[];
     addedAt: number;            // epoch ms
     completedAt?: number;
+    stalledSince?: number;      // epoch ms data stopped flowing; set only while stalled (server-derived)
     errorMessage?: string;
     tags?: string[];
     posterUrl?: string;
