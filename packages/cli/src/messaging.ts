@@ -8,7 +8,7 @@ async function sendMessage(message: string, source = 'cli') {
         if (result.ok) {
             console.log(`Message enqueued: ${result.messageId}`);
         } else {
-            console.error(`Failed to enqueue message: ${JSON.stringify(result)}`);
+            console.error(`Failed to enqueue message: ${result.error || JSON.stringify(result)}`);
         }
     } catch (err) {
         console.error(`Failed to send message: ${(err as Error).message}`);

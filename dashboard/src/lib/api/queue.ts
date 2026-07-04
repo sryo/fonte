@@ -44,11 +44,11 @@ export interface AgentMessage {
 }
 
 export async function getQueueStatus(): Promise<QueueStatus> {
-  return apiFetch("/api/queue/status");
+  return apiFetch("/api/queue/status", undefined, "status");
 }
 
 export async function getProcessingMessages(): Promise<ProcessingMessage[]> {
-  return apiFetch("/api/queue/processing");
+  return apiFetch("/api/queue/processing", undefined, "messages");
 }
 
 export async function killAgentSession(id: number): Promise<{ ok: boolean; agent: string; processKilled: boolean }> {
@@ -56,7 +56,7 @@ export async function killAgentSession(id: number): Promise<{ ok: boolean; agent
 }
 
 export async function getResponses(limit = 20): Promise<ResponseData[]> {
-  return apiFetch(`/api/responses?limit=${limit}`);
+  return apiFetch(`/api/responses?limit=${limit}`, undefined, "responses");
 }
 
 export async function getLogs(limit = 100): Promise<{ lines: string[] }> {
@@ -81,5 +81,5 @@ export async function getAgentMessages(
     limit: String(limit),
     since_id: String(sinceId),
   });
-  return apiFetch(`/api/agents/${encodeURIComponent(agentId)}/messages?${params.toString()}`);
+  return apiFetch(`/api/agents/${encodeURIComponent(agentId)}/messages?${params.toString()}`, undefined, "messages");
 }

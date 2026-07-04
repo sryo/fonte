@@ -6,6 +6,7 @@ import {
     getDeadMessages, retryDeadMessage, deleteDeadMessage,
     getProcessingMessages, failMessage, getActiveAgentIds, killAgentProcess, queueEvents,
 } from '@fonte/core';
+import { ok, fail } from '../http';
 
 export function createQueueRoutes() {
     const app = new Hono();
@@ -13,13 +14,15 @@ export function createQueueRoutes() {
     // GET /api/queue/status
     app.get('/api/queue/status', (c) => {
         const status = getQueueStatus();
-        return c.json({
-            incoming: status.pending,
-            queued: status.queued,
-            processing: status.processing,
-            completed: status.completed,
-            dead: status.dead,
-            outgoing: status.responsesPending,
+        return ok(c, {
+            status: {
+                incoming: status.pending,
+                queued: status.queued,
+                processing: status.processing,
+                completed: status.completed,
+                dead: status.dead,
+                outgoing: status.responsesPending,
+            },
         });
     });
 
@@ -27,38 +30,42 @@ export function createQueueRoutes() {
     app.get('/api/responses', (c) => {
         const limit = parseInt(c.req.query('limit') || '20', 10);
         const rows = getRecentResponses(limit);
-        return c.json(rows.map((r: any) => ({
-            id: r.id,
-            channel: r.channel,
-            sender: r.sender,
-            senderId: r.sender_id,
-            message: r.message,
-            originalMessage: r.original_message,
-            timestamp: r.created_at,
-            messageId: r.message_id,
-            agent: r.agent,
-            files: r.files ? JSON.parse(r.files) : undefined,
-        })));
+        return ok(c, {
+            responses: rows.map((r: any) => ({
+                id: r.id,
+                channel: r.channel,
+                sender: r.sender,
+                senderId: r.sender_id,
+                message: r.message,
+                originalMessage: r.original_message,
+                timestamp: r.created_at,
+                messageId: r.message_id,
+                agent: r.agent,
+                files: r.files ? JSON.parse(r.files) : undefined,
+            })),
+        });
     });
 
     // GET /api/responses/pending?channel=whatsapp
     app.get('/api/responses/pending', (c) => {
         const channel = c.req.query('channel');
-        if (!channel) return c.json({ error: 'channel query param required' }, 400);
+        if (!channel) return fail(c, 'channel query param required');
 
         const rows = getResponsesForChannel(channel);
-        return c.json(rows.map((r: any) => ({
-            id: r.id,
-            channel: r.channel,
-            sender: r.sender,
-            senderId: r.sender_id,
-            message: r.message,
-            originalMessage: r.original_message,
-            messageId: r.message_id,
-            agent: r.agent,
-            files: r.files ? JSON.parse(r.files) : undefined,
-            metadata: r.metadata ? JSON.parse(r.metadata) : undefined,
-        })));
+        return ok(c, {
+            responses: rows.map((r: any) => ({
+                id: r.id,
+                channel: r.channel,
+                sender: r.sender,
+                senderId: r.sender_id,
+                message: r.message,
+                originalMessage: r.original_message,
+                messageId: r.message_id,
+                agent: r.agent,
+                files: r.files ? JSON.parse(r.files) : undefined,
+                metadata: r.metadata ? JSON.parse(r.metadata) : undefined,
+            })),
+        });
     });
 
     // POST /api/responses — enqueue a proactive outgoing message
@@ -70,7 +77,7 @@ export function createQueueRoutes() {
         };
 
         if (!channel || !sender || !message) {
-            return c.json({ error: 'channel, sender, and message are required' }, 400);
+            return fail(c, 'channel, sender, and message are required');
         }
 
         const messageId = genId('proactive');
@@ -87,77 +94,81 @@ export function createQueueRoutes() {
 
         log('INFO', `[API] Proactive response enqueued for ${channel}/${sender}`);
         emitEvent('message:done', { channel, sender, messageId });
-        return c.json({ ok: true, messageId });
+        return ok(c, { messageId });
     });
 
     // POST /api/responses/:id/ack — acknowledge a response
     app.post('/api/responses/:id/ack', (c) => {
         const id = parseInt(c.req.param('id'), 10);
         ackResponse(id);
-        return c.json({ ok: true });
+        return ok(c);
     });
 
     // GET /api/queue/agents — per-agent queue depth
     app.get('/api/queue/agents', (c) => {
-        return c.json(getAgentQueueStatus());
+        return ok(c, { agents: getAgentQueueStatus() });
     });
 
     // GET /api/queue/dead
     app.get('/api/queue/dead', (c) => {
         const dead = getDeadMessages();
-        return c.json(dead.map((m: any) => ({
-            id: m.id,
-            data: {
-                channel: m.channel,
-                sender: m.sender,
-                senderId: m.sender_id,
-                message: m.message,
-                messageId: m.message_id,
-                agent: m.agent,
-            },
-            failedReason: m.last_error,
-            attemptsMade: m.retry_count,
-            timestamp: m.created_at,
-        })));
+        return ok(c, {
+            messages: dead.map((m: any) => ({
+                id: m.id,
+                data: {
+                    channel: m.channel,
+                    sender: m.sender,
+                    senderId: m.sender_id,
+                    message: m.message,
+                    messageId: m.message_id,
+                    agent: m.agent,
+                },
+                failedReason: m.last_error,
+                attemptsMade: m.retry_count,
+                timestamp: m.created_at,
+            })),
+        });
     });
 
     // POST /api/queue/dead/:id/retry
     app.post('/api/queue/dead/:id/retry', (c) => {
         const id = parseInt(c.req.param('id'), 10);
-        const ok = retryDeadMessage(id);
-        if (!ok) return c.json({ error: 'dead message not found' }, 404);
+        const retried = retryDeadMessage(id);
+        if (!retried) return fail(c, 'dead message not found', 404);
         log('INFO', `[API] Dead message ${id} retried`);
-        return c.json({ ok: true });
+        return ok(c);
     });
 
     // DELETE /api/queue/dead/:id
     app.delete('/api/queue/dead/:id', (c) => {
         const id = parseInt(c.req.param('id'), 10);
-        const ok = deleteDeadMessage(id);
-        if (!ok) return c.json({ error: 'dead message not found' }, 404);
+        const deleted = deleteDeadMessage(id);
+        if (!deleted) return fail(c, 'dead message not found', 404);
         log('INFO', `[API] Dead message ${id} deleted`);
-        return c.json({ ok: true });
+        return ok(c);
     });
 
     // GET /api/queue/processing — list active processing messages + process status
     app.get('/api/queue/processing', (c) => {
         const activeAgents = new Set(getActiveAgentIds());
         const messages = getProcessingMessages();
-        return c.json(messages.map((m: any) => {
-            const agent = m.agent || 'default';
-            return {
-                id: m.id,
-                messageId: m.message_id,
-                channel: m.channel,
-                sender: m.sender,
-                message: m.message,
-                agent,
-                status: m.status as 'queued' | 'processing',
-                processAlive: activeAgents.has(agent),
-                startedAt: m.updated_at,
-                duration: Date.now() - m.updated_at,
-            };
-        }));
+        return ok(c, {
+            messages: messages.map((m: any) => {
+                const agent = m.agent || 'default';
+                return {
+                    id: m.id,
+                    messageId: m.message_id,
+                    channel: m.channel,
+                    sender: m.sender,
+                    message: m.message,
+                    agent,
+                    status: m.status as 'queued' | 'processing',
+                    processAlive: activeAgents.has(agent),
+                    startedAt: m.updated_at,
+                    duration: Date.now() - m.updated_at,
+                };
+            }),
+        });
     });
 
     // POST /api/queue/processing/:id/kill — kill agent process + fail the message
@@ -165,7 +176,7 @@ export function createQueueRoutes() {
         const id = parseInt(c.req.param('id'), 10);
         const messages = getProcessingMessages();
         const msg = messages.find((m: any) => m.id === id);
-        if (!msg) return c.json({ error: 'processing message not found' }, 404);
+        if (!msg) return fail(c, 'processing message not found', 404);
 
         const agent = msg.agent || 'default';
         const killed = killAgentProcess(agent);
@@ -175,7 +186,7 @@ export function createQueueRoutes() {
         queueEvents.emit('agent:killed', { agentId: agent });
 
         log('INFO', `[API] Killed agent session for ${agent} (message ${id}), process killed: ${killed}`);
-        return c.json({ ok: true, agent, processKilled: killed });
+        return ok(c, { agent, processKilled: killed });
     });
 
     return app;

@@ -42,15 +42,13 @@ async function putSettings(body: unknown): Promise<Response> {
 }
 
 describe('GET /api/settings', () => {
-    it('returns the bare settings object with no wrapper', async () => {
-        // characterizes current behavior: unlike PUT, the response is the raw
-        // settings object — no { ok, settings } envelope
+    it('returns an empty settings object in the envelope when no file exists', async () => {
         const res = await app.request('/api/settings');
         expect(res.status).toBe(200);
-        expect(await res.json()).toEqual({});
+        expect(await res.json()).toEqual({ ok: true, settings: {} });
     });
 
-    it('returns settings.json contents as-is', async () => {
+    it('returns settings.json contents under the settings key', async () => {
         const settings = {
             watchlist: { jackett_url: 'http://localhost:9117' },
             subtitles: { enabled: true, tmdb_api_key: 'tmdb' },
@@ -59,7 +57,7 @@ describe('GET /api/settings', () => {
 
         const res = await app.request('/api/settings');
         expect(res.status).toBe(200);
-        expect(await res.json()).toEqual(settings);
+        expect(await res.json()).toEqual({ ok: true, settings });
     });
 });
 

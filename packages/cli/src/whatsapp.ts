@@ -31,7 +31,11 @@ function sendToAgent(message: string, sender: string, chatId: string): Promise<a
 async function pollResponses(client: Client): Promise<void> {
     try {
         const data = await apiRequest<any>('GET', '/api/responses/pending?channel=whatsapp') as any;
-        const responses = data?.responses || data || [];
+        if (data?.ok === false) {
+            console.error(`[WhatsApp] Pending responses fetch failed: ${data.error || 'unknown error'}`);
+            return;
+        }
+        const responses = data?.responses;
 
         if (!Array.isArray(responses)) return;
 
@@ -118,6 +122,7 @@ client.on('message', async (msg: Message) => {
         if (result?.ok) {
             console.log(`[WhatsApp] Message queued: ${result.messageId}`);
         } else {
+            console.error(`[WhatsApp] Enqueue failed: ${result?.error || 'unknown error'}`);
             await msg.reply('Could not process your request. Is the Fonte daemon running?');
         }
     } catch (err) {

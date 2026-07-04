@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { getTorrentManager, parseTorrentName, searchReleases, computeQualityMatch } from '@fonte/torrent';
 import type { TorrentStatus } from '@fonte/torrent';
 import { log } from '@fonte/core';
+import { ok, fail } from '../http';
 
 const app = new Hono();
 
@@ -11,16 +12,16 @@ app.post('/api/torrents', async (c) => {
         const body = await c.req.json() as { magnetUri?: string; infoHash?: string; filePath?: string };
         const source = body.magnetUri || body.infoHash || body.filePath;
         if (!source) {
-            return c.json({ ok: false, error: 'magnetUri, infoHash, or filePath required' }, 400);
+            return fail(c, 'magnetUri, infoHash, or filePath required');
         }
 
         const manager = getTorrentManager();
         const torrent = await manager.addTorrent(source);
-        return c.json({ ok: true, torrent });
+        return ok(c, { torrent });
     } catch (err) {
         const msg = (err as Error).message;
         log('ERROR', `[torrents] Add failed: ${msg}`);
-        return c.json({ ok: false, error: msg }, 400);
+        return fail(c, msg);
     }
 });
 
@@ -31,19 +32,19 @@ app.get('/api/torrents', (c) => {
 
     const manager = getTorrentManager();
     const torrents = manager.getTorrents({ status, limit });
-    return c.json({ ok: true, torrents });
+    return ok(c, { torrents });
 });
 
 // GET /api/torrents/stats — global speed and counts
 app.get('/api/torrents/stats', (c) => {
     const manager = getTorrentManager();
-    return c.json({ ok: true, ...manager.getStats() });
+    return ok(c, { ...manager.getStats() });
 });
 
 // GET /api/torrents/config — current torrent configuration
 app.get('/api/torrents/config', (c) => {
     const manager = getTorrentManager();
-    return c.json({ ok: true, config: manager.getConfig() });
+    return ok(c, { config: manager.getConfig() });
 });
 
 // PUT /api/torrents/config — update torrent configuration
@@ -52,9 +53,9 @@ app.put('/api/torrents/config', async (c) => {
         const body = await c.req.json();
         const manager = getTorrentManager();
         manager.updateConfig(body);
-        return c.json({ ok: true, config: manager.getConfig() });
+        return ok(c, { config: manager.getConfig() });
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 400);
+        return fail(c, (err as Error).message);
     }
 });
 
@@ -64,9 +65,9 @@ app.get('/api/torrents/:id', (c) => {
     const manager = getTorrentManager();
     const torrent = manager.getTorrent(id);
     if (!torrent) {
-        return c.json({ ok: false, error: 'Torrent not found' }, 404);
+        return fail(c, 'Torrent not found', 404);
     }
-    return c.json({ ok: true, torrent });
+    return ok(c, { torrent });
 });
 
 // DELETE /api/torrents/:id — remove a torrent
@@ -77,9 +78,9 @@ app.delete('/api/torrents/:id', (c) => {
     try {
         const manager = getTorrentManager();
         manager.removeTorrent(id, deleteFiles);
-        return c.json({ ok: true });
+        return ok(c);
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 404);
+        return fail(c, (err as Error).message, 404);
     }
 });
 
@@ -89,9 +90,9 @@ app.post('/api/torrents/:id/pause', (c) => {
     try {
         const manager = getTorrentManager();
         manager.pauseTorrent(id);
-        return c.json({ ok: true });
+        return ok(c);
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 404);
+        return fail(c, (err as Error).message, 404);
     }
 });
 
@@ -101,9 +102,9 @@ app.post('/api/torrents/:id/resume', (c) => {
     try {
         const manager = getTorrentManager();
         manager.resumeTorrent(id);
-        return c.json({ ok: true });
+        return ok(c);
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 404);
+        return fail(c, (err as Error).message, 404);
     }
 });
 
@@ -112,9 +113,9 @@ app.post('/api/torrents/:id/verify', async (c) => {
     const id = c.req.param('id');
     try {
         await getTorrentManager().verifyTorrent(id);
-        return c.json({ ok: true });
+        return ok(c);
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 404);
+        return fail(c, (err as Error).message, 404);
     }
 });
 
@@ -123,9 +124,9 @@ app.post('/api/torrents/:id/reannounce', async (c) => {
     const id = c.req.param('id');
     try {
         await getTorrentManager().reannounceTrackers(id);
-        return c.json({ ok: true });
+        return ok(c);
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 404);
+        return fail(c, (err as Error).message, 404);
     }
 });
 
@@ -134,7 +135,7 @@ app.post('/api/torrents/:id/alternatives', async (c) => {
     const id = c.req.param('id');
     try {
         const torrent = getTorrentManager().getTorrent(id);
-        if (!torrent) return c.json({ ok: false, error: 'Torrent not found' }, 404);
+        if (!torrent) return fail(c, 'Torrent not found', 404);
 
         const parsed = parseTorrentName(torrent.name);
         const quality = torrent.name.match(/(2160p|1080p|720p|480p)/i)?.[1] || '1080p';
@@ -152,9 +153,9 @@ app.post('/api/torrents/:id/alternatives', async (c) => {
             publishDate: r.publishDate,
             qualityMatch: Math.round(computeQualityMatch(r.title, quality) * 100),
         }));
-        return c.json({ ok: true, results: mapped });
+        return ok(c, { results: mapped });
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 500);
+        return fail(c, (err as Error).message, 500);
     }
 });
 
@@ -163,14 +164,14 @@ app.post('/api/torrents/:id/swap', async (c) => {
     const id = c.req.param('id');
     try {
         const body = await c.req.json() as { magnetUri?: string };
-        if (!body.magnetUri) return c.json({ ok: false, error: 'magnetUri required' }, 400);
+        if (!body.magnetUri) return fail(c, 'magnetUri required');
 
         const manager = getTorrentManager();
         const created = await manager.addTorrent(body.magnetUri);
         await manager.removeTorrent(id, true);
-        return c.json({ ok: true, torrent: created });
+        return ok(c, { torrent: created });
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 400);
+        return fail(c, (err as Error).message);
     }
 });
 
@@ -180,10 +181,10 @@ app.get('/api/torrents/:id/files', (c) => {
     const manager = getTorrentManager();
     const torrent = manager.getTorrent(id);
     if (!torrent) {
-        return c.json({ ok: false, error: 'Torrent not found' }, 404);
+        return fail(c, 'Torrent not found', 404);
     }
     const files = manager.getTorrentFiles(id);
-    return c.json({ ok: true, files });
+    return ok(c, { files });
 });
 
 // POST /api/torrents/:id/files/wanted — set wanted/unwanted file indices
@@ -191,14 +192,14 @@ app.post('/api/torrents/:id/files/wanted', async (c) => {
     const id = c.req.param('id');
     const manager = getTorrentManager();
     if (!manager.getTorrent(id)) {
-        return c.json({ ok: false, error: 'Torrent not found' }, 404);
+        return fail(c, 'Torrent not found', 404);
     }
     try {
         const body = await c.req.json() as { wanted?: number[]; unwanted?: number[] };
         await manager.setFilesWanted(id, body.wanted || [], body.unwanted || []);
-        return c.json({ ok: true, files: manager.getTorrentFiles(id) });
+        return ok(c, { files: manager.getTorrentFiles(id) });
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 500);
+        return fail(c, (err as Error).message, 500);
     }
 });
 

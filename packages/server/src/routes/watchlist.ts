@@ -10,6 +10,7 @@ import {
 } from '@fonte/torrent';
 import type { WatchlistStatus, MediaType } from '@fonte/torrent';
 import { log, genId, getSettings } from '@fonte/core';
+import { ok, fail } from '../http';
 
 const CATEGORY_MAP: Record<string, number> = {
     movie: 2000,
@@ -44,20 +45,20 @@ app.post('/api/search', async (c) => {
 
         let query = (body.query || '').trim();
         if (!query) {
-            return c.json({ ok: false, error: 'query is required' }, 400);
+            return fail(c, 'query is required');
         }
 
         // If it's a magnet link, just add it directly
         if (query.startsWith('magnet:')) {
             const torrent = await getTorrentManager().addTorrent(query);
-            return c.json({ ok: true, action: 'added', torrent });
+            return ok(c, { action: 'added', torrent });
         }
 
         // If it's an info hash (40 hex chars), add directly
         if (/^[a-fA-F0-9]{40}$/.test(query)) {
             const magnetUri = `magnet:?xt=urn:btih:${query}`;
             const torrent = await getTorrentManager().addTorrent(magnetUri);
-            return c.json({ ok: true, action: 'added', torrent });
+            return ok(c, { action: 'added', torrent });
         }
 
         // If it's an IMDB URL or ID, extract the ID and resolve the title
@@ -89,7 +90,7 @@ app.post('/api/search', async (c) => {
             }
             // If no TMDB key, just strip the URL and use the ID as-is won't help much
             if (query === imdbMatch[0]) {
-                return c.json({ ok: false, error: 'Could not resolve IMDB ID. Set subtitles.tmdb_api_key in settings.' }, 400);
+                return fail(c, 'Could not resolve IMDB ID. Set subtitles.tmdb_api_key in settings.');
             }
         }
 
@@ -99,8 +100,7 @@ app.post('/api/search', async (c) => {
 
         const results = await multiSearch(query, body.year, quality, category);
 
-        return c.json({
-            ok: true,
+        return ok(c, {
             query,
             year: body.year,
             quality,
@@ -110,7 +110,7 @@ app.post('/api/search', async (c) => {
     } catch (err) {
         const msg = (err as Error).message;
         log('ERROR', `[search] Failed: ${msg}`);
-        return c.json({ ok: false, error: msg }, 500);
+        return fail(c, msg, 500);
     }
 });
 
@@ -127,7 +127,7 @@ app.post('/api/watchlist', async (c) => {
         };
 
         if (!body.title) {
-            return c.json({ ok: false, error: 'title is required' }, 400);
+            return fail(c, 'title is required');
         }
 
         const mediaType: MediaType = body.mediaType || 'movie';
@@ -172,11 +172,11 @@ app.post('/api/watchlist', async (c) => {
         }
 
         const entry = getWatchlistEntry(id);
-        return c.json({ ok: true, entry });
+        return ok(c, { entry });
     } catch (err) {
         const msg = (err as Error).message;
         log('ERROR', `[watchlist] Add failed: ${msg}`);
-        return c.json({ ok: false, error: msg }, 400);
+        return fail(c, msg);
     }
 });
 
@@ -185,7 +185,7 @@ app.post('/api/watchlist', async (c) => {
 app.get('/api/watchlist', (c) => {
     const status = c.req.query('status') as WatchlistStatus | undefined;
     const entries = getWatchlistEntries(status ? { status } : undefined);
-    return c.json({ ok: true, entries });
+    return ok(c, { entries });
 });
 
 // ── GET /api/watchlist/:id ───────────────────────────────────────────────
@@ -194,10 +194,10 @@ app.get('/api/watchlist/:id', (c) => {
     const id = c.req.param('id');
     const entry = getWatchlistEntry(id);
     if (!entry) {
-        return c.json({ ok: false, error: 'Watchlist entry not found' }, 404);
+        return fail(c, 'Watchlist entry not found', 404);
     }
     const results = getWatchlistResults(id);
-    return c.json({ ok: true, entry, results });
+    return ok(c, { entry, results });
 });
 
 // ── PUT /api/watchlist/:id ───────────────────────────────────────────────
@@ -205,14 +205,14 @@ app.get('/api/watchlist/:id', (c) => {
 app.put('/api/watchlist/:id', async (c) => {
     const id = c.req.param('id');
     if (!getWatchlistEntry(id)) {
-        return c.json({ ok: false, error: 'Watchlist entry not found' }, 404);
+        return fail(c, 'Watchlist entry not found', 404);
     }
     try {
         const body = await c.req.json();
         updateWatchlistEntry(id, body);
-        return c.json({ ok: true, entry: getWatchlistEntry(id) });
+        return ok(c, { entry: getWatchlistEntry(id) });
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 400);
+        return fail(c, (err as Error).message);
     }
 });
 
@@ -221,10 +221,10 @@ app.put('/api/watchlist/:id', async (c) => {
 app.delete('/api/watchlist/:id', (c) => {
     const id = c.req.param('id');
     if (!getWatchlistEntry(id)) {
-        return c.json({ ok: false, error: 'Watchlist entry not found' }, 404);
+        return fail(c, 'Watchlist entry not found', 404);
     }
     deleteWatchlistEntry(id);
-    return c.json({ ok: true });
+    return ok(c);
 });
 
 // ── POST /api/watchlist/:id/search — trigger search for this entry ───────
@@ -233,7 +233,7 @@ app.post('/api/watchlist/:id/search', async (c) => {
     const id = c.req.param('id');
     const entry = getWatchlistEntry(id);
     if (!entry) {
-        return c.json({ ok: false, error: 'Watchlist entry not found' }, 404);
+        return fail(c, 'Watchlist entry not found', 404);
     }
 
     try {
@@ -257,11 +257,11 @@ app.post('/api/watchlist/:id/search', async (c) => {
         updateWatchlistEntry(id, { lastCheckedAt: Date.now() });
 
         const results = getWatchlistResults(id, 50);
-        return c.json({ ok: true, resultCount: results.length, results });
+        return ok(c, { resultCount: results.length, results });
     } catch (err) {
         const msg = (err as Error).message;
         log('ERROR', `[watchlist] Search failed for ${id}: ${msg}`);
-        return c.json({ ok: false, error: msg }, 500);
+        return fail(c, msg, 500);
     }
 });
 
@@ -273,13 +273,13 @@ app.post('/api/watchlist/:id/results/:rid/add', async (c) => {
 
     const entry = getWatchlistEntry(id);
     if (!entry) {
-        return c.json({ ok: false, error: 'Watchlist entry not found' }, 404);
+        return fail(c, 'Watchlist entry not found', 404);
     }
 
     const results = getWatchlistResults(id);
     const result = results.find(r => r.id === rid);
     if (!result) {
-        return c.json({ ok: false, error: 'Result not found' }, 404);
+        return fail(c, 'Result not found', 404);
     }
 
     try {
@@ -290,9 +290,9 @@ app.post('/api/watchlist/:id/results/:rid/add', async (c) => {
             matchedTorrentId: torrent.id,
             status: 'fulfilled',
         });
-        return c.json({ ok: true, torrent });
+        return ok(c, { torrent });
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 400);
+        return fail(c, (err as Error).message);
     }
 });
 
@@ -301,9 +301,9 @@ app.post('/api/watchlist/:id/results/:rid/add', async (c) => {
 app.post('/api/watchlist/check', async (c) => {
     try {
         await runWatchlistCheck();
-        return c.json({ ok: true });
+        return ok(c);
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 500);
+        return fail(c, (err as Error).message, 500);
     }
 });
 

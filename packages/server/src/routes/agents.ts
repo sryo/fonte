@@ -7,6 +7,7 @@ import { AgentConfig, CustomProvider } from '@fonte/core';
 import { getSettings, getAgents, ensureAgentDirectory } from '@fonte/core';
 import { log } from '@fonte/core';
 import { mutateSettings } from './settings';
+import { ok, fail } from '../http';
 
 const app = new Hono();
 const execFileAsync = promisify(execFile);
@@ -35,7 +36,7 @@ async function runSkills(args: string[], cwd: string): Promise<string> {
 }
 // GET /api/agents
 app.get('/api/agents', (c) => {
-    return c.json(getAgents(getSettings()));
+    return ok(c, { agents: getAgents(getSettings()) });
 });
 
 // PUT /api/agents/:id
@@ -43,7 +44,7 @@ app.put('/api/agents/:id', async (c) => {
     const agentId = c.req.param('id');
     const body = await c.req.json() as Partial<AgentConfig>;
     if (!body.name || !body.provider || !body.model) {
-        return c.json({ error: 'name, provider, and model are required' }, 400);
+        return fail(c, 'name, provider, and model are required');
     }
 
     const currentSettings = getSettings();
@@ -78,8 +79,7 @@ app.put('/api/agents/:id', async (c) => {
     }
 
     log('INFO', `[API] Agent '${agentId}' saved`);
-    return c.json({
-        ok: true,
+    return ok(c, {
         agent: settings.agents![agentId],
         provisioned: isNew,
     });
@@ -90,11 +90,11 @@ app.delete('/api/agents/:id', (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
     if (!settings.agents?.[agentId]) {
-        return c.json({ error: `agent '${agentId}' not found` }, 404);
+        return fail(c, `agent '${agentId}' not found`, 404);
     }
     mutateSettings(s => { delete s.agents![agentId]; });
     log('INFO', `[API] Agent '${agentId}' deleted`);
-    return c.json({ ok: true });
+    return ok(c);
 });
 
 // ── Agent workspace data endpoints ───────────────────────────────────────────
@@ -104,7 +104,7 @@ app.get('/api/agents/:id/skills', (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
     const agent = settings.agents?.[agentId];
-    if (!agent) return c.json({ error: `agent '${agentId}' not found` }, 404);
+    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
 
     const skillsDir = path.join(agent.working_directory, '.agents', 'skills');
     const skills: { id: string; name: string; description: string }[] = [];
@@ -132,7 +132,7 @@ app.get('/api/agents/:id/skills', (c) => {
         }
     }
 
-    return c.json(skills);
+    return ok(c, { skills });
 });
 
 // GET /api/agents/:id/skills/registry?query=seo — search skills registry
@@ -141,8 +141,8 @@ app.get('/api/agents/:id/skills/registry', async (c) => {
     const query = c.req.query('query') || '';
     const settings = getSettings();
     const agent = settings.agents?.[agentId];
-    if (!agent) return c.json({ error: `agent '${agentId}' not found` }, 404);
-    if (!query.trim()) return c.json({ results: [] });
+    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
+    if (!query.trim()) return ok(c, { results: [] });
 
     try {
         await ensureSkillsCli(agent.working_directory);
@@ -181,9 +181,9 @@ app.get('/api/agents/:id/skills/registry', async (c) => {
             }
         }
 
-        return c.json({ results, raw: output });
+        return ok(c, { results, raw: output });
     } catch (err) {
-        return c.json({ error: (err as Error).message }, 500);
+        return fail(c, (err as Error).message, 500);
     }
 });
 
@@ -192,18 +192,18 @@ app.post('/api/agents/:id/skills/install', async (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
     const agent = settings.agents?.[agentId];
-    if (!agent) return c.json({ error: `agent '${agentId}' not found` }, 404);
+    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
 
     const body = await c.req.json() as { ref?: string };
     const ref = (body.ref || '').trim();
-    if (!ref) return c.json({ error: 'ref is required' }, 400);
+    if (!ref) return fail(c, 'ref is required');
 
     try {
         await ensureSkillsCli(agent.working_directory);
         const output = await runSkills(['add', ref, '-a', 'codex', '-y'], agent.working_directory);
-        return c.json({ ok: true, output });
+        return ok(c, { output });
     } catch (err) {
-        return c.json({ error: (err as Error).message }, 500);
+        return fail(c, (err as Error).message, 500);
     }
 });
 
@@ -212,14 +212,14 @@ app.get('/api/agents/:id/system-prompt', (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
     const agent = settings.agents?.[agentId];
-    if (!agent) return c.json({ error: `agent '${agentId}' not found` }, 404);
+    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
 
     const agentsMd = path.join(agent.working_directory, 'AGENTS.md');
     let content = '';
     if (fs.existsSync(agentsMd)) {
         try { content = fs.readFileSync(agentsMd, 'utf8'); } catch { /* skip */ }
     }
-    return c.json({ content, path: agentsMd });
+    return ok(c, { content, path: agentsMd });
 });
 
 // PUT /api/agents/:id/system-prompt — write AGENTS.md to workspace
@@ -227,12 +227,12 @@ app.put('/api/agents/:id/system-prompt', async (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
     const agent = settings.agents?.[agentId];
-    if (!agent) return c.json({ error: `agent '${agentId}' not found` }, 404);
+    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
 
     const body = await c.req.json() as { content: string };
     const agentsMd = path.join(agent.working_directory, 'AGENTS.md');
     fs.writeFileSync(agentsMd, body.content || '', 'utf8');
-    return c.json({ ok: true });
+    return ok(c);
 });
 
 // GET /api/agents/:id/memory — load memory index from workspace memory/ folder
@@ -240,7 +240,7 @@ app.get('/api/agents/:id/memory', (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
     const agent = settings.agents?.[agentId];
-    if (!agent) return c.json({ error: `agent '${agentId}' not found` }, 404);
+    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
 
     const { loadMemoryIndex } = require('@fonte/core');
     const index = loadMemoryIndex(agent.working_directory);
@@ -262,7 +262,7 @@ app.get('/api/agents/:id/memory', (c) => {
         scan(memoryDir, '');
     }
 
-    return c.json({ index, files, memoryDir });
+    return ok(c, { index, files, memoryDir });
 });
 
 // GET /api/agents/:id/heartbeat — read heartbeat.md and settings from workspace
@@ -270,14 +270,14 @@ app.get('/api/agents/:id/heartbeat', (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
     const agent = settings.agents?.[agentId];
-    if (!agent) return c.json({ error: `agent '${agentId}' not found` }, 404);
+    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
 
     const heartbeatMd = path.join(agent.working_directory, 'heartbeat.md');
     let content = '';
     if (fs.existsSync(heartbeatMd)) {
         try { content = fs.readFileSync(heartbeatMd, 'utf8'); } catch { /* skip */ }
     }
-    return c.json({
+    return ok(c, {
         content,
         path: heartbeatMd,
         enabled: agent.heartbeat?.enabled ?? true,
@@ -290,7 +290,7 @@ app.put('/api/agents/:id/heartbeat', async (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
     const agent = settings.agents?.[agentId];
-    if (!agent) return c.json({ error: `agent '${agentId}' not found` }, 404);
+    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
 
     const body = await c.req.json() as { content?: string; enabled?: boolean; interval?: number };
 
@@ -310,7 +310,7 @@ app.put('/api/agents/:id/heartbeat', async (c) => {
         });
     }
 
-    return c.json({ ok: true });
+    return ok(c);
 });
 
 // ── Custom Providers ─────────────────────────────────────────────────────────
@@ -318,7 +318,7 @@ app.put('/api/agents/:id/heartbeat', async (c) => {
 // GET /api/custom-providers
 app.get('/api/custom-providers', (c) => {
     const settings = getSettings();
-    return c.json(settings.custom_providers || {});
+    return ok(c, { providers: settings.custom_providers || {} });
 });
 
 // PUT /api/custom-providers/:id
@@ -326,10 +326,10 @@ app.put('/api/custom-providers/:id', async (c) => {
     const providerId = c.req.param('id');
     const body = await c.req.json() as Partial<CustomProvider>;
     if (!body.name || !body.harness || !body.base_url || !body.api_key) {
-        return c.json({ error: 'name, harness, base_url, and api_key are required' }, 400);
+        return fail(c, 'name, harness, base_url, and api_key are required');
     }
     if (body.harness !== 'claude' && body.harness !== 'codex') {
-        return c.json({ error: 'harness must be "claude" or "codex"' }, 400);
+        return fail(c, 'harness must be "claude" or "codex"');
     }
 
     const settings = mutateSettings(s => {
@@ -344,7 +344,7 @@ app.put('/api/custom-providers/:id', async (c) => {
     });
 
     log('INFO', `[API] Custom provider '${providerId}' saved`);
-    return c.json({ ok: true, provider: settings.custom_providers![providerId] });
+    return ok(c, { provider: settings.custom_providers![providerId] });
 });
 
 // DELETE /api/custom-providers/:id
@@ -352,11 +352,11 @@ app.delete('/api/custom-providers/:id', (c) => {
     const providerId = c.req.param('id');
     const settings = getSettings();
     if (!settings.custom_providers?.[providerId]) {
-        return c.json({ error: `custom provider '${providerId}' not found` }, 404);
+        return fail(c, `custom provider '${providerId}' not found`, 404);
     }
     mutateSettings(s => { delete s.custom_providers![providerId]; });
     log('INFO', `[API] Custom provider '${providerId}' deleted`);
-    return c.json({ ok: true });
+    return ok(c);
 });
 
 export default app;

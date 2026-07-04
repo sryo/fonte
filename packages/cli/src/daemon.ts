@@ -171,7 +171,9 @@ export async function statusDaemon(): Promise<void> {
     // Queue status
     try {
         const qRes = await fetch(`${API_URL}/api/queue/status`);
-        const q: any = await qRes.json();
+        const body: any = await qRes.json();
+        if (!body?.ok || !body.status) throw new Error(body?.error || 'bad response');
+        const q = body.status;
         const parts: string[] = [];
         if (q.processing > 0) parts.push(`${q.processing} processing`);
         if (q.queued > 0) parts.push(`${q.queued} queued`);
@@ -209,30 +211,61 @@ export async function statusDaemon(): Promise<void> {
     }
 }
 
-export async function restartDaemon(): Promise<void> {
-    // Try API-based restart first (works in container mode and normal mode)
-    try {
-        const res = await fetch(`${API_URL}/api/services/restart`, { method: 'POST' });
-        const data = await res.json() as any;
-        if (data.ok) {
-            log(GREEN, 'Fonte restarting...');
-            // Wait for the process to come back up
-            await new Promise(r => setTimeout(r, 2000));
-            const status = await waitForServer();
-            if (status) {
-                log(GREEN, 'Fonte restarted successfully');
-            } else {
-                log(YELLOW, 'Fonte is restarting (may take a moment)');
-            }
-            return;
+function readPid(): number | null {
+    if (!fs.existsSync(PID_FILE)) return null;
+    const pid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10);
+    return Number.isFinite(pid) ? pid : null;
+}
+
+async function waitForExit(pid: number, maxWait = 8000): Promise<boolean> {
+    const start = Date.now();
+    while (Date.now() - start < maxWait) {
+        try {
+            process.kill(pid, 0);
+        } catch {
+            return true;
         }
-    } catch {
-        // API not available, fall back to kill+respawn
+        await new Promise(r => setTimeout(r, 200));
+    }
+    return false;
+}
+
+export async function restartDaemon(): Promise<void> {
+    const pid = readPid();
+
+    // Container mode: PID 1 can't be signal-cycled from here — the Docker
+    // entrypoint loop respawns the daemon when the API restart exits it.
+    if (pid === 1) {
+        try {
+            const res = await fetch(`${API_URL}/api/services/restart`, { method: 'POST' });
+            const data = await res.json() as any;
+            if (data.ok) {
+                log(GREEN, 'Fonte restarting...');
+                await new Promise(r => setTimeout(r, 2000));
+                const status = await waitForServer();
+                if (status) {
+                    log(GREEN, 'Fonte restarted successfully');
+                } else {
+                    log(YELLOW, 'Fonte is restarting (may take a moment)');
+                }
+            } else {
+                log(RED, `Restart failed: ${data.error || 'unknown error'}`);
+            }
+        } catch {
+            log(RED, 'Restart failed: API not reachable in container mode.');
+        }
+        return;
     }
 
-    // Fallback: stop and start (non-container mode)
+    // Normal mode: explicit stop + start, owned end to end by the CLI. The
+    // API restart path is deliberately not used — under a one-shot launcher
+    // (macOS launchd plist with KeepAlive=false, or a plain `fonte start`)
+    // nothing respawns an exited process.
     stopDaemon();
-    await new Promise(r => setTimeout(r, 1000));
+    if (pid && !(await waitForExit(pid))) {
+        log(RED, `Process ${pid} did not exit in time; aborting restart`);
+        return;
+    }
     await startDaemon();
 }
 

@@ -30,11 +30,11 @@ export interface Settings {
 // ── API Functions ─────────────────────────────────────────────────────────
 
 export async function getAgents(): Promise<Record<string, AgentConfig>> {
-  return apiFetch("/api/agents");
+  return apiFetch("/api/agents", undefined, "agents");
 }
 
 export async function getSettings(): Promise<Settings> {
-  return apiFetch("/api/settings");
+  return apiFetch("/api/settings", undefined, "settings");
 }
 
 export async function searchRegistrySkills(
@@ -86,7 +86,7 @@ export interface WorkspaceSkill {
 }
 
 export async function getAgentSkills(agentId: string): Promise<WorkspaceSkill[]> {
-  return apiFetch(`/api/agents/${encodeURIComponent(agentId)}/skills`);
+  return apiFetch(`/api/agents/${encodeURIComponent(agentId)}/skills`, undefined, "skills");
 }
 
 export async function getAgentSystemPrompt(agentId: string): Promise<{ content: string; path: string }> {
@@ -132,7 +132,7 @@ export interface Schedule {
 
 export async function getSchedules(agentId?: string): Promise<Schedule[]> {
   const params = agentId ? `?agent=${encodeURIComponent(agentId)}` : "";
-  return apiFetch(`/api/schedules${params}`);
+  return apiFetch(`/api/schedules${params}`, undefined, "schedules");
 }
 
 export async function createSchedule(data: {
@@ -179,7 +179,7 @@ export interface CustomProvider {
 }
 
 export async function getCustomProviders(): Promise<Record<string, CustomProvider>> {
-  return apiFetch("/api/custom-providers");
+  return apiFetch("/api/custom-providers", undefined, "providers");
 }
 
 export async function saveCustomProvider(id: string, provider: CustomProvider): Promise<{ ok: boolean }> {

@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { getWhatsAppService } from '@fonte/torrent';
 import { getSettings, SETTINGS_FILE, log } from '@fonte/core';
 import type { Settings } from '@fonte/core';
+import { ok, fail } from '../http';
 
 const app = new Hono();
 
@@ -10,58 +11,58 @@ app.post('/api/whatsapp/start', async (c) => {
     try {
         const service = getWhatsAppService();
         await service.start();
-        return c.json({ ok: true, status: service.status });
+        return ok(c, { status: service.status });
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 500);
+        return fail(c, (err as Error).message, 500);
     }
 });
 
 app.get('/api/whatsapp/status', (c) => {
     const service = getWhatsAppService();
-    return c.json({ ok: true, ...service.getStatusInfo() });
+    return ok(c, service.getStatusInfo());
 });
 
 app.get('/api/whatsapp/qr', (c) => {
     const service = getWhatsAppService();
     const qr = service.qr;
-    if (!qr) return c.json({ ok: false, error: 'No QR available' }, 404);
-    return c.json({ ok: true, qr });
+    if (!qr) return fail(c, 'No QR available', 404);
+    return ok(c, { qr });
 });
 
 app.post('/api/whatsapp/disconnect', async (c) => {
     try {
         await getWhatsAppService().stop();
-        return c.json({ ok: true });
+        return ok(c);
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 500);
+        return fail(c, (err as Error).message, 500);
     }
 });
 
 app.post('/api/whatsapp/pair', async (c) => {
     try {
         const body = await c.req.json() as { phone: string };
-        if (!body.phone) return c.json({ ok: false, error: 'phone is required' }, 400);
+        if (!body.phone) return fail(c, 'phone is required');
         const service = getWhatsAppService();
         if (service.status === 'disconnected') await service.start();
         const code = await service.requestPairingCode(body.phone);
-        return c.json({ ok: true, code });
+        return ok(c, { code });
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 500);
+        return fail(c, (err as Error).message, 500);
     }
 });
 
 app.get('/api/whatsapp/chats', async (c) => {
     try {
         const chats = await getWhatsAppService().getChats();
-        return c.json({ ok: true, chats });
+        return ok(c, { chats });
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 500);
+        return fail(c, (err as Error).message, 500);
     }
 });
 
 app.get('/api/whatsapp/allowed-chat', (c) => {
     const allowed_chat = getSettings().whatsapp?.allowed_chat ?? null;
-    return c.json({ ok: true, allowed_chat });
+    return ok(c, { allowed_chat });
 });
 
 app.post('/api/whatsapp/allowed-chat', async (c) => {
@@ -74,9 +75,9 @@ app.post('/api/whatsapp/allowed-chat', async (c) => {
         };
         fs.writeFileSync(SETTINGS_FILE, JSON.stringify(next, null, 2) + '\n');
         log('INFO', `[API] WhatsApp allowed_chat set to ${body.allowed_chat || '(none)'}`);
-        return c.json({ ok: true, allowed_chat: next.whatsapp?.allowed_chat ?? null });
+        return ok(c, { allowed_chat: next.whatsapp?.allowed_chat ?? null });
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 500);
+        return fail(c, (err as Error).message, 500);
     }
 });
 

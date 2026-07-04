@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { getSchedules, addSchedule, removeSchedule, updateSchedule } from '@fonte/core';
+import { ok, fail } from '../http';
 
 const app = new Hono();
 
@@ -10,7 +11,7 @@ app.get('/api/schedules', (c) => {
     if (agentId) {
         schedules = schedules.filter(s => s.agentId === agentId);
     }
-    return c.json(schedules);
+    return ok(c, { schedules });
 });
 
 // POST /api/schedules — create a new schedule
@@ -27,7 +28,7 @@ app.post('/api/schedules', async (c) => {
     };
 
     if ((!body.cron && !body.runAt) || !body.agentId || !body.message) {
-        return c.json({ error: 'agentId, message, and either cron or runAt are required' }, 400);
+        return fail(c, 'agentId, message, and either cron or runAt are required');
     }
 
     try {
@@ -41,9 +42,9 @@ app.post('/api/schedules', async (c) => {
             sender: body.sender,
             enabled: body.enabled,
         });
-        return c.json({ ok: true, schedule });
+        return ok(c, { schedule });
     } catch (err) {
-        return c.json({ error: (err as Error).message }, 400);
+        return fail(c, (err as Error).message);
     }
 });
 
@@ -63,11 +64,11 @@ app.put('/api/schedules/:id', async (c) => {
     try {
         const schedule = updateSchedule(id, body);
         if (!schedule) {
-            return c.json({ error: `schedule '${id}' not found` }, 404);
+            return fail(c, `schedule '${id}' not found`, 404);
         }
-        return c.json({ ok: true, schedule });
+        return ok(c, { schedule });
     } catch (err) {
-        return c.json({ error: (err as Error).message }, 400);
+        return fail(c, (err as Error).message);
     }
 });
 
@@ -76,9 +77,9 @@ app.delete('/api/schedules/:id', (c) => {
     const id = c.req.param('id');
     const deleted = removeSchedule(id);
     if (!deleted) {
-        return c.json({ error: `schedule '${id}' not found` }, 404);
+        return fail(c, `schedule '${id}' not found`, 404);
     }
-    return c.json({ ok: true });
+    return ok(c);
 });
 
 export default app;

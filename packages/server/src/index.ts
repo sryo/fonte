@@ -13,6 +13,7 @@ import { serve } from '@hono/node-server';
 import { RESPONSE_ALREADY_SENT } from '@hono/node-server/utils/response';
 import { log } from '@fonte/core';
 import { addSSEClient, removeSSEClient } from './sse';
+import { ok, fail } from './http';
 
 import messagesRoutes from './routes/messages';
 import agentsRoutes from './routes/agents';
@@ -71,8 +72,7 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
 
     // GET /api/status — overall system status
     app.get('/api/status', (c) => {
-        return c.json({
-            ok: true,
+        return ok(c, {
             uptime: Math.floor((Date.now() - startedAt) / 1000),
             server: { running: true, port: API_PORT },
         });
@@ -96,13 +96,13 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
 
     // 404 fallback
     app.notFound((c) => {
-        return c.json({ error: 'Not found' }, 404);
+        return fail(c, 'Not found', 404);
     });
 
     // Error handler
     app.onError((err, c) => {
         log('ERROR', `[API] ${err.message}`);
-        return c.json({ error: 'Internal server error' }, 500);
+        return fail(c, 'Internal server error', 500);
     });
 
     const server = serve({

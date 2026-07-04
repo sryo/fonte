@@ -1,18 +1,21 @@
 import { Hono } from 'hono';
 import { getSettings, log } from '@fonte/core';
+import { ok } from '../http';
 
 const app = new Hono();
 
 // GET /api/indexers/status — count of indexers configured in Jackett.
 // The dashboard uses this to nudge first-run users to Jackett's UI when
 // the count is 0. Fonte ships with no indexers configured by default.
+// A missing/unreachable Jackett is a reportable state, not an API error,
+// so every branch is ok() with a `reason`.
 app.get('/api/indexers/status', async (c) => {
     const settings = getSettings();
     const jackettUrl = settings.watchlist?.jackett_url;
     const apiKey = settings.watchlist?.jackett_api_key;
 
     if (!jackettUrl || !apiKey) {
-        return c.json({ ok: true, count: 0, configured: false, reason: 'jackett-not-configured' });
+        return ok(c, { count: 0, configured: false, reason: 'jackett-not-configured' });
     }
 
     // Jackett's /api/v2.0/indexers admin list requires a session cookie;
@@ -26,14 +29,14 @@ app.get('/api/indexers/status', async (c) => {
         url.searchParams.set('Query', '');
         const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
         if (!res.ok) {
-            return c.json({ ok: true, count: 0, configured: false, reason: 'jackett-unreachable', jackettUrl });
+            return ok(c, { count: 0, configured: false, reason: 'jackett-unreachable', jackettUrl });
         }
         const body = await res.json() as { Indexers?: unknown[] };
         const count = Array.isArray(body.Indexers) ? body.Indexers.length : 0;
-        return c.json({ ok: true, count, configured: count > 0, jackettUrl });
+        return ok(c, { count, configured: count > 0, jackettUrl });
     } catch (err) {
         log('WARN', `Indexer status check failed: ${(err as Error).message}`);
-        return c.json({ ok: true, count: 0, configured: false, reason: 'jackett-error', jackettUrl });
+        return ok(c, { count: 0, configured: false, reason: 'jackett-error', jackettUrl });
     }
 });
 

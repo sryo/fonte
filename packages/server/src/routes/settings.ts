@@ -5,6 +5,7 @@ import { Hono } from 'hono';
 import { Settings } from '@fonte/core';
 import { SETTINGS_FILE, FONTE_HOME, getSettings, validateSettings, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@fonte/core';
 import { log } from '@fonte/core';
+import { ok, fail } from '../http';
 
 /** Read, mutate, and persist settings.json atomically. */
 export function mutateSettings(fn: (settings: Settings) => void): Settings {
@@ -29,7 +30,7 @@ function expandHomePath(input?: string): string | undefined {
 
 // GET /api/settings
 app.get('/api/settings', (c) => {
-    return c.json(getSettings());
+    return ok(c, { settings: getSettings() });
 });
 
 // PUT /api/settings
@@ -37,13 +38,13 @@ app.put('/api/settings', async (c) => {
     const body = await c.req.json();
     const { typeErrors } = validateSettings(body);
     if (typeErrors.length) {
-        return c.json({ ok: false, error: typeErrors.join('; ') }, 400);
+        return fail(c, typeErrors.join('; '));
     }
     const current = getSettings();
     const merged = { ...current, ...body } as Settings;
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2) + '\n');
     log('INFO', '[API] Settings updated');
-    return c.json({ ok: true, settings: merged });
+    return ok(c, { settings: merged });
 });
 
 // POST /api/setup — run initial setup (write settings + create directories)
@@ -98,7 +99,7 @@ app.post('/api/setup', async (c) => {
     }
 
     log('INFO', '[API] Setup complete');
-    return c.json({ ok: true, settings });
+    return ok(c, { settings });
 });
 
 // GET /api/soul — read soul personality file
@@ -109,7 +110,7 @@ app.get('/api/soul', (c) => {
             content = fs.readFileSync(SOUL_PATH, 'utf8');
         }
     } catch { /* ignore */ }
-    return c.json({ ok: true, content, path: SOUL_PATH });
+    return ok(c, { content, path: SOUL_PATH });
 });
 
 // PUT /api/soul — write soul personality file
@@ -117,9 +118,9 @@ app.put('/api/soul', async (c) => {
     try {
         const body = await c.req.json() as { content: string };
         fs.writeFileSync(SOUL_PATH, body.content, 'utf8');
-        return c.json({ ok: true });
+        return ok(c);
     } catch (err) {
-        return c.json({ ok: false, error: (err as Error).message }, 500);
+        return fail(c, (err as Error).message, 500);
     }
 });
 

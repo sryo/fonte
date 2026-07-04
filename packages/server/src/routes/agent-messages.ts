@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { getAgentMessages } from '@fonte/core';
+import { ok } from '../http';
 
 const app = new Hono();
 
@@ -13,7 +14,7 @@ app.get('/api/agents/:id/messages', (c) => {
         messages = messages.filter((m: any) => m.id > sinceId);
     }
 
-    return c.json(messages);
+    return ok(c, { messages });
 });
 
 export default app;
