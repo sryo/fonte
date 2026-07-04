@@ -258,7 +258,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
       {/* ===== Center: Search input ===== */}
       <div className="flex-1 relative" ref={searchWrapperRef}>
         {/* Input wrapper */}
-        <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all">
+        <div className="flex items-center gap-2 rounded-md border bg-background h-9 px-3 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all">
           {/* Left icon */}
           {loading ? (
             <SpinnerGap className="h-[18px] w-[18px] text-muted-foreground animate-spin shrink-0" />
@@ -299,10 +299,17 @@ export function TopBar({ onOpenChat }: TopBarProps) {
                 else handleSubmit();
               }
             }}
-            placeholder="Search, paste a magnet link, or ask anything... (⌘K)"
+            placeholder="Search, paste a magnet link, or ask anything…"
             disabled={loading}
             className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground disabled:opacity-60"
           />
+
+          {/* Shortcut hint — swaps for the submit button once there's input */}
+          {!input.trim() && (
+            <kbd className="hidden sm:inline-flex items-center rounded border bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground shrink-0">
+              ⌘K
+            </kbd>
+          )}
 
           {/* Submit button */}
           {input.trim() && (

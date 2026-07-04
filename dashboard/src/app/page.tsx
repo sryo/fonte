@@ -250,7 +250,6 @@ export default function HomePage() {
           emptyContent={<AddTorrentCard onAdded={fetchAll} />}
           action={
             <div className="flex items-center gap-1">
-              <SortDropdown value={sort} onChange={setSort} />
               {pill === "finished" && finishedCompleted.length > 0 && (
                 <button
                   onClick={() => {
@@ -263,6 +262,7 @@ export default function HomePage() {
                   Clear
                 </button>
               )}
+              <SortDropdown value={sort} onChange={setSort} />
               <AddTorrentCard variant="action" onAdded={fetchAll} />
             </div>
           }
