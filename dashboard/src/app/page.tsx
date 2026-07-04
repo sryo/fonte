@@ -3,7 +3,6 @@
 // Dashboard home page: filterable rows of torrents, watchlist, and automations.
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { cn } from "@/lib/utils";
 import {
   getTorrents,
   getWatchlist,
@@ -28,12 +27,25 @@ import {
   DownloadSimple,
   Eye,
   Lightning,
-  Check,
   Plus,
   Trash,
 } from "@phosphor-icons/react";
 import { usePolling } from "@/hooks/usePolling";
 import { usePoofRemoval } from "@/hooks/use-poof-removal";
+import { usePersistedState } from "@/hooks/use-persisted-state";
+import {
+  countTorrentPills,
+  isFinished,
+  sortTorrents,
+  DEFAULT_VISIBLE_PILLS,
+  SORT_OPTIONS,
+  TORRENT_PILL_PREDICATES,
+  type PillKey,
+  type SortKey,
+  type TorrentPillKey,
+} from "@/lib/torrent-order";
+import { PillBar } from "@/components/home/pill-bar";
+import { SortDropdown } from "@/components/home/sort-dropdown";
 import { EmptyRowCard } from "@/components/home/empty-row-card";
 import { AddTorrentCard } from "@/components/home/add-torrent-card";
 import { ContentRow } from "@/components/home/content-row";
@@ -46,21 +58,20 @@ import { AddWatchlistModal } from "@/components/home/add-watchlist-modal";
 import { AddAutomationModal } from "@/components/home/add-automation-modal";
 import { EditAutomationModal } from "@/components/home/edit-automation-modal";
 
-// ── Filter types ─────────────────────────────────────────────────────────
-
-type FilterChip = "all" | "downloading" | "completed" | "watching";
-
-const FILTER_CHIPS: { key: FilterChip; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "downloading", label: "Downloading" },
-  { key: "completed", label: "Completed" },
-  { key: "watching", label: "Watching" },
-];
-
 // ── Main Page ────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const [filter, setFilter] = useState<FilterChip>("all");
+  const [pill, setPill] = useState<PillKey>("all");
+  const [sort, setSort] = usePersistedState<SortKey>(
+    "fonte.home-sort",
+    "status",
+    (v): v is SortKey => typeof v === "string" && SORT_OPTIONS.some((o) => o.key === v)
+  );
+  const [visiblePills, setVisiblePills] = usePersistedState<PillKey[]>(
+    "fonte.home-filter-pills",
+    DEFAULT_VISIBLE_PILLS,
+    (v): v is PillKey[] => Array.isArray(v) && v.every((k) => typeof k === "string")
+  );
 
   const [torrents, setTorrents] = useState<TorrentRecord[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistRecord[]>([]);
@@ -169,40 +180,40 @@ export default function HomePage() {
 
   // ── Derived data ───────────────────────────────────────────────────────
 
-  // Every unfinished status belongs here — 'error', 'checking', and 'adding'
-  // included, otherwise those torrents appear in no row at all. Errors sort
-  // first so they're impossible to miss.
-  const activeTorrents = torrents
-    .filter((t) => t.status !== "completed" && t.status !== "seeding" && t.status !== "removed")
-    .sort((a, b) => Number(b.status === "error") - Number(a.status === "error"));
-
-  // Both statuses mean the download has finished: "seeding" is still
-  // uploading, "completed" is finished and stopped (user-paused or
-  // auto-stopped at the seed-ratio limit). Group them so all finished
-  // work lives in one row.
-  const completedTorrents = torrents
-    .filter((t) => t.status === "completed" || t.status === "seeding")
-    .sort((a, b) => (b.completedAt ?? b.addedAt ?? 0) - (a.completedAt ?? a.addedAt ?? 0))
-    .slice(0, 10);
-
+  const lane = torrents.filter((t) => t.status !== "removed");
   const watchingEntries = watchlist.filter((w) => w.status === "watching");
-
   const enabledAutomations = automations.filter((a) => a.enabled);
 
-  // If the user was viewing the Completed filter and the row drains, fall
-  // back to "all" — the chip we render is also hidden in that state.
+  const counts: Record<PillKey, number> = {
+    ...countTorrentPills(lane),
+    all: lane.length,
+    watching: watchingEntries.length,
+  };
+
+  const pillPredicate = pill in TORRENT_PILL_PREDICATES
+    ? TORRENT_PILL_PREDICATES[pill as TorrentPillKey]
+    : null;
+  const shownTorrents = sortTorrents(pillPredicate ? lane.filter(pillPredicate) : lane, sort);
+  const finishedCompleted = lane.filter((t) => t.status === "completed");
+
+  // A pill you can't see or that has drained falls back to All — one rule
+  // covering both the last-error-resolved case and unchecking the pill
+  // you're currently on in the "+" configurator.
+  const pillAvailable = (key: PillKey) =>
+    key === "all" || (counts[key] > 0 && (key === "issues" || visiblePills.includes(key)));
   useEffect(() => {
-    if (filter === "completed" && completedTorrents.length === 0) {
-      setFilter("all");
+    if (pill !== "all" && !pillAvailable(pill)) {
+      setPill("all");
     }
-  }, [filter, completedTorrents.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pill, counts.active, counts.seeding, counts.paused, counts.finished, counts.issues, counts.watching, visiblePills]);
 
   // ── Visibility based on filter ─────────────────────────────────────────
 
-  const showDownloading = filter === "all" || filter === "downloading";
-  const showCompleted = filter === "all" || filter === "completed";
-  const showWatching = filter === "all" || filter === "watching";
-  const showAutomations = filter === "all";
+  const showDownloads = pill !== "watching";
+  const showWatching = pill === "all" || pill === "watching";
+  const showAutomations = pill === "all";
+  const showPillRow = lane.length > 0 || watchlist.length > 0;
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -218,47 +229,66 @@ export default function HomePage() {
     <div className="max-w-6xl mx-auto px-6 py-6 space-y-8 animate-card-enter">
       <IndexerBanner status={indexerStatus} />
 
-      {/* Quick filter chips — hide ones that point at empty rows */}
-      <div className="flex items-center gap-2 flex-wrap" role="tablist">
-        {FILTER_CHIPS.filter(({ key }) => key !== "completed" || completedTorrents.length > 0).map(({ key, label }) => (
-          <button
-            key={key}
-            role="tab"
-            aria-selected={filter === key}
-            onClick={() => setFilter(key)}
-            className={cn(
-              "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-              filter === key
-                ? "bg-foreground text-background"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Filter pills — hidden on a fresh install where the add-card carries the page */}
+      {showPillRow && (
+        <PillBar
+          counts={counts}
+          active={pill}
+          onSelect={setPill}
+          visible={visiblePills}
+          onVisibleChange={setVisiblePills}
+        />
+      )}
 
-      {/* Row 1: Active Downloads */}
-      {showDownloading && (
+      {/* Row 1: Downloads — one lane for every non-removed torrent */}
+      {showDownloads && (
         <ContentRow
-          title="Active Downloads"
-          count={activeTorrents.length}
+          title="Downloads"
+          count={shownTorrents.length}
           icon={DownloadSimple}
-          isEmpty={activeTorrents.length === 0}
+          isEmpty={lane.length === 0}
           emptyContent={<AddTorrentCard onAdded={fetchAll} />}
-          action={<AddTorrentCard variant="action" onAdded={fetchAll} />}
+          action={
+            <div className="flex items-center gap-1">
+              <SortDropdown value={sort} onChange={setSort} />
+              {pill === "finished" && finishedCompleted.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (!confirm(`Clear ${finishedCompleted.length} finished record${finishedCompleted.length === 1 ? "" : "s"}? Downloaded files stay on disk.`)) return;
+                    poofThenRemove(finishedCompleted.map((t) => t.id), removeTorrent);
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
+                >
+                  <Trash className="h-3.5 w-3.5" />
+                  Clear
+                </button>
+              )}
+              <AddTorrentCard variant="action" onAdded={fetchAll} />
+            </div>
+          }
         >
-          {activeTorrents.map((torrent) => (
-            <TorrentCard
-              key={torrent.id}
-              torrent={torrent}
-              exiting={exitingIds.has(torrent.id)}
-              exitDelay={exitingIds.get(torrent.id)}
-              stalled={!!torrent.stalledSince}
-              onRefresh={fetchAll}
-              onPoofRemove={() => poofThenRemove([torrent.id], removeTorrent)}
-            />
-          ))}
+          {shownTorrents.map((torrent) =>
+            isFinished(torrent) ? (
+              <CompletedCard
+                key={torrent.id}
+                torrent={torrent}
+                exiting={exitingIds.has(torrent.id)}
+                exitDelay={exitingIds.get(torrent.id)}
+                onRefresh={fetchAll}
+                onPoofRemove={() => poofThenRemove([torrent.id], removeTorrent)}
+              />
+            ) : (
+              <TorrentCard
+                key={torrent.id}
+                torrent={torrent}
+                exiting={exitingIds.has(torrent.id)}
+                exitDelay={exitingIds.get(torrent.id)}
+                stalled={!!torrent.stalledSince}
+                onRefresh={fetchAll}
+                onPoofRemove={() => poofThenRemove([torrent.id], removeTorrent)}
+              />
+            )
+          )}
         </ContentRow>
       )}
 
@@ -301,38 +331,7 @@ export default function HomePage() {
         </ContentRow>
       )}
 
-      {/* Row 3: Recently Completed — hidden until there's something to show */}
-      {showCompleted && completedTorrents.length > 0 && (
-        <ContentRow
-          title="Recently Completed"
-          count={completedTorrents.length}
-          icon={Check}
-          isEmpty={false}
-          emptyContent={null}
-          action={completedTorrents.length > 0 ? (
-            <button
-              onClick={() => poofThenRemove(completedTorrents.map((t) => t.id), removeTorrent)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
-            >
-              <Trash className="h-3.5 w-3.5" />
-              Clear
-            </button>
-          ) : undefined}
-        >
-          {completedTorrents.map((torrent) => (
-            <CompletedCard
-              key={torrent.id}
-              torrent={torrent}
-              exiting={exitingIds.has(torrent.id)}
-              exitDelay={exitingIds.get(torrent.id)}
-              onRefresh={fetchAll}
-              onPoofRemove={() => poofThenRemove([torrent.id], removeTorrent)}
-            />
-          ))}
-        </ContentRow>
-      )}
-
-      {/* Row 4: Automations */}
+      {/* Row 3: Automations */}
       {showAutomations && (
         <ContentRow
           title="Automations"
