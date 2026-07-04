@@ -145,21 +145,39 @@ describe('completion detection', () => {
 
 describe('stall detection', () => {
     const sixMinAgo = () => Date.now() - 6 * 60 * 1000;
+    const seedActivity = (manager: unknown, hash: string, lastDataAt: number) =>
+        (manager as any).downloadActivity.set(hash, { downloaded: 0, lastDataAt });
 
     it('does not flag a stopped torrent as stalled', async () => {
         insertBasic('t1');
         const manager = managerWith([tRow('t1', { status: 0, percentDone: 0.5, peersConnected: 0 })]);
-        (manager as any).stalledTimers.set('hash-t1', sixMinAgo());
+        seedActivity(manager, 'hash-t1', sixMinAgo());
         await sync(manager);
         expect(eventsOf(TORRENT_EVENTS.STALLED)).toHaveLength(0);
+        expect(db.getTorrent('t1')?.stalledSince).toBeUndefined();
     });
 
-    it('still flags a running torrent with no peers', async () => {
+    it('flags a running torrent receiving no data, once per episode', async () => {
         insertBasic('t1');
-        const manager = managerWith([tRow('t1', { status: 4, percentDone: 0.5, peersConnected: 0 })]);
-        (manager as any).stalledTimers.set('hash-t1', sixMinAgo());
+        const manager = managerWith([tRow('t1', { status: 4, percentDone: 0.5, peersConnected: 2 })]);
+        seedActivity(manager, 'hash-t1', sixMinAgo());
         await sync(manager);
         expect(eventsOf(TORRENT_EVENTS.STALLED)).toHaveLength(1);
+        expect(db.getTorrent('t1')?.stalledSince).toEqual(expect.any(Number));
+
+        await sync(manager);
+        expect(eventsOf(TORRENT_EVENTS.STALLED)).toHaveLength(1);
+    });
+
+    it('clears the stall and re-arms when data flows again', async () => {
+        insertBasic('t1');
+        const manager = managerWith([tRow('t1', { status: 4, percentDone: 0.5, rateDownload: 5000, peersConnected: 2 })]);
+        seedActivity(manager, 'hash-t1', sixMinAgo());
+        (manager as any).stalledNotified.add('hash-t1');
+        await sync(manager);
+        expect(eventsOf(TORRENT_EVENTS.STALLED)).toHaveLength(0);
+        expect(db.getTorrent('t1')?.stalledSince).toBeUndefined();
+        expect((manager as any).stalledNotified.has('hash-t1')).toBe(false);
     });
 });
 

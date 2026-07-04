@@ -15,7 +15,7 @@ const STATUS_TONE: Record<string, Tone> = {
   downloaded: "done",
   translated: "done",
   checking: "warn",
-  stalled: "warn", // client-derived (use-stall-detection), not a server status
+  stalled: "warn", // derived from TorrentRecord.stalledSince, not a status value
   error: "error",
   paused: "neutral",
   pending: "neutral",
