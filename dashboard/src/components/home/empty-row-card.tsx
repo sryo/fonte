@@ -31,7 +31,7 @@ export function EmptyRowCard({
       </div>
       <div className="p-3 space-y-1">
         <p className="text-sm font-medium leading-tight text-muted-foreground">{label}</p>
-        {hint && <p className="text-[11px] text-muted-foreground/70 leading-tight">{hint}</p>}
+        {hint && <p className="text-2xs text-muted-foreground/70 leading-tight">{hint}</p>}
       </div>
     </div>
   );

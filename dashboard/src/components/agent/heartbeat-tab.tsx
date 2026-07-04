@@ -70,7 +70,7 @@ export function HeartbeatTab({
                   max={3600}
                   className="max-w-[200px] font-mono"
                 />
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-2xs text-muted-foreground">
                   Every{" "}
                   {intervalSec >= 60
                     ? `${Math.floor(intervalSec / 60)}m ${intervalSec % 60 ? `${intervalSec % 60}s` : ""}`
@@ -85,14 +85,14 @@ export function HeartbeatTab({
                   <label className="text-xs font-medium text-muted-foreground">
                     Heartbeat Prompt
                   </label>
-                  <span className="text-[10px] text-muted-foreground">
+                  <span className="text-2xs text-muted-foreground">
                     from{" "}
-                    <code className="bg-muted px-1 py-0.5 font-mono text-[10px]">
+                    <code className="bg-muted px-1 py-0.5 font-mono text-2xs">
                       {filePath || "heartbeat.md"}
                     </code>
                   </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground/70 mb-2">
+                <p className="text-2xs text-muted-foreground/70 mb-2">
                   What should the agent do each heartbeat cycle? Loaded from
                   heartbeat.md in the workspace.
                 </p>
@@ -122,7 +122,7 @@ export function HeartbeatTab({
                         Active
                       </span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground/50">
+                    <span className="text-2xs text-muted-foreground/50">
                       |
                     </span>
                     <span className="text-xs text-muted-foreground">

@@ -127,10 +127,10 @@ export function AgentsSection() {
                 <div className="flex items-center gap-3 min-w-0">
                   <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded shrink-0">{id}</code>
                   <span className="text-sm truncate">{agent.name}</span>
-                  <span className="text-[10px] font-medium uppercase tracking-wider bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
+                  <span className="text-2xs font-medium uppercase tracking-wider bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
                     {agent.provider}
                   </span>
-                  <span className="text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
+                  <span className="text-2xs font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
                     {agent.model}
                   </span>
                 </div>

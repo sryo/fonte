@@ -190,7 +190,7 @@ export default function AgentConfigPage({
             <div>
               <h1 className="text-base font-semibold flex items-center gap-2">
                 {agent.name}
-                <Badge variant="outline" className="text-[10px] font-mono">
+                <Badge variant="outline" className="text-2xs font-mono">
                   @{agentId}
                 </Badge>
               </h1>

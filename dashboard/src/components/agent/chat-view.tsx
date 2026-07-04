@@ -153,7 +153,7 @@ export function AgentChatView({
       {/* Polling status */}
       <div className="absolute top-3 right-4 z-10 flex items-center gap-1.5">
         <div className={cn("h-1.5 w-1.5", pollError ? "bg-destructive" : "bg-primary animate-pulse-dot")} />
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-2xs text-muted-foreground">
           {pollError ? "Disconnected" : "Connected"}
         </span>
       </div>
@@ -177,7 +177,7 @@ export function AgentChatView({
                 <div key={msg.id} className="flex items-start gap-3">
                   <div
                     className={cn(
-                      "flex h-8 w-8 items-center justify-center text-[10px] font-bold uppercase shrink-0",
+                      "flex h-8 w-8 items-center justify-center text-2xs font-bold uppercase shrink-0",
                       isUser ? "bg-primary text-primary-foreground" : `${agentColor(agentId)} text-white`
                     )}
                   >
@@ -186,7 +186,7 @@ export function AgentChatView({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2">
                       <span className="text-sm font-semibold">{label}</span>
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-2xs text-muted-foreground">
                         {timeAgo(msg.created_at)}
                       </span>
                     </div>

@@ -167,7 +167,7 @@ function StatsRow() {
 function MiniStat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
   return (
     <div className="rounded-xl bg-card px-4 py-3 shadow-card">
-      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+      <p className="text-2xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
       <p className={`text-2xl font-bold tabular-nums mt-0.5 ${accent ? "text-torrent" : ""}`}>{value}</p>
     </div>
   );
@@ -332,25 +332,25 @@ function AgentSessionRow({ msg, onKill }: { msg: ProcessingMessage; onKill: () =
   return (
     <div className="group flex items-center justify-between py-2">
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center bg-secondary text-[10px] font-bold uppercase">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center bg-secondary text-2xs font-bold uppercase">
           {msg.agent.slice(0, 2)}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <p className="text-sm font-medium">@{msg.agent}</p>
             {isStale ? (
-              <Badge variant="destructive" className="text-[10px] px-1 py-0">stale</Badge>
+              <Badge variant="destructive" className="text-2xs px-1 py-0">stale</Badge>
             ) : msg.status === "processing" ? (
-              <Badge variant="default" className="bg-green-600 text-[10px] px-1 py-0">processing</Badge>
+              <Badge variant="default" className="bg-green-600 text-2xs px-1 py-0">processing</Badge>
             ) : (
-              <Badge variant="secondary" className="text-[10px] px-1 py-0">queued</Badge>
+              <Badge variant="secondary" className="text-2xs px-1 py-0">queued</Badge>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground truncate">{msg.message}</p>
+          <p className="text-2xs text-muted-foreground truncate">{msg.message}</p>
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0 ml-3">
-        <span className="text-[11px] text-muted-foreground tabular-nums">{formatDuration(msg.duration)}</span>
+        <span className="text-2xs text-muted-foreground tabular-nums">{formatDuration(msg.duration)}</span>
         <button
           onClick={async () => { setKilling(true); try { await onKill(); } finally { setKilling(false); } }}
           disabled={killing}
@@ -413,7 +413,7 @@ function LogsSection() {
           <Pulse className="h-3.5 w-3.5" />
           Live Events
           {events.length > 0 && (
-            <span className="text-[10px] text-muted-foreground">{events.length}</span>
+            <span className="text-2xs text-muted-foreground">{events.length}</span>
           )}
         </p>
         <Card>
@@ -433,7 +433,7 @@ function LogsSection() {
                       <span className="text-muted-foreground truncate flex-1 min-w-0 text-xs">
                         {formatEventDetail(event)}
                       </span>
-                      <span className="text-[10px] text-muted-foreground whitespace-nowrap flex-shrink-0">
+                      <span className="text-2xs text-muted-foreground whitespace-nowrap flex-shrink-0">
                         {timeAgo(event.timestamp)}
                       </span>
                     </div>

@@ -51,7 +51,7 @@ import { CardAction } from "@/components/home/card-action";
 import { ProgressRing } from "@/components/home/progress-ring";
 import { MediaCard } from "@/components/home/media-card";
 import { EmptyRowCard } from "@/components/home/empty-row-card";
-import { StatusBadge } from "@/components/home/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { ContentRow } from "@/components/home/content-row";
 import { AddWatchlistModal } from "@/components/home/add-watchlist-modal";
 import { AddAutomationModal } from "@/components/home/add-automation-modal";
@@ -334,7 +334,7 @@ export default function HomePage() {
               badges={
                 <>
                   <StatusBadge status={torrent.status} />
-                  <span className="text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">
+                  <span className="text-2xs bg-black/60 text-white px-1.5 py-0.5 rounded-full">
                     {Math.round(torrent.progress * 100)}%
                   </span>
                 </>
@@ -353,7 +353,7 @@ export default function HomePage() {
                 </>
               }
             >
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 <span className="text-torrent">&darr; {formatSpeed(torrent.downloadSpeed)}</span>
                 {" \u00B7 "}{torrent.numPeers} peers
               </p>
@@ -400,7 +400,7 @@ export default function HomePage() {
               badges={
                 <>
                   <StatusBadge status={entry.status} />
-                  <span className="text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">
+                  <span className="text-2xs bg-black/60 text-white px-1.5 py-0.5 rounded-full">
                     {entry.quality}
                   </span>
                 </>
@@ -424,7 +424,7 @@ export default function HomePage() {
                 </>
               }
             >
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 {entry.year && `${entry.year} \u00B7 `}{entry.mediaType === "tv" ? "TV Show" : entry.mediaType.charAt(0).toUpperCase() + entry.mediaType.slice(1)}
               </p>
             </MediaCard>
@@ -460,11 +460,11 @@ export default function HomePage() {
               onClick={() => router.push(`/torrents/${torrent.id}`)}
               badges={
                 torrent.status === "seeding" ? (
-                  <span className="text-[10px] bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                  <span className="text-2xs bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                     <Check className="h-2.5 w-2.5" weight="bold" /> Seeding
                   </span>
                 ) : (
-                  <span className="text-[10px] bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                  <span className="text-2xs bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                     <Check className="h-2.5 w-2.5" weight="bold" /> Done
                   </span>
                 )
@@ -478,7 +478,7 @@ export default function HomePage() {
                 </>
               }
             >
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 {torrent.status === "seeding" && (
                   <span className="text-green-600 dark:text-green-400">&uarr; {formatSpeed(torrent.uploadSpeed)} &middot; </span>
                 )}
@@ -555,14 +555,14 @@ export default function HomePage() {
               >
                 <p className="text-sm font-medium leading-tight line-clamp-1 group-hover:text-foreground">{rule.name}</p>
                 <div className="mt-2">
-                  <span className="text-[10px] bg-automation/15 text-automation px-1.5 py-0.5 rounded-full">
+                  <span className="text-2xs bg-automation/15 text-automation px-1.5 py-0.5 rounded-full">
                     {rule.triggerType.replace(":", " ")}
                   </span>
                 </div>
-                <p className="mt-2 text-[11px] text-muted-foreground line-clamp-3 flex-1">
+                <p className="mt-2 text-2xs text-muted-foreground line-clamp-3 flex-1">
                   {rule.prompt}
                 </p>
-                <p className="mt-2 text-[10px] text-muted-foreground">
+                <p className="mt-2 text-2xs text-muted-foreground">
                   Triggered {rule.triggerCount} time{rule.triggerCount !== 1 ? "s" : ""}
                 </p>
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2 gap-1.5">

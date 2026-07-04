@@ -425,7 +425,7 @@ export default function TorrentDetailPage() {
                           className="flex-1"
                           label={`${file.name}: ${filePct}%`}
                         />
-                        <span className="text-[11px] tabular-nums text-muted-foreground w-9 text-right">
+                        <span className="text-2xs tabular-nums text-muted-foreground w-9 text-right">
                           {filePct}%
                         </span>
                       </div>
@@ -472,7 +472,7 @@ export default function TorrentDetailPage() {
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="font-mono text-xs uppercase font-bold w-6">{sub.language}</span>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] rounded border ${
+                    <span className={`inline-flex items-center px-1.5 py-0.5 text-2xs rounded border ${
                       sub.status === "translated" || sub.status === "downloaded"
                         ? "bg-green-500/15 text-green-400 border-green-500/30"
                         : sub.status === "translating" || sub.status === "downloading"
@@ -484,7 +484,7 @@ export default function TorrentDetailPage() {
                       {sub.status}
                     </span>
                     {sub.isOriginal && (
-                      <span className="text-[10px] text-muted-foreground">(original)</span>
+                      <span className="text-2xs text-muted-foreground">(original)</span>
                     )}
                   </div>
                   {sub.isOriginal && sub.status === "downloaded" && (
@@ -502,7 +502,7 @@ export default function TorrentDetailPage() {
                     </button>
                   )}
                   {sub.errorMessage && (
-                    <span className="text-[10px] text-red-400 truncate max-w-48">{sub.errorMessage}</span>
+                    <span className="text-2xs text-red-400 truncate max-w-48">{sub.errorMessage}</span>
                   )}
                 </div>
               ))}

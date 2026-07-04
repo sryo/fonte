@@ -94,7 +94,7 @@ export function EditAutomationModal({
             <label className="text-xs font-medium text-muted-foreground">Last response</label>
             {lastResponse ? (
               <div className="mt-1.5 rounded-md border bg-muted/30 px-3 py-2 max-h-40 overflow-y-auto">
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-2xs text-muted-foreground">
                   {formatRelativeTime(lastResponse.ts)}
                 </p>
                 <p className="mt-1 text-xs whitespace-pre-wrap leading-relaxed">
@@ -114,7 +114,7 @@ export function EditAutomationModal({
             ) : (
               <ul className="mt-1.5 space-y-1 max-h-32 overflow-y-auto">
                 {logs.slice(0, 10).map((log) => (
-                  <li key={log.id} className="flex items-center justify-between gap-2 text-[11px]">
+                  <li key={log.id} className="flex items-center justify-between gap-2 text-2xs">
                     <span className={log.conditionsMet ? "text-foreground" : "text-destructive"}>
                       {log.triggerEvent}{log.errorMessage ? ` — ${log.errorMessage}` : ""}
                     </span>

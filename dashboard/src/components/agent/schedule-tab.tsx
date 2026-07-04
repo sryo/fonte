@@ -350,7 +350,7 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
               </Badge>
             ))}
           </div>
-          <span className="text-[10px] text-muted-foreground shrink-0">
+          <span className="text-2xs text-muted-foreground shrink-0">
             {schedules.length} schedule(s)
           </span>
         </div>
@@ -566,7 +566,7 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
                         type="button"
                         variant={formDays.includes(i) ? "default" : "outline"}
                         size="icon"
-                        className="h-8 w-8 rounded-full text-[11px] font-medium"
+                        className="h-8 w-8 rounded-full text-2xs font-medium"
                         onClick={() =>
                           setFormDays(prev =>
                             prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i].sort()
@@ -609,7 +609,7 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
                       className="font-mono text-sm"
                       autoFocus
                     />
-                    <p className="text-[10px] text-muted-foreground mt-1">
+                    <p className="text-2xs text-muted-foreground mt-1">
                       minute hour day-of-month month day-of-week
                     </p>
                   </div>
@@ -633,7 +633,7 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
               </div>
 
               {formError && (
-                <p className="text-[11px] text-destructive">{formError}</p>
+                <p className="text-2xs text-destructive">{formError}</p>
               )}
               <div className="flex justify-end gap-2 pt-1">
                 <Button

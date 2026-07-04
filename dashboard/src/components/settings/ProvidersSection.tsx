@@ -98,7 +98,7 @@ export function ProvidersSection() {
 
         {/* Built-in chips */}
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">Built-in</p>
+          <p className="text-2xs uppercase tracking-wider text-muted-foreground mb-1.5">Built-in</p>
           <div className="flex flex-wrap gap-1.5">
             {BUILTIN_PROVIDERS.map((p) => (
               <span
@@ -112,7 +112,7 @@ export function ProvidersSection() {
         </div>
 
         {entries.length > 0 && (
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Custom</p>
+          <p className="text-2xs uppercase tracking-wider text-muted-foreground">Custom</p>
         )}
 
         {/* Provider list */}
@@ -122,14 +122,14 @@ export function ProvidersSection() {
               <div key={id} className="flex items-center justify-between gap-3 py-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded shrink-0">{p.name}</code>
-                  <span className="text-[10px] font-medium uppercase tracking-wider bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
+                  <span className="text-2xs font-medium uppercase tracking-wider bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
                     {p.harness}
                   </span>
                   <span className="text-xs text-muted-foreground truncate">
                     {p.base_url.replace(/https?:\/\//, "").slice(0, 40)}
                   </span>
                   {p.model && (
-                    <span className="text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
+                    <span className="text-2xs font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded shrink-0">
                       {p.model}
                     </span>
                   )}

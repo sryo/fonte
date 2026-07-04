@@ -29,7 +29,7 @@ export function SystemPromptTab({
           <CardTitle className="text-sm flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
             System Prompt
-            <span className="text-[10px] text-muted-foreground font-normal">
+            <span className="text-2xs text-muted-foreground font-normal">
               AGENTS.md
             </span>
           </CardTitle>
@@ -39,7 +39,7 @@ export function SystemPromptTab({
             <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
             <p className="text-xs text-muted-foreground">
               Loaded from{" "}
-              <code className="bg-muted px-1 py-0.5 font-mono text-[10px]">
+              <code className="bg-muted px-1 py-0.5 font-mono text-2xs">
                 {filePath || "AGENTS.md"}
               </code>{" "}
               in the agent workspace. Changes are saved back to this file.
@@ -56,7 +56,7 @@ export function SystemPromptTab({
               <label className="text-xs font-medium text-muted-foreground">
                 Agent Instructions
               </label>
-              <p className="text-[11px] text-muted-foreground/70 mb-2">
+              <p className="text-2xs text-muted-foreground/70 mb-2">
                 This is the agent&apos;s AGENTS.md file — it defines behavior,
                 team communication, memory index, and other persistent
                 instructions.
@@ -69,7 +69,7 @@ export function SystemPromptTab({
                 className="text-sm font-mono"
               />
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-2xs text-muted-foreground">
                   {content.length} characters &middot;{" "}
                   {content.split("\n").length} lines
                 </span>
