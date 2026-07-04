@@ -225,6 +225,67 @@ describe('pauseTorrent', () => {
     });
 });
 
+describe('addTorrent duplicate handling', () => {
+    const hex = '0123456789abcdef0123456789abcdef01234567';
+    const magnet = `magnet:?xt=urn:btih:${hex}&dn=Re-Add+Me`;
+
+    // Fake RPC for the add flow: torrent-add resolves to the real hash,
+    // torrent-get returns no files so syncTorrentFiles no-ops.
+    function managerWithAdd(hashString: string) {
+        const manager = new TM.TorrentManager();
+        (manager as any).rpc = {
+            call: async (method: string) => {
+                if (method === 'torrent-add') return { 'torrent-added': { id: 7, hashString, name: 'Re-Add Me' } };
+                if (method === 'torrent-get') return { torrents: [] };
+                return {};
+            },
+        };
+        return manager;
+    }
+
+    it('re-adds a magnet whose previous record was removed with files kept', async () => {
+        const manager = managerWithAdd(hex);
+        const first = await manager.addTorrent(magnet, { savePath: '/downloads' });
+        await manager.removeTorrent(first.id);
+        expect(db.getTorrent(first.id)?.status).toBe('removed');
+
+        const second = await manager.addTorrent(magnet, { savePath: '/downloads' });
+        expect(second.id).not.toBe(first.id);
+        expect(second.infoHash).toBe(hex);
+        expect(second.status).toBe('downloading');
+        expect(db.getTorrent(first.id)).toBeUndefined();
+        expect(db.getTorrents()).toHaveLength(1);
+    });
+
+    it('re-adds via the temp-hash path when the tombstone holds the real hash', async () => {
+        const manager = managerWithAdd(hex);
+        const first = await manager.addTorrent(magnet, { savePath: '/downloads' });
+        await manager.removeTorrent(first.id);
+
+        // A .torrent buffer carries no magnet hash, so the insert runs under
+        // a temp hash and only collides at the info-hash update.
+        const second = await manager.addTorrent(Buffer.from('d4:infoe'), { savePath: '/downloads' });
+        expect(second.infoHash).toBe(hex);
+        expect(db.getTorrent(first.id)).toBeUndefined();
+        expect(db.getTorrents()).toHaveLength(1);
+    });
+
+    it('still rejects a duplicate of an active record', async () => {
+        const manager = managerWithAdd(hex);
+        await manager.addTorrent(magnet, { savePath: '/downloads' });
+        await expect(manager.addTorrent(magnet, { savePath: '/downloads' })).rejects.toThrow(/already exists/);
+        expect(db.getTorrents()).toHaveLength(1);
+    });
+
+    it('rejects a temp-hash duplicate of an active record without leaving a junk row', async () => {
+        const manager = managerWithAdd(hex);
+        await manager.addTorrent(magnet, { savePath: '/downloads' });
+        await expect(manager.addTorrent(Buffer.from('d4:infoe'), { savePath: '/downloads' })).rejects.toThrow(/already exists/);
+        expect(db.getTorrents()).toHaveLength(1);
+        expect(db.getTorrents({ status: 'error' })).toHaveLength(0);
+    });
+});
+
 describe('buildTransmissionIdMap', () => {
     it('maps stopped records so resume works after a daemon restart', async () => {
         insertBasic('t1', { status: 'completed' });
