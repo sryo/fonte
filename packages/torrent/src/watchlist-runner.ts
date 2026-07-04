@@ -4,6 +4,7 @@ import { aggregateSearch, filterByTitle, rankResults, computeQualityMatch, extra
 import {
     getWatchlistEntries, updateWatchlistEntry,
     insertWatchlistResult, getWatchlistResultByMagnet, markResultSelected,
+    isOngoingWatch,
 } from './watchlist-db';
 import { getTorrentManager } from './torrent-manager';
 import { getTorrentByHash } from './torrent-db';
@@ -125,11 +126,10 @@ export async function runWatchlistCheck(): Promise<void> {
                                 markResultSelected(selected.id);
                             }
 
-                            const isOngoing = (entry.mediaType === 'tv' || entry.mediaType === 'music') && !entry.seasonPattern;
                             updateWatchlistEntry(entry.id, {
                                 lastMatchAt: now,
                                 matchedTorrentId: torrent.id,
-                                status: isOngoing ? 'watching' : 'fulfilled',
+                                status: isOngoingWatch(entry) ? 'watching' : 'fulfilled',
                             });
 
                             emitEvent(WATCHLIST_EVENTS.MATCH, {

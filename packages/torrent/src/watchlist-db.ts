@@ -3,6 +3,15 @@ import { WatchlistRecord, WatchlistResultRecord, WatchlistStatus, MediaType } fr
 
 // ── Watchlist CRUD ───────────────────────────────────────────────────────────
 
+/**
+ * An ongoing watch keeps matching new releases (episodes, tracks) after a
+ * grab; a bounded one (movie, or a specific season pattern) is fulfilled by
+ * its first match.
+ */
+export function isOngoingWatch(entry: Pick<WatchlistRecord, 'mediaType' | 'seasonPattern'>): boolean {
+    return (entry.mediaType === 'tv' || entry.mediaType === 'music') && !entry.seasonPattern;
+}
+
 export function insertWatchlistEntry(record: {
     id: string;
     title: string;
@@ -145,8 +154,8 @@ export function insertWatchlistResult(result: {
     }
 
     const info = getDb().prepare(`
-        INSERT INTO watchlist_results (watchlist_id, title, magnet_uri, seeders, leechers, size, quality_match, publish_date, indexer, found_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO watchlist_results (watchlist_id, title, magnet_uri, seeders, leechers, size, quality_match, publish_date, indexer, found_at, first_found_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
         result.watchlistId,
         result.title,
@@ -157,6 +166,7 @@ export function insertWatchlistResult(result: {
         result.qualityMatch,
         result.publishDate ?? null,
         result.indexer ?? null,
+        now,
         now,
     );
     return Number(info.lastInsertRowid);
@@ -186,6 +196,26 @@ export function markResultSelected(resultId: number): void {
     getDb().prepare('UPDATE watchlist_results SET was_selected = 1 WHERE id = ?').run(resultId);
 }
 
+/** Per-entry count of unselected results first found after the entry was last viewed. */
+export function getNewResultCounts(): Record<string, number> {
+    const rows = getDb().prepare(`
+        SELECT w.id AS id, COUNT(r.id) AS n
+        FROM watchlist w
+        JOIN watchlist_results r
+          ON r.watchlist_id = w.id
+         AND r.was_selected = 0
+         AND r.first_found_at > COALESCE(w.results_viewed_at, 0)
+        GROUP BY w.id
+    `).all() as { id: string; n: number }[];
+    const counts: Record<string, number> = {};
+    for (const row of rows) counts[row.id] = row.n;
+    return counts;
+}
+
+export function markWatchlistResultsViewed(id: string): void {
+    getDb().prepare('UPDATE watchlist SET results_viewed_at = ? WHERE id = ?').run(Date.now(), id);
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function rowToWatchlistRecord(row: any): WatchlistRecord {
@@ -204,6 +234,7 @@ function rowToWatchlistRecord(row: any): WatchlistRecord {
         lastMatchAt: row.last_match_at ?? undefined,
         matchedTorrentId: row.matched_torrent_id ?? undefined,
         posterUrl: row.poster_url ?? undefined,
+        resultsViewedAt: row.results_viewed_at ?? undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };

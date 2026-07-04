@@ -129,6 +129,19 @@ export function initTorrentDb(): void {
         db.exec('ALTER TABLE watchlist ADD COLUMN poster_url TEXT');
     }
 
+    // Migration: add results_viewed_at to watchlist
+    if (!wlCols.some(c => c.name === 'results_viewed_at')) {
+        db.exec('ALTER TABLE watchlist ADD COLUMN results_viewed_at INTEGER');
+    }
+
+    // Migration: add first_found_at to watchlist_results. found_at refreshes
+    // on every re-find, so it can't tell new results from re-found ones.
+    const wlResultCols = db.prepare("PRAGMA table_info(watchlist_results)").all() as { name: string }[];
+    if (!wlResultCols.some(c => c.name === 'first_found_at')) {
+        db.exec('ALTER TABLE watchlist_results ADD COLUMN first_found_at INTEGER');
+        db.exec('UPDATE watchlist_results SET first_found_at = found_at WHERE first_found_at IS NULL');
+    }
+
     // Migration: add poster_url to torrents
     const torrentCols = db.prepare("PRAGMA table_info(torrents)").all() as { name: string }[];
     if (!torrentCols.some(c => c.name === 'poster_url')) {

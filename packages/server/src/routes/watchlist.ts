@@ -3,6 +3,7 @@ import {
     insertWatchlistEntry, updateWatchlistEntry, getWatchlistEntry,
     getWatchlistEntries, deleteWatchlistEntry,
     getWatchlistResults, insertWatchlistResult, markResultSelected,
+    getNewResultCounts, markWatchlistResultsViewed, isOngoingWatch,
     getTorrentManager,
     runWatchlistCheck,
     aggregateSearch, filterByTitle, sortBySeedersThenSize, computeQualityMatch,
@@ -184,7 +185,9 @@ app.post('/api/watchlist', async (c) => {
 
 app.get('/api/watchlist', (c) => {
     const status = c.req.query('status') as WatchlistStatus | undefined;
-    const entries = getWatchlistEntries(status ? { status } : undefined);
+    const newCounts = getNewResultCounts();
+    const entries = getWatchlistEntries(status ? { status } : undefined)
+        .map(e => ({ ...e, newResultsCount: newCounts[e.id] ?? 0 }));
     return ok(c, { entries });
 });
 
@@ -288,12 +291,26 @@ app.post('/api/watchlist/:id/results/:rid/add', async (c) => {
         updateWatchlistEntry(id, {
             lastMatchAt: Date.now(),
             matchedTorrentId: torrent.id,
-            status: 'fulfilled',
+            // Same rule as the runner's auto-add: grabbing episodes from an
+            // ongoing series keeps it watching; bounded targets fulfill.
+            status: isOngoingWatch(entry) ? 'watching' : 'fulfilled',
         });
         return ok(c, { torrent });
     } catch (err) {
         return fail(c, (err as Error).message);
     }
+});
+
+// ── POST /api/watchlist/:id/results/viewed — reset the new-results count ─
+
+app.post('/api/watchlist/:id/results/viewed', (c) => {
+    const id = c.req.param('id');
+    const entry = getWatchlistEntry(id);
+    if (!entry) {
+        return fail(c, 'Watchlist entry not found', 404);
+    }
+    markWatchlistResultsViewed(id);
+    return ok(c);
 });
 
 // ── POST /api/watchlist/check — trigger global check ─────────────────────

@@ -68,6 +68,9 @@ export interface WatchlistRecord {
     lastMatchAt?: number;
     matchedTorrentId?: string;
     posterUrl?: string;
+    resultsViewedAt?: number;
+    /** API enrichment on list responses: unselected results first found after resultsViewedAt. */
+    newResultsCount?: number;
     createdAt: number;
     updatedAt: number;
 }

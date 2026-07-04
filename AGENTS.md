@@ -58,12 +58,15 @@ A torrent is fully downloaded iff `progress` is 1 — check that, not `status ==
 ## Watchlist (auto-monitor)
 
 ```
-POST   /api/watchlist             Add: {"title": "...", "year": 2025, "mediaType": "movie"}
-GET    /api/watchlist             List
-POST   /api/watchlist/:id/search  Trigger search now
-POST   /api/watchlist/check       Check all entries now
-DELETE /api/watchlist/:id         Remove
+POST   /api/watchlist                     Add: {"title": "...", "year": 2025, "mediaType": "movie"}
+GET    /api/watchlist                     List (entries carry newResultsCount)
+POST   /api/watchlist/:id/search          Trigger search now
+POST   /api/watchlist/:id/results/viewed  Reset the entry's newResultsCount
+POST   /api/watchlist/check               Check all entries now
+DELETE /api/watchlist/:id                 Remove
 ```
+
+Grabbing a result from an ongoing watch (tv/music with no seasonPattern) keeps the entry `watching`; movies and season-pattern entries become `fulfilled`.
 
 ## Subtitles
 
