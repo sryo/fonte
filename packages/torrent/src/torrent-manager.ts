@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import { execFile } from 'child_process';
 import { log, emitEvent } from '@fonte/core';
 import { genId } from '@fonte/core';
 import { TorrentConfig, TorrentRecord, TorrentFileRecord, TorrentStats, TorrentStatus } from './types';
@@ -25,6 +26,31 @@ const DEFAULT_CONFIG: TorrentConfig = {
     port: 0,
     dht: true,
 };
+
+// transmission-create ships with the transmission-cli brew formula; launchd's
+// PATH may not include homebrew, hence the absolute fallbacks.
+const TRANSMISSION_CREATE_BINS = [
+    'transmission-create',
+    '/opt/homebrew/bin/transmission-create',
+    '/usr/local/bin/transmission-create',
+];
+
+function execTransmissionCreate(args: string[]): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const tryBin = (i: number) => {
+            if (i >= TRANSMISSION_CREATE_BINS.length) {
+                reject(new Error('transmission-create not found — install the transmission-cli brew formula'));
+                return;
+            }
+            execFile(TRANSMISSION_CREATE_BINS[i], args, (err, _stdout, stderr) => {
+                if (!err) return resolve();
+                if ((err as NodeJS.ErrnoException).code === 'ENOENT') return tryBin(i + 1);
+                reject(new Error(`transmission-create failed: ${stderr?.trim() || err.message}`));
+            });
+        };
+        tryBin(0);
+    });
+}
 
 // ── Torrent Manager ───────────────────────────────────────────────────────────
 
@@ -85,11 +111,11 @@ export class TorrentManager {
 
     // ── Public Operations ─────────────────────────────────────────────────────
 
-    async addTorrent(source: string | Buffer): Promise<TorrentRecord> {
+    async addTorrent(source: string | Buffer, opts: { savePath?: string } = {}): Promise<TorrentRecord> {
         if (!this.rpc) throw new Error('TorrentManager not started');
 
         const id = genId('tor');
-        const savePath = this.config.download_dir;
+        const savePath = opts.savePath ?? this.config.download_dir;
 
         let magnetUri: string | undefined;
         if (typeof source === 'string') {
@@ -155,6 +181,59 @@ export class TorrentManager {
 
         emitEvent(TORRENT_EVENTS.ADDED, { id, infoHash: tempHash, magnetUri });
         return getTorrent(id)!;
+    }
+
+    /**
+     * Build a .torrent for content that already exists on disk and hand it to
+     * Transmission, which verifies the data and seeds it. Returns the record
+     * plus a shareable magnet link built from the resolved info hash.
+     */
+    async createTorrent(sourcePath: string, trackers: string[] = []): Promise<{ torrent: TorrentRecord; magnetUri: string; warning?: string }> {
+        if (!this.rpc) throw new Error('TorrentManager not started');
+        if (!fs.existsSync(sourcePath)) throw new Error(`Path not found: ${sourcePath}`);
+
+        const outFile = path.join(require('os').tmpdir(), `fonte-create-${Date.now()}.torrent`);
+        const args = ['-o', outFile];
+        for (const tracker of trackers) {
+            args.push('-t', tracker);
+        }
+        args.push(sourcePath);
+
+        try {
+            await execTransmissionCreate(args);
+            const metainfo = fs.readFileSync(outFile);
+            const torrent = await this.addTorrent(metainfo, { savePath: path.dirname(sourcePath) });
+
+            const record = getTorrent(torrent.id)!;
+            const params = [`xt=urn:btih:${record.infoHash}`, `dn=${encodeURIComponent(record.name || path.basename(sourcePath))}`];
+            for (const tracker of trackers) {
+                params.push(`tr=${encodeURIComponent(tracker)}`);
+            }
+            const magnetUri = `magnet:?${params.join('&')}`;
+            updateTorrent(torrent.id, { magnetUri });
+
+            // Transmission verifies readable data instantly; still 0% after a
+            // beat means it can't see the files — on macOS typically TCC
+            // blocking the daemon from reading Downloads/Desktop/Documents.
+            let warning: string | undefined;
+            const tId = this.transmissionIds.get(torrent.id);
+            if (tId !== undefined) {
+                await new Promise(r => setTimeout(r, 2500));
+                try {
+                    const res = await this.rpc!.call('torrent-get', { ids: [tId], fields: ['percentDone'] });
+                    const pct = res.torrents?.[0]?.percentDone ?? 0;
+                    if (pct < 1) {
+                        warning = 'Transmission cannot read the data yet. If the path is under Downloads, Desktop, or Documents, grant Transmission Full Disk Access (or keep seedable content elsewhere), then Verify.';
+                        log('WARN', `Created torrent not verified at ${sourcePath} — likely unreadable by transmission-daemon (TCC)`);
+                    }
+                } catch { /* status check is best-effort */ }
+            }
+
+            log('INFO', `Created torrent for ${sourcePath} (${record.infoHash})`);
+            return { torrent: getTorrent(torrent.id)!, magnetUri, warning };
+        } finally {
+            try { fs.rmSync(outFile, { force: true }); } catch {}
+        }
     }
 
     async pauseTorrent(id: string): Promise<void> {

@@ -31,6 +31,10 @@ export async function addTorrent(data: { magnetUri?: string; infoHash?: string; 
   return apiFetch("/api/torrents", { method: "POST", body: JSON.stringify(data) });
 }
 
+export async function createTorrent(data: { path: string; trackers?: string[] }): Promise<{ ok: boolean; torrent: TorrentRecord; magnetUri: string; warning?: string }> {
+  return apiFetch("/api/torrents/create", { method: "POST", body: JSON.stringify(data) });
+}
+
 export async function pauseTorrent(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/torrents/${encodeURIComponent(id)}/pause`, { method: "POST" });
 }

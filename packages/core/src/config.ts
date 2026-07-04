@@ -102,6 +102,18 @@ export function validateSettings(raw: unknown): { settings: Settings; warnings: 
 
 let warnedSettingsOnce = false;
 
+/** Expand ~ and $HOME prefixes in a user-supplied path. */
+export function expandHomePath(input?: string): string | undefined {
+    if (!input) return input;
+    const home = process.env.HOME || require('os').homedir();
+    if (!home) return input;
+    if (input === '~') return home;
+    if (input.startsWith('~/')) return path.join(home, input.slice(2));
+    if (input === '$HOME') return home;
+    if (input.startsWith('$HOME/')) return path.join(home, input.slice(6));
+    return input;
+}
+
 export function getSettings(): Settings {
     try {
         const settingsData = fs.readFileSync(SETTINGS_FILE, 'utf8');

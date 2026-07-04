@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { getTorrentManager, parseTorrentName, searchReleases, computeQualityMatch } from '@fonte/torrent';
 import type { TorrentStatus } from '@fonte/torrent';
-import { log } from '@fonte/core';
+import { log, expandHomePath } from '@fonte/core';
 import { ok, fail } from '../http';
 
 const app = new Hono();
@@ -24,6 +24,25 @@ app.post('/api/torrents', async (c) => {
     } catch (err) {
         const msg = (err as Error).message;
         log('ERROR', `[torrents] Add failed: ${msg}`);
+        return fail(c, msg);
+    }
+});
+
+// POST /api/torrents/create — build a .torrent from a local path and seed it
+app.post('/api/torrents/create', async (c) => {
+    try {
+        const body = await c.req.json() as { path?: string; trackers?: string[] };
+        const sourcePath = expandHomePath(body.path?.trim());
+        if (!sourcePath) {
+            return fail(c, 'path required');
+        }
+
+        const manager = getTorrentManager();
+        const { torrent, magnetUri, warning } = await manager.createTorrent(sourcePath, body.trackers ?? []);
+        return ok(c, { torrent, magnetUri, warning });
+    } catch (err) {
+        const msg = (err as Error).message;
+        log('ERROR', `[torrents] Create failed: ${msg}`);
         return fail(c, msg);
     }
 });

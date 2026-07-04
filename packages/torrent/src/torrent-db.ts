@@ -198,6 +198,7 @@ export function updateTorrent(id: string, fields: Partial<{
     errorMessage: string;
     tags: string[];
     posterUrl: string;
+    magnetUri: string;
 }>): void {
     const sets: string[] = [];
     const values: any[] = [];
@@ -214,6 +215,7 @@ export function updateTorrent(id: string, fields: Partial<{
     if (fields.completedAt !== undefined) { sets.push('completed_at = ?'); values.push(fields.completedAt); }
     if (fields.errorMessage !== undefined) { sets.push('error_message = ?'); values.push(fields.errorMessage); }
     if (fields.tags !== undefined) { sets.push('tags = ?'); values.push(JSON.stringify(fields.tags)); }
+    if (fields.magnetUri !== undefined) { sets.push('magnet_uri = ?'); values.push(fields.magnetUri); }
     if (fields.posterUrl !== undefined) { sets.push('poster_url = ?'); values.push(fields.posterUrl); }
 
     if (sets.length === 0) return;

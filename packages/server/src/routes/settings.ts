@@ -1,9 +1,8 @@
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { Hono } from 'hono';
 import { Settings } from '@fonte/core';
-import { SETTINGS_FILE, FONTE_HOME, getSettings, validateSettings, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@fonte/core';
+import { SETTINGS_FILE, FONTE_HOME, getSettings, validateSettings, expandHomePath, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@fonte/core';
 import { log } from '@fonte/core';
 import { ok, fail } from '../http';
 
@@ -16,17 +15,6 @@ export function mutateSettings(fn: (settings: Settings) => void): Settings {
 }
 
 const app = new Hono();
-
-function expandHomePath(input?: string): string | undefined {
-    if (!input) return input;
-    const home = process.env.HOME || os.homedir();
-    if (!home) return input;
-    if (input === '~') return home;
-    if (input.startsWith('~/')) return path.join(home, input.slice(2));
-    if (input === '$HOME') return home;
-    if (input.startsWith('$HOME/')) return path.join(home, input.slice(6));
-    return input;
-}
 
 // GET /api/settings
 app.get('/api/settings', (c) => {

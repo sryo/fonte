@@ -166,6 +166,11 @@ export default function TorrentDetailPage() {
                 <DropdownMenuItem onClick={handleVerify} disabled={actionLoading}>Verify</DropdownMenuItem>
                 <DropdownMenuItem onClick={handleReannounce} disabled={actionLoading}>Update trackers</DropdownMenuItem>
                 <DropdownMenuItem onClick={handleFindAlternatives} disabled={altSearching}>Find alternatives</DropdownMenuItem>
+                {torrent.magnetUri && (
+                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(torrent.magnetUri!)}>
+                    Copy magnet
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </>
