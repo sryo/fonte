@@ -117,6 +117,13 @@ export function getSettings(): Settings {
                 const repaired = jsonrepair(settingsData);
                 parsed = JSON.parse(repaired);
 
+                if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+                    // jsonrepair can turn garbage into a valid non-object (e.g. a
+                    // string literal) — don't overwrite the file with that.
+                    console.error(`[ERROR] settings.json repaired to a non-object — leaving the file untouched`);
+                    return {};
+                }
+
                 // Write the fixed JSON back and create a backup
                 const backupPath = SETTINGS_FILE + '.bak';
                 fs.copyFileSync(SETTINGS_FILE, backupPath);

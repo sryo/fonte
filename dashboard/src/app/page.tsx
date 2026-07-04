@@ -8,7 +8,6 @@ import {
   getTorrents,
   getWatchlist,
   getAutomations,
-  getTorrentStats,
   getIndexerStatus,
   removeTorrent,
   deleteWatchlistEntry,
@@ -23,7 +22,6 @@ import type {
   TorrentRecord,
   WatchlistRecord,
   AutomationRule,
-  TorrentStats,
   IndexerStatus,
 } from "@/lib/api";
 import {
@@ -67,7 +65,6 @@ export default function HomePage() {
   const [torrents, setTorrents] = useState<TorrentRecord[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistRecord[]>([]);
   const [automations, setAutomations] = useState<AutomationRule[]>([]);
-  const [stats, setStats] = useState<TorrentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [indexerStatus, setIndexerStatus] = useState<IndexerStatus | null>(null);
   const [showAddWatchlist, setShowAddWatchlist] = useState(false);
@@ -93,17 +90,15 @@ export default function HomePage() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [torrentsRes, watchlistRes, automationsRes, statsRes] = await Promise.all([
+      const [torrentsRes, watchlistRes, automationsRes] = await Promise.all([
         getTorrents(),
         getWatchlist(),
         getAutomations(),
-        getTorrentStats(),
       ]);
       recordProgress(torrentsRes.torrents);
       setTorrents(filterHidden(torrentsRes.torrents));
       setWatchlist(filterHidden(watchlistRes.entries));
       setAutomations(automationsRes.rules);
-      setStats(statsRes);
     } catch {
       /* silently ignore */
     } finally {

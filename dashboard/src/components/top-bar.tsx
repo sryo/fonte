@@ -64,6 +64,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [jumpPool, setJumpPool] = useState<JumpItem[] | null>(null);
+  const [jumpOpen, setJumpOpen] = useState(false);
   const [selIdx, setSelIdx] = useState(-1);
   const [toast, setToast] = useState<{
     message: string;
@@ -96,6 +97,8 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         !searchWrapperRef.current.contains(e.target as Node)
       ) {
         setResults([]);
+        setJumpOpen(false);
+        setSelIdx(-1);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -144,6 +147,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
       setInput("");
       setResults([]);
       setJumpPool(null);
+      setJumpOpen(false);
       setSelIdx(-1);
       inputRef.current?.blur();
     },
@@ -271,18 +275,24 @@ export function TopBar({ onOpenChat }: TopBarProps) {
               const v = e.target.value;
               setInput(v);
               setSelIdx(-1);
-              if (v.trim().length >= 2) ensureJumpPool();
-              else if (!v.trim()) setJumpPool(null);
+              if (v.trim().length >= 2) {
+                ensureJumpPool();
+                setJumpOpen(true);
+              } else {
+                setJumpOpen(false);
+                if (!v.trim()) setJumpPool(null);
+              }
             }}
             onKeyDown={(e) => {
-              if (e.key === "ArrowDown" && jumpMatches.length) {
+              if (e.key === "ArrowDown" && jumpOpen && jumpMatches.length) {
                 e.preventDefault();
                 setSelIdx((i) => Math.min(i + 1, jumpMatches.length - 1));
-              } else if (e.key === "ArrowUp" && jumpMatches.length) {
+              } else if (e.key === "ArrowUp" && jumpOpen && jumpMatches.length) {
                 e.preventDefault();
                 setSelIdx((i) => Math.max(i - 1, -1));
               } else if (e.key === "Escape") {
                 setResults([]);
+                setJumpOpen(false);
                 setSelIdx(-1);
               } else if (e.key === "Enter") {
                 if (selIdx >= 0 && jumpMatches[selIdx]) jumpTo(jumpMatches[selIdx]);
@@ -323,9 +333,9 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         )}
 
         {/* Jump-to + search results dropdown */}
-        {(jumpMatches.length > 0 || results.length > 0) && (
+        {((jumpOpen && jumpMatches.length > 0) || results.length > 0) && (
           <div className="absolute w-full bg-card rounded-xl shadow-card mt-1 max-h-72 overflow-y-auto z-40">
-            {jumpMatches.length > 0 && (
+            {jumpOpen && jumpMatches.length > 0 && (
               <div className="border-b last:border-b-0">
                 <p className="px-4 pt-2 pb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
                   Jump to
