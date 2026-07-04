@@ -35,11 +35,11 @@ export function usePoofRemoval(refetch: () => void) {
   const poofThenRemove = useCallback(
     (ids: string[], remove: (id: string) => Promise<unknown>) => {
       if (ids.length === 0) return;
-      ids.forEach((id) => hiddenIdsRef.current.add(id));
       const reduce =
         typeof window !== "undefined" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (reduce) {
+        ids.forEach((id) => hiddenIdsRef.current.add(id));
         removeAll(ids, remove).then(() => refetch());
         return;
       }
@@ -52,6 +52,11 @@ export function usePoofRemoval(refetch: () => void) {
       });
       const maxDelay = Math.round((ids.length - 1) * stagger);
       window.setTimeout(async () => {
+        // Hide only now: while the poof plays the items still exist
+        // server-side, so polls must keep returning them or the cards
+        // unmount mid-animation. Hiding before the delete still prevents
+        // an in-flight poll from resurrecting them afterwards.
+        ids.forEach((id) => hiddenIdsRef.current.add(id));
         await removeAll(ids, remove);
         setExitingIds((prev) => {
           const next = new Map(prev);

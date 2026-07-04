@@ -195,6 +195,14 @@ body {
   animation: card-enter 0.3s ease-out;
 }
 
+/* Reverse of card-enter, for cards stacking back into a pile. */
+@keyframes card-exit {
+  to { opacity: 0; transform: translateY(12px) scale(0.97); }
+}
+.animate-card-exit {
+  animation: card-exit 0.25s ease-in both;
+}
+
 @keyframes download-bounce {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(2px); }

@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Check, Play, Stop, Trash } from "@phosphor-icons/react";
+import { Play, Stop, Trash } from "@phosphor-icons/react";
 import { pauseTorrent, resumeTorrent, type TorrentRecord } from "@/lib/api";
 import { formatBytes, formatSpeed, formatShortRelativeTime } from "@/lib/format";
 import { MediaCard } from "@/components/home/media-card";
 import { CardAction } from "@/components/home/card-action";
+import { PosterBadge } from "@/components/home/poster-badge";
 
 // Poster card for a finished torrent (seeding, or completed = finished and stopped).
 export function CompletedCard({
@@ -30,21 +31,16 @@ export function CompletedCard({
       exitDelay={exitDelay}
       onClick={() => router.push(`/torrents/${torrent.id}`)}
       badges={
-        <span className="text-2xs bg-done/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-          <Check className="h-2.5 w-2.5" weight="bold" /> {torrent.status === "seeding" ? "Seeding" : "Done"}
-        </span>
+        <PosterBadge tone="done">{torrent.status === "seeding" ? "Seeding" : "Done"}</PosterBadge>
       }
-      actions={
-        <>
-          {torrent.status === "seeding" && (
-            <CardAction icon={Stop} label="Stop seeding" onClick={() => { pauseTorrent(torrent.id); onRefresh(); }} />
-          )}
-          {torrent.status === "completed" && (
-            <CardAction icon={Play} label="Seed" onClick={() => { resumeTorrent(torrent.id); onRefresh(); }} />
-          )}
-          <CardAction icon={Trash} label="Remove" destructive onClick={onPoofRemove} />
-        </>
+      primaryAction={
+        torrent.status === "seeding" ? (
+          <CardAction variant="primary" icon={Stop} label="Stop seeding" onClick={() => { pauseTorrent(torrent.id); onRefresh(); }} />
+        ) : (
+          <CardAction variant="primary" icon={Play} label="Seed" onClick={() => { resumeTorrent(torrent.id); onRefresh(); }} />
+        )
       }
+      secondaryAction={<CardAction icon={Trash} label="Remove" destructive onClick={onPoofRemove} />}
     >
       <p className="text-2xs text-muted-foreground">
         {torrent.status === "seeding" && (

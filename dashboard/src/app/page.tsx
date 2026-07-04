@@ -45,12 +45,13 @@ import {
   type TorrentPillKey,
 } from "@/lib/torrent-order";
 import { PillBar } from "@/components/home/pill-bar";
-import { SortDropdown } from "@/components/home/sort-dropdown";
+import { SortDropdown } from "@/components/shared/sort-dropdown";
 import { EmptyRowCard } from "@/components/home/empty-row-card";
 import { AddTorrentCard } from "@/components/home/add-torrent-card";
 import { ContentRow } from "@/components/home/content-row";
 import { TorrentCard } from "@/components/home/torrent-card";
 import { WatchlistCard } from "@/components/home/watchlist-card";
+import { FulfilledTray } from "@/components/home/fulfilled-tray";
 import { CompletedCard } from "@/components/home/completed-card";
 import { AutomationCard } from "@/components/home/automation-card";
 import { IndexerBanner } from "@/components/home/indexer-banner";
@@ -181,20 +182,29 @@ export default function HomePage() {
   // ── Derived data ───────────────────────────────────────────────────────
 
   const lane = torrents.filter((t) => t.status !== "removed");
-  const watchingEntries = watchlist.filter((w) => w.status === "watching");
+  // Every entry stays reachable from home; fulfilled ones pile into the tray.
+  const watchlistStatusRank = { watching: 0, paused: 1, fulfilled: 2 } as const;
+  const activeEntries = watchlist
+    .filter((w) => w.status !== "fulfilled")
+    .sort((a, b) => watchlistStatusRank[a.status] - watchlistStatusRank[b.status]);
+  const fulfilledEntries = watchlist
+    .filter((w) => w.status === "fulfilled")
+    .sort((a, b) => (b.lastMatchAt ?? b.updatedAt) - (a.lastMatchAt ?? a.updatedAt));
   const enabledAutomations = automations.filter((a) => a.enabled);
 
   const counts: Record<PillKey, number> = {
     ...countTorrentPills(lane),
     all: lane.length,
-    watching: watchingEntries.length,
+    watching: watchlist.length,
   };
 
   const pillPredicate = pill in TORRENT_PILL_PREDICATES
     ? TORRENT_PILL_PREDICATES[pill as TorrentPillKey]
     : null;
   const shownTorrents = sortTorrents(pillPredicate ? lane.filter(pillPredicate) : lane, sort);
-  const finishedCompleted = lane.filter((t) => t.status === "completed");
+  // "Finished" in the user's sense: done downloading, whether still seeding
+  // or stopped — the same set the Finished pill shows.
+  const finishedClearable = lane.filter(isFinished);
 
   // A pill you can't see or that has drained falls back to All — one rule
   // covering both the last-error-resolved case and unchecking the pill
@@ -216,6 +226,18 @@ export default function HomePage() {
   const showPillRow = lane.length > 0 || watchlist.length > 0;
 
   // ── Render ─────────────────────────────────────────────────────────────
+
+  const renderWatchlistCard = (entry: WatchlistRecord) => (
+    <WatchlistCard
+      key={entry.id}
+      entry={entry}
+      exiting={exitingIds.has(entry.id)}
+      exitDelay={exitingIds.get(entry.id)}
+      searching={searchingWlIds.has(entry.id)}
+      onSearch={() => searchWatchlistEntry(entry.id)}
+      onPoofRemove={() => poofThenRemove([entry.id], deleteWatchlistEntry)}
+    />
+  );
 
   if (loading) {
     return (
@@ -250,11 +272,11 @@ export default function HomePage() {
           emptyContent={<AddTorrentCard onAdded={fetchAll} />}
           action={
             <div className="flex items-center gap-1">
-              {pill === "finished" && finishedCompleted.length > 0 && (
+              {finishedClearable.length > 0 && (
                 <button
                   onClick={() => {
-                    if (!confirm(`Clear ${finishedCompleted.length} finished record${finishedCompleted.length === 1 ? "" : "s"}? Downloaded files stay on disk.`)) return;
-                    poofThenRemove(finishedCompleted.map((t) => t.id), removeTorrent);
+                    if (!confirm(`Clear ${finishedClearable.length} finished torrent${finishedClearable.length === 1 ? "" : "s"}? Seeding stops; downloaded files stay on disk.`)) return;
+                    poofThenRemove(finishedClearable.map((t) => t.id), removeTorrent);
                   }}
                   className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
                 >
@@ -262,7 +284,12 @@ export default function HomePage() {
                   Clear
                 </button>
               )}
-              <SortDropdown value={sort} onChange={setSort} />
+              <SortDropdown
+                value={sort}
+                onChange={setSort}
+                options={SORT_OPTIONS}
+                ariaLabel={`Sort downloads, currently ${SORT_OPTIONS.find((o) => o.key === sort)?.label ?? sort}`}
+              />
               <AddTorrentCard variant="action" onAdded={fetchAll} />
             </div>
           }
@@ -296,9 +323,9 @@ export default function HomePage() {
       {showWatching && (
         <ContentRow
           title="Watchlist"
-          count={watchingEntries.length}
+          count={watchlist.length}
           icon={Eye}
-          isEmpty={watchingEntries.length === 0}
+          isEmpty={watchlist.length === 0}
           emptyContent={
             <EmptyRowCard
               icon={Eye}
@@ -317,17 +344,16 @@ export default function HomePage() {
             </button>
           }
         >
-          {watchingEntries.map((entry) => (
-            <WatchlistCard
-              key={entry.id}
-              entry={entry}
-              exiting={exitingIds.has(entry.id)}
-              exitDelay={exitingIds.get(entry.id)}
-              searching={searchingWlIds.has(entry.id)}
-              onSearch={() => searchWatchlistEntry(entry.id)}
-              onPoofRemove={() => poofThenRemove([entry.id], deleteWatchlistEntry)}
-            />
-          ))}
+          {activeEntries.map(renderWatchlistCard)}
+          {fulfilledEntries.length > 0 && (
+            <FulfilledTray
+              count={fulfilledEntries.length}
+              posterUrl={fulfilledEntries[0].posterUrl}
+              onClear={() => poofThenRemove(fulfilledEntries.map((e) => e.id), deleteWatchlistEntry)}
+            >
+              {fulfilledEntries.map(renderWatchlistCard)}
+            </FulfilledTray>
+          )}
         </ContentRow>
       )}
 

@@ -35,6 +35,16 @@ export const TONE_TEXT: Record<Tone, string> = {
   neutral: "text-muted-foreground",
 };
 
+/** Solid dot colors for on-poster badges, where tinted text is unreadable. */
+export const TONE_DOT: Record<Tone, string> = {
+  active: "bg-torrent",
+  watch: "bg-watchlist",
+  done: "bg-done",
+  warn: "bg-warning",
+  error: "bg-destructive",
+  neutral: "bg-muted-foreground",
+};
+
 export const TONE_BADGE: Record<Tone, string> = {
   active: "bg-torrent/15 text-torrent",
   watch: "bg-watchlist/15 text-watchlist",

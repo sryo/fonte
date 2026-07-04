@@ -37,7 +37,7 @@ export function DetailHero({
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2 p-4">
-        <h1 className="text-lg font-semibold leading-tight line-clamp-2">
+        <h1 className="text-lg font-semibold leading-tight line-clamp-2" title={title}>
           {title}
           {titleSuffix && <span className="ml-1.5 font-normal text-muted-foreground">{titleSuffix}</span>}
         </h1>

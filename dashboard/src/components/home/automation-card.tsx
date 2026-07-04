@@ -28,7 +28,7 @@ export function AutomationCard({
       onKeyDown={(e) => { if (e.key === "Enter") onEdit(); }}
       className="w-56 rounded-xl shadow-card bg-card p-4 flex flex-col text-left hover:bg-accent/50 transition-colors group cursor-pointer relative overflow-hidden"
     >
-      <p className="text-sm font-medium leading-tight line-clamp-1 group-hover:text-foreground">{rule.name}</p>
+      <p className="text-sm font-medium leading-tight line-clamp-1 group-hover:text-foreground" title={rule.name}>{rule.name}</p>
       <div className="mt-2">
         <span className="text-2xs bg-automation/15 text-automation px-1.5 py-0.5 rounded-full">
           {rule.triggerType.replace(":", " ")}
@@ -40,20 +40,25 @@ export function AutomationCard({
       <p className="mt-2 text-2xs text-muted-foreground">
         Triggered {rule.triggerCount} time{rule.triggerCount !== 1 ? "s" : ""}
       </p>
-      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2 gap-1.5">
-        <CardAction
-          icon={Play}
-          label={running ? "Running…" : "Run now"}
-          onClick={onRun}
-        />
-        <CardAction
-          icon={Trash}
-          label="Delete"
-          destructive
-          onClick={() => {
-            if (confirm(`Delete "${rule.name}"?`)) onDelete();
-          }}
-        />
+      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <CardAction
+            variant="primary"
+            icon={Play}
+            label={running ? "Running…" : "Run now"}
+            onClick={onRun}
+          />
+        </div>
+        <div className="absolute bottom-2 right-2">
+          <CardAction
+            icon={Trash}
+            label="Delete"
+            destructive
+            onClick={() => {
+              if (confirm(`Delete "${rule.name}"?`)) onDelete();
+            }}
+          />
+        </div>
       </div>
       <ProgressRing busy={running} color="automation" />
     </div>

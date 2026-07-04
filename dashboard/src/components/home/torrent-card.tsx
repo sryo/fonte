@@ -4,9 +4,17 @@ import { useRouter } from "next/navigation";
 import { Pause, Play, Trash } from "@phosphor-icons/react";
 import { pauseTorrent, resumeTorrent, type TorrentRecord } from "@/lib/api";
 import { formatSpeed } from "@/lib/format";
+import { statusTone } from "@/lib/status";
 import { MediaCard } from "@/components/home/media-card";
 import { CardAction } from "@/components/home/card-action";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { PosterBadge } from "@/components/home/poster-badge";
+
+const STATUS_LABEL: Record<string, string> = {
+  paused: "Paused",
+  checking: "Checking",
+  adding: "Adding",
+  error: "Error",
+};
 
 // Poster card for any unfinished torrent (downloading, paused, checking,
 // adding, or errored).
@@ -35,25 +43,21 @@ export function TorrentCard({
       onClick={() => router.push(`/torrents/${torrent.id}`)}
       progress={{ value: torrent.progress, stalled: stalled || torrent.status === "paused" }}
       badges={
-        <>
-          <StatusBadge status={torrent.status} />
-          <span className="text-2xs bg-black/60 text-white px-1.5 py-0.5 rounded-full">
-            {Math.round(torrent.progress * 100)}%
-          </span>
-        </>
+        <PosterBadge tone={stalled ? "warn" : statusTone(torrent.status)}>
+          {STATUS_LABEL[torrent.status] ?? `${Math.round(torrent.progress * 100)}%`}
+        </PosterBadge>
       }
-      actions={
-        <>
-          {torrent.status === "downloading" && (
-            <CardAction icon={Pause} label="Pause" onClick={() => { pauseTorrent(torrent.id); onRefresh(); }} />
-          )}
-          {torrent.status === "paused" && (
-            <CardAction icon={Play} label="Resume" onClick={() => { resumeTorrent(torrent.id); onRefresh(); }} />
-          )}
-          <CardAction icon={Trash} label="Remove" destructive onClick={() => {
-            if (confirm(`Remove "${torrent.name}"?`)) onPoofRemove();
-          }} />
-        </>
+      primaryAction={
+        torrent.status === "downloading" ? (
+          <CardAction variant="primary" icon={Pause} label="Pause" onClick={() => { pauseTorrent(torrent.id); onRefresh(); }} />
+        ) : torrent.status === "paused" ? (
+          <CardAction variant="primary" icon={Play} label="Resume" onClick={() => { resumeTorrent(torrent.id); onRefresh(); }} />
+        ) : undefined
+      }
+      secondaryAction={
+        <CardAction icon={Trash} label="Remove" destructive onClick={() => {
+          if (confirm(`Remove "${torrent.name}"?`)) onPoofRemove();
+        }} />
       }
     >
       {torrent.status === "error" ? (

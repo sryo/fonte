@@ -8,7 +8,8 @@ export function MediaCard({
   posterUrl,
   title,
   badges,
-  actions,
+  primaryAction,
+  secondaryAction,
   onClick,
   children,
   progress,
@@ -20,7 +21,10 @@ export function MediaCard({
   posterUrl?: string;
   title: string;
   badges?: React.ReactNode;
-  actions?: React.ReactNode;
+  /** Contextual verb (pause, search, run…) — big and centered on hover. */
+  primaryAction?: React.ReactNode;
+  /** Remove/delete — small in the corner. */
+  secondaryAction?: React.ReactNode;
   onClick?: () => void;
   children?: React.ReactNode;
   progress?: { value: number; stalled?: boolean };
@@ -63,14 +67,19 @@ export function MediaCard({
             {badges}
           </div>
         )}
-        {actions && (
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2 gap-1.5">
-            {actions}
+        {(primaryAction || secondaryAction) && (
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+            {primaryAction && (
+              <div className="absolute inset-0 flex items-center justify-center">{primaryAction}</div>
+            )}
+            {secondaryAction && (
+              <div className="absolute bottom-2 right-2">{secondaryAction}</div>
+            )}
           </div>
         )}
       </div>
       <div className="p-3 space-y-1">
-        <p className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-foreground">{title}</p>
+        <p className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-foreground" title={title}>{title}</p>
         {children}
       </div>
       <ProgressRing progress={progress} busy={busy} color={ringColor} />

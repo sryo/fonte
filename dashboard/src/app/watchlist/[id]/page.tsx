@@ -10,12 +10,16 @@ import {
   addWatchlistResult,
   updateWatchlistEntry,
   deleteWatchlistEntry,
+  markWatchlistResultsViewed,
   type WatchlistRecord,
   type WatchlistResultRecord,
 } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
+import { sortReleases, RELEASE_SORT_OPTIONS, type ReleaseSortKey } from "@/lib/release-order";
+import { usePersistedState } from "@/hooks/use-persisted-state";
 import { DetailHero } from "@/components/shared/detail-hero";
 import { ReleaseList } from "@/components/shared/release-list";
+import { SortDropdown } from "@/components/shared/sort-dropdown";
 import { EditEntryModal, type EditEntryData } from "@/components/watchlist/edit-entry-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +43,11 @@ export default function WatchlistDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
+  const [resultSort, setResultSort] = usePersistedState<ReleaseSortKey>(
+    "fonte.release-sort",
+    "match",
+    (v): v is ReleaseSortKey => typeof v === "string" && RELEASE_SORT_OPTIONS.some((o) => o.key === v)
+  );
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState(false);
@@ -62,12 +71,15 @@ export default function WatchlistDetailPage() {
   useEffect(() => {
     mountedRef.current = true;
     fetchData();
+    // Opening the page counts as seeing its results; the home card's
+    // "N new" badge resets on the next poll.
+    markWatchlistResultsViewed(id).catch(() => {});
     const interval = setInterval(fetchData, 10000);
     return () => {
       mountedRef.current = false;
       clearInterval(interval);
     };
-  }, [fetchData]);
+  }, [fetchData, id]);
 
   const handleSearch = async () => {
     setSearching(true);
@@ -77,6 +89,7 @@ export default function WatchlistDetailPage() {
         setResults(res.results);
         setActionError(null);
       }
+      markWatchlistResultsViewed(id).catch(() => {});
       fetchData();
     } catch (err) {
       if (mountedRef.current) setActionError((err as Error).message);
@@ -242,17 +255,34 @@ export default function WatchlistDetailPage() {
         }
       />
 
-      <Section title="Search Results" count={results.length}>
-        <ReleaseList
-          results={results}
-          actionLabel="Add as Torrent"
-          keyOf={(r) => r.id}
-          isSelected={(r) => r.wasSelected}
-          onAction={(r) => handleAddResult(r.id)}
-          emptyState={
-            <EmptyState icon={MagnifyingGlass} title="No results yet" hint='Click "Search Now" to find matching releases.' />
-          }
-        />
+      <Section
+        title="Search Results"
+        count={results.length}
+        action={
+          results.length > 0 && (
+            <SortDropdown
+              value={resultSort}
+              onChange={setResultSort}
+              options={RELEASE_SORT_OPTIONS}
+              ariaLabel={`Sort results, currently ${RELEASE_SORT_OPTIONS.find((o) => o.key === resultSort)?.label ?? resultSort}`}
+            />
+          )
+        }
+      >
+        {searching ? (
+          <LoadingState label="Searching indexers…" />
+        ) : (
+          <ReleaseList
+            results={sortReleases(results, resultSort)}
+            actionLabel="Download"
+            keyOf={(r) => r.id}
+            isSelected={(r) => r.wasSelected}
+            onAction={(r) => handleAddResult(r.id)}
+            emptyState={
+              <EmptyState icon={MagnifyingGlass} title="No results yet" hint='Click "Search Now" to find matching releases.' />
+            }
+          />
+        )}
       </Section>
 
       {showEdit && (

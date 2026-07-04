@@ -46,3 +46,7 @@ export async function triggerWatchlistCheck(): Promise<{ ok: boolean }> {
 export async function addWatchlistResult(watchlistId: string, resultId: number): Promise<{ ok: boolean }> {
   return apiFetch(`/api/watchlist/${encodeURIComponent(watchlistId)}/results/${resultId}/add`, { method: "POST" });
 }
+
+export async function markWatchlistResultsViewed(id: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/watchlist/${encodeURIComponent(id)}/results/viewed`, { method: "POST" });
+}

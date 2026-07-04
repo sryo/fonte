@@ -55,7 +55,7 @@ export function ReleaseList<T extends ReleaseItem>({
         return (
           <div key={key} className="flex items-center gap-3 rounded-md border px-3 py-2">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{r.title}</p>
+              <p className="truncate text-sm font-medium" title={r.title}>{r.title}</p>
               <p className="text-xs text-muted-foreground tabular-nums">
                 ↑ {r.seeders} / {r.leechers} · {formatBytes(r.size)} ·{" "}
                 <span className={cn(TONE_TEXT[qualityTone(r.qualityMatch)])}>
