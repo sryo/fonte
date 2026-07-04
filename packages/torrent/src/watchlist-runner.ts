@@ -7,6 +7,7 @@ import {
 } from './watchlist-db';
 import { getTorrentManager } from './torrent-manager';
 import { getTorrentByHash } from './torrent-db';
+import { backfillPosters } from './poster-manager';
 import { WATCHLIST_EVENTS } from './watchlist-events';
 
 let watchlistJob: Cron | null = null;
@@ -18,6 +19,11 @@ export function startWatchlistRunner(intervalMinutes: number): void {
     watchlistJob = new Cron(cron, () => {
         runWatchlistCheck().catch(err => {
             log('ERROR', `Watchlist check failed: ${err.message}`);
+        });
+        // Poster retry piggybacks here so failed lookups get another shot
+        // without a scheduler of their own.
+        backfillPosters().catch(err => {
+            log('WARN', `Poster backfill failed: ${err.message}`);
         });
     });
 

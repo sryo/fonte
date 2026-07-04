@@ -10,7 +10,11 @@ import { parseTorrentName } from './subtitle-manager';
 async function fetchPoster(title: string, mediaType: 'movie' | 'tv', apiKey: string, year?: number): Promise<string | undefined> {
     try {
         const info = await searchTmdb({ title, year, mediaType, apiKey });
-        return info?.posterUrl;
+        if (!info?.posterUrl) {
+            log('INFO', `Poster: no TMDB ${mediaType} match for "${title}"${year ? ` (${year})` : ''}`);
+            return undefined;
+        }
+        return info.posterUrl;
     } catch (err) {
         log('WARN', `Poster: TMDB lookup failed for "${title}": ${(err as Error).message}`);
         return undefined;

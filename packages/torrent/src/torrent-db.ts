@@ -139,6 +139,27 @@ export function initTorrentDb(): void {
     if (!autoRuleCols.some(c => c.name === 'prompt')) {
         getDb().exec("ALTER TABLE automation_rules ADD COLUMN prompt TEXT DEFAULT ''");
     }
+
+    // Migration: decode names stored URL-encoded from magnet dn= parameters
+    const encodedRows = db.prepare("SELECT id, name FROM torrents WHERE name LIKE '%+%' OR name LIKE '%\\%%' ESCAPE '\\'").all() as { id: string; name: string }[];
+    for (const row of encodedRows) {
+        const decoded = decodeTorrentName(row.name);
+        if (decoded !== row.name) {
+            db.prepare('UPDATE torrents SET name = ? WHERE id = ?').run(decoded, row.id);
+        }
+    }
+}
+
+/**
+ * Decode a magnet dn=-style display name: '+' means space, %xx sequences are
+ * percent-encoded. Falls back to the raw string on malformed encoding.
+ */
+export function decodeTorrentName(raw: string): string {
+    try {
+        return decodeURIComponent(raw.replace(/\+/g, ' '));
+    } catch {
+        return raw.replace(/\+/g, ' ');
+    }
 }
 
 export function closeTorrentDb(): void {
