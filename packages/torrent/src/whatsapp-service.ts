@@ -84,7 +84,9 @@ export class WhatsAppService {
                 fs.rmSync(LEGACY_SESSION_DIR, { recursive: true, force: true });
                 log('INFO', 'WhatsApp: removed legacy session dir (whatsapp-web.js)');
             }
-        } catch {}
+        } catch (err) {
+            log('WARN', `WhatsApp: legacy session cleanup failed: ${(err as Error).message}`);
+        }
 
         fs.mkdirSync(AUTH_DIR, { recursive: true });
         fs.mkdirSync(FILES_DIR, { recursive: true });
@@ -139,7 +141,11 @@ export class WhatsAppService {
                 log('INFO', `WhatsApp: disconnected (code=${code ?? 'n/a'}, loggedOut=${loggedOut})`);
 
                 if (loggedOut) {
-                    try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch {}
+                    try {
+                        fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+                    } catch (err) {
+                        log('WARN', `WhatsApp: auth wipe failed (stale creds may loop): ${(err as Error).message}`);
+                    }
                     cachedWaVersion = undefined;
                     log('INFO', 'WhatsApp: logged out — auth wiped, fresh QR will be needed');
                     this.sock = null;
@@ -297,6 +303,7 @@ export class WhatsAppService {
         }
         this.stopResponsePoller();
         if (this.sock) {
+            // best-effort teardown
             try { await this.sock.logout(); } catch {}
             try { this.sock.end(undefined); } catch {}
             this.sock = null;
@@ -357,7 +364,9 @@ export class WhatsAppService {
                 for (const resp of responses) {
                     await this.deliverResponse(resp);
                 }
-            } catch {}
+            } catch (err) {
+                log('WARN', `WhatsApp: response delivery failed: ${(err as Error).message}`);
+            }
         }, 2000);
     }
 

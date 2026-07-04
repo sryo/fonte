@@ -71,7 +71,7 @@ export class TorrentManager {
             this.updateInterval = null;
         }
 
-        // Final sync
+        // Final sync — best-effort teardown
         if (this.rpc) {
             try { await this.syncStats(); } catch {}
         }
@@ -359,7 +359,9 @@ export class TorrentManager {
                     setFileSelection(recordId, f.name, stats.wanted);
                 }
             }
-        } catch {}
+        } catch (err) {
+            log('WARN', `File sync failed for ${recordId}: ${(err as Error).message}`);
+        }
     }
 
     private async syncStats(): Promise<void> {
