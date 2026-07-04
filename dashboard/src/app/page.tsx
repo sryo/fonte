@@ -3,7 +3,6 @@
 // Dashboard home page: filterable rows of torrents, watchlist, and automations.
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   getTorrents,
@@ -11,6 +10,14 @@ import {
   getAutomations,
   getTorrentStats,
   getIndexerStatus,
+  removeTorrent,
+  deleteWatchlistEntry,
+  updateAutomation,
+  getAutomation,
+  triggerAutomation,
+  deleteAutomation,
+  triggerWatchlistSearch,
+  type AutomationLog,
 } from "@/lib/api";
 import type {
   TorrentRecord,
@@ -19,7 +26,6 @@ import type {
   TorrentStats,
   IndexerStatus,
 } from "@/lib/api";
-import { formatBytes, formatSpeed, formatRelativeTime, formatShortRelativeTime } from "@/lib/format";
 import {
   DownloadSimple,
   Eye,
@@ -27,32 +33,17 @@ import {
   Check,
   Plus,
   Trash,
-  Pause,
-  Stop,
-  MagnifyingGlass,
-  Play,
-  Plug,
-  X,
 } from "@phosphor-icons/react";
-import {
-  removeTorrent,
-  deleteWatchlistEntry,
-  updateAutomation,
-  getAutomation,
-  triggerAutomation,
-  deleteAutomation,
-  type AutomationLog,
-  pauseTorrent,
-  resumeTorrent,
-  triggerWatchlistSearch,
-} from "@/lib/api";
 import { usePolling } from "@/hooks/usePolling";
-import { CardAction } from "@/components/home/card-action";
-import { ProgressRing } from "@/components/home/progress-ring";
-import { MediaCard } from "@/components/home/media-card";
+import { usePoofRemoval } from "@/hooks/use-poof-removal";
+import { useStallDetection } from "@/hooks/use-stall-detection";
 import { EmptyRowCard } from "@/components/home/empty-row-card";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { ContentRow } from "@/components/home/content-row";
+import { TorrentCard } from "@/components/home/torrent-card";
+import { WatchlistCard } from "@/components/home/watchlist-card";
+import { CompletedCard } from "@/components/home/completed-card";
+import { AutomationCard } from "@/components/home/automation-card";
+import { IndexerBanner } from "@/components/home/indexer-banner";
 import { AddWatchlistModal } from "@/components/home/add-watchlist-modal";
 import { AddAutomationModal } from "@/components/home/add-automation-modal";
 import { EditAutomationModal } from "@/components/home/edit-automation-modal";
@@ -71,7 +62,6 @@ const FILTER_CHIPS: { key: FilterChip; label: string }[] = [
 // ── Main Page ────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const router = useRouter();
   const [filter, setFilter] = useState<FilterChip>("all");
 
   const [torrents, setTorrents] = useState<TorrentRecord[]>([]);
@@ -80,7 +70,6 @@ export default function HomePage() {
   const [stats, setStats] = useState<TorrentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [indexerStatus, setIndexerStatus] = useState<IndexerStatus | null>(null);
-  const [indexerBannerDismissed, setIndexerBannerDismissed] = useState(false);
   const [showAddWatchlist, setShowAddWatchlist] = useState(false);
   const [showAddAutomation, setShowAddAutomation] = useState(false);
   const [editAutoId, setEditAutoId] = useState<string | null>(null);
@@ -92,14 +81,15 @@ export default function HomePage() {
   });
   const [runningAutoId, setRunningAutoId] = useState<string | null>(null);
   const [searchingWlIds, setSearchingWlIds] = useState<Set<string>>(new Set());
-  // id → stagger delay (ms) for cards currently playing the poof-out animation
-  const [exitingIds, setExitingIds] = useState<Map<string, number>>(new Map());
   const [editAutoLogs, setEditAutoLogs] = useState<AutomationLog[]>([]);
   const [editAutoLastResponse, setEditAutoLastResponse] = useState<{ text: string; ts: number } | null>(null);
 
-  // Per-torrent progress history: id → { progress: 0-1, ts: ms since epoch when last changed }
-  const progressHistoryRef = useRef<Map<string, { progress: number; ts: number }>>(new Map());
-  const STALL_MS = 30_000;
+  const { recordProgress, isStalled } = useStallDetection();
+
+  // usePoofRemoval needs to trigger refetches and fetchAll needs filterHidden;
+  // the ref breaks the cycle.
+  const fetchAllRef = useRef<() => void>(() => {});
+  const { exitingIds, poofThenRemove, filterHidden } = usePoofRemoval(() => fetchAllRef.current());
 
   const fetchAll = useCallback(async () => {
     try {
@@ -109,22 +99,9 @@ export default function HomePage() {
         getAutomations(),
         getTorrentStats(),
       ]);
-      const newTorrents = torrentsRes.torrents;
-      const now = Date.now();
-      const history = progressHistoryRef.current;
-      const seen = new Set<string>();
-      for (const t of newTorrents) {
-        seen.add(t.id);
-        const prev = history.get(t.id);
-        if (!prev || t.progress > prev.progress) {
-          history.set(t.id, { progress: t.progress, ts: now });
-        }
-      }
-      for (const id of history.keys()) {
-        if (!seen.has(id)) history.delete(id);
-      }
-      setTorrents(newTorrents);
-      setWatchlist(watchlistRes.entries);
+      recordProgress(torrentsRes.torrents);
+      setTorrents(filterHidden(torrentsRes.torrents));
+      setWatchlist(filterHidden(watchlistRes.entries));
       setAutomations(automationsRes.rules);
       setStats(statsRes);
     } catch {
@@ -132,66 +109,53 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  // Play the staggered macOS-style poof, then delete server-side and refetch.
-  // Cards stay mounted for the animation's duration so it runs before they
-  // leave the DOM. Honours reduced-motion.
-  const poofThenRemove = useCallback(
-    (ids: string[], remove: (id: string) => Promise<unknown>) => {
-      if (ids.length === 0) return;
-      const reduce =
-        typeof window !== "undefined" &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (reduce) {
-        Promise.all(ids.map((id) => remove(id))).then(() => fetchAll());
-        return;
-      }
-      // Clamp total stagger to ~900ms so a big "Clear" never drags on.
-      const stagger = ids.length > 1 ? Math.min(70, 900 / (ids.length - 1)) : 0;
-      setExitingIds((prev) => {
-        const next = new Map(prev);
-        ids.forEach((id, i) => next.set(id, Math.round(i * stagger)));
-        return next;
-      });
-      const maxDelay = Math.round((ids.length - 1) * stagger);
-      window.setTimeout(async () => {
-        await Promise.all(ids.map((id) => remove(id)));
-        setExitingIds((prev) => {
-          const next = new Map(prev);
-          ids.forEach((id) => next.delete(id));
-          return next;
-        });
-        fetchAll();
-      }, maxDelay + 560);
-    },
-    [fetchAll],
-  );
-
-  const isStalled = useCallback((torrent: TorrentRecord): boolean => {
-    if (torrent.status !== "downloading") return false;
-    if (torrent.progress >= 1) return false;
-    const entry = progressHistoryRef.current.get(torrent.id);
-    if (!entry) return false;
-    return Date.now() - entry.ts > STALL_MS;
-  }, []);
+  }, [recordProgress, filterHidden]);
+  fetchAllRef.current = fetchAll;
 
   usePolling(fetchAll, 3000);
 
   // Indexer status is a real Jackett search on every call; check once on
-  // mount instead of every poll tick, and respect a persisted dismissal.
+  // mount instead of every poll tick.
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIndexerBannerDismissed(localStorage.getItem("fonte.indexer-banner-dismissed") === "true");
-    }
     getIndexerStatus().then(setIndexerStatus).catch(() => {});
   }, []);
 
-  const dismissIndexerBanner = () => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("fonte.indexer-banner-dismissed", "true");
-    }
-    setIndexerBannerDismissed(true);
+  const searchWatchlistEntry = async (id: string) => {
+    setSearchingWlIds((prev) => { const next = new Set(prev); next.add(id); return next; });
+    try { await triggerWatchlistSearch(id); }
+    catch { /* ignore */ }
+    setSearchingWlIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    fetchAll();
+  };
+
+  const runAutomation = async (rule: AutomationRule) => {
+    setRunningAutoId(rule.id);
+    try { await triggerAutomation(rule.id); await fetchAll(); }
+    catch {}
+    setRunningAutoId(null);
+  };
+
+  const editAutomation = (rule: AutomationRule) => {
+    setEditAutoId(rule.id);
+    setEditAutoForm({
+      name: rule.name,
+      triggerType: rule.triggerType,
+      cron: (rule.triggerConfig as { cron?: string })?.cron || "",
+      prompt: rule.prompt,
+    });
+    setEditAutoLogs([]);
+    setEditAutoLastResponse(null);
+    getAutomation(rule.id)
+      .then((res) => {
+        setEditAutoLogs(res.logs || []);
+        setEditAutoLastResponse(res.lastResponse);
+      })
+      .catch(() => {});
+  };
+
+  const deleteAutomationRule = async (rule: AutomationRule) => {
+    await deleteAutomation(rule.id);
+    await fetchAll();
   };
 
   const saveEditAutomation = async () => {
@@ -210,8 +174,6 @@ export default function HomePage() {
     setEditAutoId(null);
     fetchAll();
   };
-
-  const showIndexerBanner = indexerStatus !== null && !indexerStatus.configured && !indexerBannerDismissed;
 
   // ── Derived data ───────────────────────────────────────────────────────
 
@@ -259,33 +221,7 @@ export default function HomePage() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-6 space-y-8 animate-card-enter">
-      {/* First-run nudge: no indexers configured in Jackett */}
-      {showIndexerBanner && (
-        <div className="rounded-xl border bg-card p-4 flex items-center gap-3">
-          <Plug className="h-5 w-5 text-muted-foreground shrink-0" weight="bold" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium">No indexers configured</p>
-            <p className="text-xs text-muted-foreground">
-              Fonte ships with none enabled. Open Jackett to pick which trackers to use.
-            </p>
-          </div>
-          <a
-            href={indexerStatus?.jackettUrl || "http://localhost:9117"}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-foreground text-background hover:opacity-90 transition-opacity shrink-0"
-          >
-            Open Jackett
-          </a>
-          <button
-            onClick={dismissIndexerBanner}
-            aria-label="Dismiss"
-            className="text-muted-foreground hover:text-foreground transition-colors shrink-0 p-1"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+      <IndexerBanner status={indexerStatus} />
 
       {/* Quick filter chips — hide ones that point at empty rows */}
       <div className="flex items-center gap-2 flex-wrap" role="tablist">
@@ -323,41 +259,15 @@ export default function HomePage() {
           }
         >
           {activeTorrents.map((torrent) => (
-            <MediaCard
+            <TorrentCard
               key={torrent.id}
-              title={torrent.name}
-              posterUrl={torrent.posterUrl}
+              torrent={torrent}
               exiting={exitingIds.has(torrent.id)}
               exitDelay={exitingIds.get(torrent.id)}
-              onClick={() => router.push(`/torrents/${torrent.id}`)}
-              progress={{ value: torrent.progress, stalled: isStalled(torrent) || torrent.status === "paused" }}
-              badges={
-                <>
-                  <StatusBadge status={torrent.status} />
-                  <span className="text-2xs bg-black/60 text-white px-1.5 py-0.5 rounded-full">
-                    {Math.round(torrent.progress * 100)}%
-                  </span>
-                </>
-              }
-              actions={
-                <>
-                  {torrent.status === "downloading" && (
-                    <CardAction icon={Pause} label="Pause" onClick={() => { pauseTorrent(torrent.id); fetchAll(); }} />
-                  )}
-                  {torrent.status === "paused" && (
-                    <CardAction icon={Play} label="Resume" onClick={() => { resumeTorrent(torrent.id); fetchAll(); }} />
-                  )}
-                  <CardAction icon={Trash} label="Remove" destructive onClick={() => {
-                    if (confirm(`Remove "${torrent.name}"?`)) poofThenRemove([torrent.id], removeTorrent);
-                  }} />
-                </>
-              }
-            >
-              <p className="text-2xs text-muted-foreground">
-                <span className="text-torrent">&darr; {formatSpeed(torrent.downloadSpeed)}</span>
-                {" \u00B7 "}{torrent.numPeers} peers
-              </p>
-            </MediaCard>
+              stalled={isStalled(torrent)}
+              onRefresh={fetchAll}
+              onPoofRemove={() => poofThenRemove([torrent.id], removeTorrent)}
+            />
           ))}
         </ContentRow>
       )}
@@ -388,46 +298,15 @@ export default function HomePage() {
           }
         >
           {watchingEntries.map((entry) => (
-            <MediaCard
+            <WatchlistCard
               key={entry.id}
-              title={entry.title}
-              posterUrl={entry.posterUrl}
+              entry={entry}
               exiting={exitingIds.has(entry.id)}
               exitDelay={exitingIds.get(entry.id)}
-              onClick={() => router.push(`/watchlist/${entry.id}`)}
-              busy={searchingWlIds.has(entry.id)}
-              ringColor="watchlist"
-              badges={
-                <>
-                  <StatusBadge status={entry.status} />
-                  <span className="text-2xs bg-black/60 text-white px-1.5 py-0.5 rounded-full">
-                    {entry.quality}
-                  </span>
-                </>
-              }
-              actions={
-                <>
-                  <CardAction
-                    icon={MagnifyingGlass}
-                    label={entry.lastCheckedAt ? `Search now\nLast searched: ${formatRelativeTime(entry.lastCheckedAt)}` : "Search now\nNever searched"}
-                    onClick={async () => {
-                      setSearchingWlIds((prev) => { const next = new Set(prev); next.add(entry.id); return next; });
-                      try { await triggerWatchlistSearch(entry.id); }
-                      catch { /* ignore */ }
-                      setSearchingWlIds((prev) => { const next = new Set(prev); next.delete(entry.id); return next; });
-                      fetchAll();
-                    }}
-                  />
-                  <CardAction icon={Trash} label="Remove" destructive onClick={() => {
-                    if (confirm(`Remove "${entry.title}" from watchlist?`)) poofThenRemove([entry.id], deleteWatchlistEntry);
-                  }} />
-                </>
-              }
-            >
-              <p className="text-2xs text-muted-foreground">
-                {entry.year && `${entry.year} \u00B7 `}{entry.mediaType === "tv" ? "TV Show" : entry.mediaType.charAt(0).toUpperCase() + entry.mediaType.slice(1)}
-              </p>
-            </MediaCard>
+              searching={searchingWlIds.has(entry.id)}
+              onSearch={() => searchWatchlistEntry(entry.id)}
+              onPoofRemove={() => poofThenRemove([entry.id], deleteWatchlistEntry)}
+            />
           ))}
         </ContentRow>
       )}
@@ -451,41 +330,14 @@ export default function HomePage() {
           ) : undefined}
         >
           {completedTorrents.map((torrent) => (
-            <MediaCard
+            <CompletedCard
               key={torrent.id}
-              title={torrent.name}
-              posterUrl={torrent.posterUrl}
+              torrent={torrent}
               exiting={exitingIds.has(torrent.id)}
               exitDelay={exitingIds.get(torrent.id)}
-              onClick={() => router.push(`/torrents/${torrent.id}`)}
-              badges={
-                torrent.status === "seeding" ? (
-                  <span className="text-2xs bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                    <Check className="h-2.5 w-2.5" weight="bold" /> Seeding
-                  </span>
-                ) : (
-                  <span className="text-2xs bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                    <Check className="h-2.5 w-2.5" weight="bold" /> Done
-                  </span>
-                )
-              }
-              actions={
-                <>
-                  {torrent.status === "seeding" && (
-                    <CardAction icon={Stop} label="Stop seeding" onClick={() => { pauseTorrent(torrent.id); fetchAll(); }} />
-                  )}
-                  <CardAction icon={Trash} label="Remove" destructive onClick={() => poofThenRemove([torrent.id], removeTorrent)} />
-                </>
-              }
-            >
-              <p className="text-2xs text-muted-foreground">
-                {torrent.status === "seeding" && (
-                  <span className="text-green-600 dark:text-green-400">&uarr; {formatSpeed(torrent.uploadSpeed)} &middot; </span>
-                )}
-                {formatBytes(torrent.size)}
-                {torrent.completedAt && ` \u00B7 ${formatShortRelativeTime(torrent.completedAt)}`}
-              </p>
-            </MediaCard>
+              onRefresh={fetchAll}
+              onPoofRemove={() => poofThenRemove([torrent.id], removeTorrent)}
+            />
           ))}
         </ContentRow>
       )}
@@ -515,73 +367,16 @@ export default function HomePage() {
             </button>
           }
         >
-          {enabledAutomations.map((rule) => {
-            const onRun = async () => {
-              setRunningAutoId(rule.id);
-              try { await triggerAutomation(rule.id); await fetchAll(); }
-              catch {}
-              setRunningAutoId(null);
-            };
-            const onEdit = () => {
-              setEditAutoId(rule.id);
-              setEditAutoForm({
-                name: rule.name,
-                triggerType: rule.triggerType,
-                cron: (rule.triggerConfig as { cron?: string })?.cron || "",
-                prompt: rule.prompt,
-              });
-              setEditAutoLogs([]);
-              setEditAutoLastResponse(null);
-              getAutomation(rule.id)
-                .then((res) => {
-                  setEditAutoLogs(res.logs || []);
-                  setEditAutoLastResponse(res.lastResponse);
-                })
-                .catch(() => {});
-            };
-            const onDelete = async () => {
-              if (!confirm(`Delete "${rule.name}"?`)) return;
-              await deleteAutomation(rule.id);
-              await fetchAll();
-            };
-            return (
-              <div
-                key={rule.id}
-                role="button"
-                tabIndex={0}
-                onClick={onEdit}
-                onKeyDown={(e) => { if (e.key === "Enter") onEdit(); }}
-                className="w-56 rounded-xl shadow-card bg-card p-4 flex flex-col text-left hover:bg-accent/50 transition-colors group cursor-pointer relative overflow-hidden"
-              >
-                <p className="text-sm font-medium leading-tight line-clamp-1 group-hover:text-foreground">{rule.name}</p>
-                <div className="mt-2">
-                  <span className="text-2xs bg-automation/15 text-automation px-1.5 py-0.5 rounded-full">
-                    {rule.triggerType.replace(":", " ")}
-                  </span>
-                </div>
-                <p className="mt-2 text-2xs text-muted-foreground line-clamp-3 flex-1">
-                  {rule.prompt}
-                </p>
-                <p className="mt-2 text-2xs text-muted-foreground">
-                  Triggered {rule.triggerCount} time{rule.triggerCount !== 1 ? "s" : ""}
-                </p>
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2 gap-1.5">
-                  <CardAction
-                    icon={Play}
-                    label={runningAutoId === rule.id ? "Running…" : "Run now"}
-                    onClick={onRun}
-                  />
-                  <CardAction
-                    icon={Trash}
-                    label="Delete"
-                    destructive
-                    onClick={onDelete}
-                  />
-                </div>
-                <ProgressRing busy={runningAutoId === rule.id} color="automation" />
-              </div>
-            );
-          })}
+          {enabledAutomations.map((rule) => (
+            <AutomationCard
+              key={rule.id}
+              rule={rule}
+              running={runningAutoId === rule.id}
+              onRun={() => runAutomation(rule)}
+              onEdit={() => editAutomation(rule)}
+              onDelete={() => deleteAutomationRule(rule)}
+            />
+          ))}
         </ContentRow>
       )}
 
