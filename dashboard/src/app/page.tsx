@@ -247,9 +247,7 @@ export default function HomePage() {
           icon={DownloadSimple}
           isEmpty={activeTorrents.length === 0}
           emptyContent={<AddTorrentCard onAdded={fetchAll} />}
-          action={
-            activeTorrents.length > 0 ? <AddTorrentCard variant="action" onAdded={fetchAll} /> : undefined
-          }
+          action={<AddTorrentCard variant="action" onAdded={fetchAll} />}
         >
           {activeTorrents.map((torrent) => (
             <TorrentCard
