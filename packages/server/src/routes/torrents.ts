@@ -6,13 +6,16 @@ import { ok, fail } from '../http';
 
 const app = new Hono();
 
-// POST /api/torrents — add a torrent via magnet URI, info hash, or file path
+// POST /api/torrents — add a torrent via magnet URI, info hash, file path,
+// or base64-encoded .torrent contents
 app.post('/api/torrents', async (c) => {
     try {
-        const body = await c.req.json() as { magnetUri?: string; infoHash?: string; filePath?: string };
-        const source = body.magnetUri || body.infoHash || body.filePath;
+        const body = await c.req.json() as { magnetUri?: string; infoHash?: string; filePath?: string; metainfo?: string };
+        const source = body.metainfo
+            ? Buffer.from(body.metainfo, 'base64')
+            : (body.magnetUri || body.infoHash || body.filePath);
         if (!source) {
-            return fail(c, 'magnetUri, infoHash, or filePath required');
+            return fail(c, 'magnetUri, infoHash, filePath, or metainfo required');
         }
 
         const manager = getTorrentManager();

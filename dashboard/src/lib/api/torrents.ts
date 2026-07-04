@@ -27,7 +27,7 @@ export async function getTorrent(id: string): Promise<{ ok: boolean; torrent: To
   return apiFetch(`/api/torrents/${encodeURIComponent(id)}`);
 }
 
-export async function addTorrent(data: { magnetUri?: string; infoHash?: string }): Promise<{ ok: boolean; torrent: TorrentRecord }> {
+export async function addTorrent(data: { magnetUri?: string; infoHash?: string; metainfo?: string }): Promise<{ ok: boolean; torrent: TorrentRecord }> {
   return apiFetch("/api/torrents", { method: "POST", body: JSON.stringify(data) });
 }
 

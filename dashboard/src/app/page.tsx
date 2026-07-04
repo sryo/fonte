@@ -36,6 +36,7 @@ import { usePolling } from "@/hooks/usePolling";
 import { usePoofRemoval } from "@/hooks/use-poof-removal";
 import { useStallDetection } from "@/hooks/use-stall-detection";
 import { EmptyRowCard } from "@/components/home/empty-row-card";
+import { AddTorrentCard } from "@/components/home/add-torrent-card";
 import { ContentRow } from "@/components/home/content-row";
 import { TorrentCard } from "@/components/home/torrent-card";
 import { WatchlistCard } from "@/components/home/watchlist-card";
@@ -245,12 +246,9 @@ export default function HomePage() {
           count={activeTorrents.length}
           icon={DownloadSimple}
           isEmpty={activeTorrents.length === 0}
-          emptyContent={
-            <EmptyRowCard
-              icon={DownloadSimple}
-              label="Add a torrent"
-              hint="Click a magnet link or open a .torrent file"
-            />
+          emptyContent={<AddTorrentCard onAdded={fetchAll} />}
+          action={
+            activeTorrents.length > 0 ? <AddTorrentCard variant="action" onAdded={fetchAll} /> : undefined
           }
         >
           {activeTorrents.map((torrent) => (
