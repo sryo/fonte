@@ -8,7 +8,8 @@ import { MediaCard } from "@/components/home/media-card";
 import { CardAction } from "@/components/home/card-action";
 import { StatusBadge } from "@/components/ui/status-badge";
 
-// Poster card for an active (downloading or paused) torrent.
+// Poster card for any unfinished torrent (downloading, paused, checking,
+// adding, or errored).
 export function TorrentCard({
   torrent,
   exiting,
@@ -55,10 +56,16 @@ export function TorrentCard({
         </>
       }
     >
-      <p className="text-2xs text-muted-foreground">
-        <span className="text-torrent">&darr; {formatSpeed(torrent.downloadSpeed)}</span>
-        {" · "}{torrent.numPeers} peers
-      </p>
+      {torrent.status === "error" ? (
+        <p className="text-2xs text-destructive truncate" title={torrent.errorMessage}>
+          {torrent.errorMessage || "Download failed"}
+        </p>
+      ) : (
+        <p className="text-2xs text-muted-foreground">
+          <span className="text-torrent">&darr; {formatSpeed(torrent.downloadSpeed)}</span>
+          {" · "}{torrent.numPeers} peers
+        </p>
+      )}
     </MediaCard>
   );
 }

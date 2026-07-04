@@ -173,9 +173,12 @@ export default function HomePage() {
 
   // ── Derived data ───────────────────────────────────────────────────────
 
-  const activeTorrents = torrents.filter(
-    (t) => t.status === "downloading" || t.status === "paused"
-  );
+  // Every unfinished status belongs here — 'error', 'checking', and 'adding'
+  // included, otherwise those torrents appear in no row at all. Errors sort
+  // first so they're impossible to miss.
+  const activeTorrents = torrents
+    .filter((t) => t.status !== "completed" && t.status !== "seeding" && t.status !== "removed")
+    .sort((a, b) => Number(b.status === "error") - Number(a.status === "error"));
 
   // Both statuses mean the download has finished: "seeding" is still
   // uploading, "completed" is finished and stopped (user-paused or
