@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CaretDown, DownloadSimple, FilePlus, Plus, UploadSimple } from "@phosphor-icons/react";
+import { CaretDown, DownloadSimple, Plus, UploadSimple } from "@phosphor-icons/react";
 import { addTorrent } from "@/lib/api";
 import { EmptyRowCard } from "./empty-row-card";
 import { CreateTorrentModal } from "./create-torrent-modal";
@@ -102,25 +102,31 @@ export function AddTorrentCard({
     return (
       <>
         {input}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted">
-              <Plus className="h-3.5 w-3.5" />
-              {busy ? "Adding…" : "Add"}
-              <CaretDown className="h-3 w-3" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => { if (!busy) inputRef.current?.click(); }}>
-              <FilePlus className="size-4" />
-              Add .torrent file
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setShowCreate(true)}>
-              <UploadSimple className="size-4" />
-              Create torrent…
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center">
+          <button
+            onClick={() => { if (!busy) inputRef.current?.click(); }}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-l-md pl-2.5 pr-1.5 py-1.5 hover:bg-muted"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {busy ? "Adding…" : "Add"}
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                aria-label="More add options"
+                className="flex items-center text-muted-foreground hover:text-foreground transition-colors rounded-r-md px-1.5 py-2 hover:bg-muted"
+              >
+                <CaretDown className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowCreate(true)}>
+                <UploadSimple className="size-4" />
+                Create torrent…
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <CreateTorrentModal open={showCreate} onClose={() => setShowCreate(false)} onCreated={onAdded} />
       </>
     );
