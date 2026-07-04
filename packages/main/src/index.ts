@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import {
     MessageJobData,
-    getSettings, getAgents, LOG_FILE, FILES_DIR, FONTE_HOME,
+    getSettings, getAgents, checkSettingsFile, LOG_FILE, FILES_DIR, FONTE_HOME,
     log, emitEvent, onEvent,
     parseAgentRouting, getAgentResetFlag,
     invokeAgent, killAgentProcess,
@@ -26,6 +26,15 @@ import { createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handle
         fs.mkdirSync(dir, { recursive: true });
     }
 });
+
+// A torrent daemon running on silently-defaulted paths is worse than one that
+// refuses to start: a present-but-unusable settings.json is fatal.
+const settingsHealth = checkSettingsFile();
+if (!settingsHealth.ok) {
+    log('ERROR', `Refusing to start: ${settingsHealth.reason}`);
+    console.error(`[ERROR] Refusing to start: ${settingsHealth.reason}`);
+    process.exit(1);
+}
 
 // ── Message Processing ──────────────────────────────────────────────────────
 

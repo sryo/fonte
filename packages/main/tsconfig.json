@@ -4,10 +4,21 @@
     "outDir": "./dist",
     "rootDir": "./src"
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*"
+  ],
   "references": [
-    { "path": "../core" },
-    { "path": "../server" },
-    { "path": "../torrent" }
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../server"
+    },
+    {
+      "path": "../torrent"
+    }
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
   ]
 }

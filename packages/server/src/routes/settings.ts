@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { Hono } from 'hono';
 import { Settings } from '@fonte/core';
-import { SETTINGS_FILE, FONTE_HOME, getSettings, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@fonte/core';
+import { SETTINGS_FILE, FONTE_HOME, getSettings, validateSettings, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@fonte/core';
 import { log } from '@fonte/core';
 
 /** Read, mutate, and persist settings.json atomically. */
@@ -35,6 +35,10 @@ app.get('/api/settings', (c) => {
 // PUT /api/settings
 app.put('/api/settings', async (c) => {
     const body = await c.req.json();
+    const { typeErrors } = validateSettings(body);
+    if (typeErrors.length) {
+        return c.json({ ok: false, error: typeErrors.join('; ') }, 400);
+    }
     const current = getSettings();
     const merged = { ...current, ...body } as Settings;
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2) + '\n');

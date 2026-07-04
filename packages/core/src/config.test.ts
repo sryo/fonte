@@ -78,13 +78,13 @@ describe('getSettings', () => {
         expect(fs.existsSync(settingsPath() + '.bak')).toBe(false);
     });
 
-    it('repairs bare text into a JSON string, not an object', async () => {
-        // characterizes current behavior: jsonrepair turns unquoted text into a
-        // JSON string literal, so getSettings returns a string and persists it
+    it('rejects bare text repaired into a non-object', async () => {
+        // jsonrepair turns unquoted text into a JSON string literal; shape
+        // validation refuses the non-object root so callers still get an object
         fs.writeFileSync(settingsPath(), 'not json at all');
 
         const { getSettings } = await loadConfig();
-        expect(getSettings()).toBe('not json at all');
+        expect(getSettings()).toEqual({});
         expect(fs.readFileSync(settingsPath(), 'utf8')).toBe('"not json at all"\n');
         expect(fs.readFileSync(settingsPath() + '.bak', 'utf8')).toBe('not json at all');
     });
