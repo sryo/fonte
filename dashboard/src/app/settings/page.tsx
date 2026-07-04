@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Spinner } from "@/components/ui/feedback";
 import { AgentPersonalitySection } from "@/components/settings/AgentPersonalitySection";
 import { AgentsSection } from "@/components/settings/AgentsSection";
 import { ProvidersSection } from "@/components/settings/ProvidersSection";
@@ -109,7 +110,7 @@ export default function SettingsPage() {
     return (
       <div className="p-6 md:p-8">
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-16 justify-center">
-          <div className="h-5 w-5 animate-spin border-2 border-primary border-t-transparent rounded-full" />
+          <Spinner className="text-primary" />
           Loading settings...
         </div>
       </div>
@@ -236,9 +237,7 @@ export default function SettingsPage() {
             />
             <div className="flex items-center gap-3">
               <Button onClick={saveRawJson} disabled={savingSection === "advanced"}>
-                {savingSection === "advanced" && (
-                  <div className="h-3 w-3 animate-spin border-2 border-primary-foreground border-t-transparent rounded-full" />
-                )}
+                {savingSection === "advanced" && <Spinner size="xs" />}
                 Save JSON
               </Button>
               {savedSection === "advanced" && (

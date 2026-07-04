@@ -26,12 +26,12 @@ export function DetailHero({
   details?: ReactNode;
 }) {
   return (
-    <div className="flex overflow-hidden rounded-xl bg-card shadow-card">
-      <div className="w-36 shrink-0 self-stretch bg-muted">
+    <div className="flex flex-col overflow-hidden rounded-xl bg-card shadow-card sm:flex-row">
+      <div className="w-full shrink-0 self-stretch bg-muted sm:w-36">
         {posterUrl ? (
-          <img src={posterUrl} alt={title} className="h-full w-full object-cover" />
+          <img src={posterUrl} alt={title} className="aspect-video w-full object-cover sm:aspect-auto sm:h-full" />
         ) : (
-          <div className="flex aspect-[2/3] h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+          <div className="flex aspect-video w-full items-center justify-center bg-gradient-to-br from-muted to-muted/50 sm:aspect-[2/3] sm:h-full">
             <FilmStrip className="size-10 text-muted-foreground/30" />
           </div>
         )}

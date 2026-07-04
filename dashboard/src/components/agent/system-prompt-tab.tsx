@@ -3,7 +3,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { FileText, FolderOpen, SpinnerGap, FloppyDisk, Check } from "@phosphor-icons/react";
+import { FileText, FolderOpen, FloppyDisk, Check } from "@phosphor-icons/react";
+import { Spinner } from "@/components/ui/feedback";
 
 export function SystemPromptTab({
   content,
@@ -48,7 +49,7 @@ export function SystemPromptTab({
 
           {!loaded ? (
             <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
-              <SpinnerGap className="h-4 w-4 animate-spin" />
+              <Spinner />
               <span className="text-sm">Loading...</span>
             </div>
           ) : (
@@ -75,7 +76,7 @@ export function SystemPromptTab({
                 </span>
                 <Button onClick={onSave} disabled={saving} size="sm" className="gap-2">
                   {saving ? (
-                    <SpinnerGap className="h-3.5 w-3.5 animate-spin" />
+                    <Spinner size="xs" />
                   ) : saved ? (
                     <Check className="h-3.5 w-3.5" />
                   ) : (

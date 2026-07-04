@@ -31,11 +31,11 @@ export function CompletedCard({
       onClick={() => router.push(`/torrents/${torrent.id}`)}
       badges={
         torrent.status === "seeding" ? (
-          <span className="text-2xs bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+          <span className="text-2xs bg-done/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
             <Check className="h-2.5 w-2.5" weight="bold" /> Seeding
           </span>
         ) : (
-          <span className="text-2xs bg-green-500/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+          <span className="text-2xs bg-done/80 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
             <Check className="h-2.5 w-2.5" weight="bold" /> Done
           </span>
         )

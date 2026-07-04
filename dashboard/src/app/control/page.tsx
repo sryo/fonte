@@ -19,10 +19,10 @@ import {
 } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/feedback";
 import {
   Cpu,
   Square,
-  SpinnerGap,
   Pulse,
   ArrowsClockwise,
   X,
@@ -121,11 +121,7 @@ function DisconnectedSplash({ onReconnect }: { onReconnect: () => void }) {
               disabled={checking || !apiUrl}
               className="px-4 py-2 text-sm bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50 rounded"
             >
-              {checking ? (
-                <SpinnerGap className="h-4 w-4 animate-spin" />
-              ) : (
-                "Connect"
-              )}
+              {checking ? <Spinner size="xs" /> : "Connect"}
             </button>
           </div>
           {apiUrl !== (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3777") && (
@@ -213,7 +209,7 @@ function DaemonSection({ status, refresh }: { status: any; refresh: () => void }
             className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 rounded"
             title="Restart daemon"
           >
-            <ArrowsClockwise className={`h-3.5 w-3.5 ${restarting ? "animate-spin" : ""}`} />
+            {restarting ? <Spinner size="xs" /> : <ArrowsClockwise className="h-3.5 w-3.5" />}
           </button>
         </div>
       </CardContent>
@@ -280,7 +276,7 @@ function ApiConnectionSection() {
               disabled={checking || !apiUrl}
               className="px-3 py-1.5 text-xs bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50 rounded"
             >
-              {checking ? <SpinnerGap className="h-3 w-3 animate-spin" /> : "Save"}
+              {checking ? <Spinner size="xs" /> : "Save"}
             </button>
           </div>
         )}
@@ -357,7 +353,7 @@ function AgentSessionRow({ msg, onKill }: { msg: ProcessingMessage; onKill: () =
           className="p-1 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-all rounded"
           title="Kill session"
         >
-          {killing ? <SpinnerGap className="h-3 w-3 animate-spin" /> : <Square className="h-3 w-3" />}
+          {killing ? <Spinner size="xs" /> : <Square className="h-3 w-3" />}
         </button>
       </div>
     </div>

@@ -22,6 +22,7 @@ import {
 import { Markdown } from "@/components/ui/markdown";
 import { Robot, ArrowUp, Square } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { agentColor } from "@/lib/agent-colors";
 
 interface AgentChatItem {
   id: string;
@@ -52,19 +53,6 @@ function normalizeMessage(message: AgentMessage, agentId: string): AgentChatItem
     sender: message.sender,
     message_id: message.message_id,
   };
-}
-
-const AGENT_COLORS = [
-  "bg-blue-500", "bg-emerald-500", "bg-purple-500", "bg-orange-500",
-  "bg-pink-500", "bg-cyan-500", "bg-yellow-500", "bg-red-500",
-];
-
-function agentColor(agentId: string): string {
-  let hash = 0;
-  for (let i = 0; i < agentId.length; i++) {
-    hash = ((hash << 5) - hash + agentId.charCodeAt(i)) | 0;
-  }
-  return AGENT_COLORS[Math.abs(hash) % AGENT_COLORS.length];
 }
 
 export function AgentChatView({

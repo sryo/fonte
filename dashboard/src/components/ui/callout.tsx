@@ -29,6 +29,7 @@ export function Callout({
 }) {
   return (
     <div
+      role={tone === "error" || tone === "warn" ? "alert" : "status"}
       className={cn(
         "flex items-center gap-3 rounded-xl px-4 py-3 text-sm",
         TONE_CALLOUT[tone],
@@ -40,6 +41,7 @@ export function Callout({
       {onDismiss && (
         <button
           onClick={onDismiss}
+          aria-label="Dismiss"
           className="shrink-0 rounded-md p-1 opacity-60 transition-opacity hover:opacity-100"
         >
           <X className="size-3.5" />

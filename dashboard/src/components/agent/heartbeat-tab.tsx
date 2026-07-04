@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Heartbeat, SpinnerGap, FloppyDisk, Check } from "@phosphor-icons/react";
+import { Heartbeat, FloppyDisk, Check } from "@phosphor-icons/react";
+import { Spinner } from "@/components/ui/feedback";
 
 export function HeartbeatTab({
   content,
@@ -98,7 +99,7 @@ export function HeartbeatTab({
                 </p>
                 {!loaded ? (
                   <div className="flex items-center gap-2 py-4 justify-center text-muted-foreground">
-                    <SpinnerGap className="h-4 w-4 animate-spin" />
+                    <Spinner />
                     <span className="text-sm">Loading...</span>
                   </div>
                 ) : (
@@ -131,7 +132,7 @@ export function HeartbeatTab({
                   </div>
                   <Button onClick={onSave} disabled={saving} size="sm" className="gap-2">
                     {saving ? (
-                      <SpinnerGap className="h-3.5 w-3.5 animate-spin" />
+                      <Spinner size="xs" />
                     ) : saved ? (
                       <Check className="h-3.5 w-3.5" />
                     ) : (

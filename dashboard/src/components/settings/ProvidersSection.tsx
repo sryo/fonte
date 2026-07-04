@@ -18,6 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Section } from "@/components/ui/section";
+import { Spinner } from "@/components/ui/feedback";
 
 // ── Providers Section (built-in + custom) ──────────────────────────────
 
@@ -78,22 +80,18 @@ export function ProvidersSection() {
   const entries = Object.entries(providers);
 
   return (
-    <div className="rounded-xl bg-card shadow-card">
-      <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold">Providers</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Built-in providers are always available. Add custom ones for OpenAI-compatible endpoints.
-            </p>
-          </div>
-          {!showAdd && (
-            <Button size="sm" onClick={() => setShowAdd(true)} className="text-xs">
-              Add Custom
-            </Button>
-          )}
-        </div>
-
+    <Section
+      title="Providers"
+      description="Built-in providers are always available. Add custom ones for OpenAI-compatible endpoints."
+      action={
+        !showAdd ? (
+          <Button size="sm" onClick={() => setShowAdd(true)} className="text-xs">
+            Add Custom
+          </Button>
+        ) : undefined
+      }
+    >
+      <div className="space-y-4">
         {/* Built-in chips */}
         <div>
           <p className="text-2xs uppercase tracking-wider text-muted-foreground mb-1.5">Built-in</p>
@@ -220,9 +218,7 @@ export function ProvidersSection() {
                 onClick={handleSave}
                 disabled={saving || !form.id || !form.name || !form.base_url || !form.api_key}
               >
-                {saving && (
-                  <div className="h-3 w-3 animate-spin border-2 border-primary-foreground border-t-transparent rounded-full" />
-                )}
+                {saving && <Spinner size="xs" />}
                 Save
               </Button>
               <Button
@@ -239,6 +235,6 @@ export function ProvidersSection() {
           </div>
         )}
       </div>
-    </div>
+    </Section>
   );
 }

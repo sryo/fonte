@@ -31,10 +31,10 @@ import {
   CalendarDots,
   Calendar as CalendarIcon,
   Clock,
-  SpinnerGap,
   ArrowsClockwise,
   X,
 } from "@phosphor-icons/react";
+import { Spinner } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils";
 
 // New-schedule form modal. Stays mounted while closed (renders null) so form
@@ -411,11 +411,7 @@ export function ScheduleFormModal({
               onClick={handleCreate}
               disabled={formSaving || !formMessage.trim() || (formRepeat === "custom" && !formCustomCron.trim()) || (formRepeat === "once" && !formRunAtDate)}
             >
-              {formSaving ? (
-                <SpinnerGap className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                "Save"
-              )}
+              {formSaving ? <Spinner size="xs" /> : "Save"}
             </Button>
           </div>
         </CardContent>

@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/feedback";
 
 // ── Setting Row ─────────────────────────────────────────────────────────
 
@@ -43,9 +44,7 @@ export function SectionSaveButton({
   return (
     <div className="flex items-center gap-3 pt-2 mt-2 border-t border-border/50">
       <Button onClick={onClick} disabled={saving} className={accentClass}>
-        {saving && (
-          <div className="h-3 w-3 animate-spin border-2 border-current border-t-transparent rounded-full" />
-        )}
+        {saving && <Spinner size="xs" />}
         Save
       </Button>
       {saved && (

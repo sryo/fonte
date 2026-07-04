@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { type TorrentConfig } from "@/lib/api";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Section } from "@/components/ui/section";
 import { SettingRow, SectionSaveButton } from "@/components/settings/shared";
 
 // ── Torrent Settings Card ───────────────────────────────────────────────
@@ -30,18 +31,18 @@ export function TorrentSettingsCard({
   };
 
   return (
-    <div className="rounded-xl bg-card shadow-card overflow-hidden">
-      <div className="p-4 pb-0">
-        <h2 className="text-base font-semibold flex items-center gap-2">
+    <Section
+      title={
+        <span className="flex items-center gap-2">
           <svg className="h-4 w-4 text-torrent" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
           </svg>
           Torrent Settings
-        </h2>
-        <p className="text-xs text-muted-foreground mt-0.5">Download engine and transfer configuration</p>
-      </div>
-
-      <div className="px-4 pb-4 divide-y divide-border/50">
+        </span>
+      }
+      description="Download engine and transfer configuration"
+    >
+      <div className="divide-y divide-border/50">
         <SettingRow label="Download directory" description="Where completed torrents are saved">
           <Input
             value={local.download_dir}
@@ -115,6 +116,6 @@ export function TorrentSettingsCard({
           accentClass="bg-torrent text-torrent-foreground hover:bg-torrent/90"
         />
       </div>
-    </div>
+    </Section>
   );
 }

@@ -18,6 +18,7 @@ export function PageHeader({
       {backHref && (
         <Link
           href={backHref}
+          aria-label="Back"
           className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <CaretLeft className="size-4" />

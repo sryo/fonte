@@ -13,7 +13,8 @@ import {
   type Schedule,
 } from "@/lib/api";
 import { cronNextOccurrences } from "@/lib/cron";
-import { CalendarDots, SpinnerGap, Trash } from "@phosphor-icons/react";
+import { CalendarDots, Trash } from "@phosphor-icons/react";
+import { Spinner } from "@/components/ui/feedback";
 import { ScheduleFormModal } from "./schedule-form-modal";
 
 export function ScheduleTab({ agentId }: { agentId: string }) {
@@ -93,7 +94,7 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <SpinnerGap className="h-4 w-4 animate-spin" />
+          <Spinner />
           Loading schedules...
         </div>
       </div>

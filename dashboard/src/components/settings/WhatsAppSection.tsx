@@ -13,6 +13,8 @@ import {
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Section } from "@/components/ui/section";
+import { Spinner } from "@/components/ui/feedback";
 
 // ── WhatsApp Section ────────────────────────────────────────────────────
 
@@ -93,15 +95,8 @@ export function WhatsAppSection() {
   };
 
   return (
-    <div className="rounded-xl bg-card shadow-card">
-      <div className="p-4 space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold">WhatsApp</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Control Fonte from your phone
-          </p>
-        </div>
-
+    <Section title="WhatsApp" description="Control Fonte from your phone">
+      <div className="space-y-4">
         {status === "disconnected" && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
@@ -128,7 +123,7 @@ export function WhatsAppSection() {
 
         {status === "connecting" && (
           <div className="text-center py-4">
-            <div className="h-5 w-5 border-2 border-done border-t-transparent rounded-full animate-spin mx-auto" />
+            <Spinner className="mx-auto text-done" />
             <p className="text-sm text-muted-foreground mt-2">Initializing WhatsApp...</p>
           </div>
         )}
@@ -220,7 +215,7 @@ export function WhatsAppSection() {
           </div>
         )}
       </div>
-    </div>
+    </Section>
   );
 }
 

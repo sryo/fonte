@@ -22,6 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Section } from "@/components/ui/section";
+import { Spinner } from "@/components/ui/feedback";
 
 // ── Agents Section ─────────────────────────────────────────────────────
 
@@ -101,22 +103,18 @@ export function AgentsSection() {
   };
 
   return (
-    <div className="rounded-xl bg-card shadow-card">
-      <div className="p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold">Agents</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Manage AI agents and their configurations
-            </p>
-          </div>
-          {!showAdd && (
-            <Button size="sm" onClick={() => setShowAdd(true)} className="text-xs">
-              Add Agent
-            </Button>
-          )}
-        </div>
-
+    <Section
+      title="Agents"
+      description="Manage AI agents and their configurations"
+      action={
+        !showAdd ? (
+          <Button size="sm" onClick={() => setShowAdd(true)} className="text-xs">
+            Add Agent
+          </Button>
+        ) : undefined
+      }
+    >
+      <div className="space-y-4">
         {/* Agent list */}
         {Object.keys(agents).length > 0 && (
           <div className="divide-y divide-border/50">
@@ -283,9 +281,7 @@ export function AgentsSection() {
                   disabled={savingProvider || !providerForm.id || !providerForm.name || !providerForm.base_url || !providerForm.api_key}
                   className="text-xs"
                 >
-                  {savingProvider && (
-                    <div className="h-3 w-3 animate-spin border-2 border-primary-foreground border-t-transparent rounded-full" />
-                  )}
+                  {savingProvider && <Spinner size="xs" />}
                   Save provider
                 </Button>
               </div>
@@ -296,9 +292,7 @@ export function AgentsSection() {
                 onClick={handleSave}
                 disabled={saving || !form.id || !form.name || !form.model}
               >
-                {saving && (
-                  <div className="h-3 w-3 animate-spin border-2 border-primary-foreground border-t-transparent rounded-full" />
-                )}
+                {saving && <Spinner size="xs" />}
                 Save
               </Button>
               <Button
@@ -312,6 +306,6 @@ export function AgentsSection() {
           </div>
         )}
       </div>
-    </div>
+    </Section>
   );
 }
