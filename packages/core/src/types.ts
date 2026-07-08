@@ -80,6 +80,7 @@ export interface Settings {
     libraries?: Record<string, string>;  // type → folder path, e.g. { "Movies": "/media/Movies", "TV": "/media/TV", "Music": "/media/Music" }
     whatsapp?: {
         allowed_chat?: string | null;  // chat id (e.g. "1234567890@c.us" or "1234567890-1500000000@g.us"). null/missing = ignore all
+        allowed_participants?: string[];  // sender jids allowed to command beyond the paired account; empty = only you (fromMe)
     };
 }
 

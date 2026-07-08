@@ -43,7 +43,7 @@ const SETTINGS_SHAPE: Shape = {
         target_languages: 'string[]', tmdb_api_key: 'string', opensubtitles_api_key: 'string',
     },
     libraries: 'record',
-    whatsapp: { allowed_chat: 'string' },
+    whatsapp: { allowed_chat: 'string', allowed_participants: 'string[]' },
 };
 
 function leafMatches(value: unknown, kind: LeafKind): boolean {

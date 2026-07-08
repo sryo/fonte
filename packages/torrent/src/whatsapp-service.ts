@@ -16,7 +16,6 @@ import {
     getResponsesForChannel, ackResponse, getSettings,
 } from '@fonte/core';
 
-// New auth dir (Baileys multi-file state — replaces the old Chrome profile dir)
 const AUTH_DIR = path.join(FONTE_HOME, 'whatsapp-auth');
 const LEGACY_SESSION_DIR = path.join(FONTE_HOME, 'whatsapp-session');
 
@@ -58,8 +57,13 @@ export class WhatsAppService {
     private saveCreds: (() => Promise<void>) | null = null;
     private responsePoller: ReturnType<typeof setInterval> | null = null;
     private pending = new Map<string, PendingMessage>();
-    private recentSentTexts = new Map<string, number>();
-    private SEND_DEDUPE_MS = 15_000;
+    // Message ids we've sent or already handled — used to drop our own echoed
+    // sends (linked-device sends arrive as fromMe) and messages replayed on
+    // reconnect (Baileys re-delivers offline messages via type 'append').
+    private seenIds = new Map<string, number>();
+    private readonly SEEN_TTL = 5 * 60_000;
+    // Messages timestamped before the daemon booted are stale history, not commands.
+    private readonly bootTime = Date.now();
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     private starting = false;
 
@@ -78,7 +82,7 @@ export class WhatsAppService {
     }
 
     private async connectInternal(): Promise<void> {
-        // Clean up legacy Chrome profile from the old whatsapp-web.js implementation
+        // Remove the legacy whatsapp-web.js Chrome profile if present.
         try {
             if (fs.existsSync(LEGACY_SESSION_DIR)) {
                 fs.rmSync(LEGACY_SESSION_DIR, { recursive: true, force: true });
@@ -193,8 +197,23 @@ export class WhatsAppService {
         const rawJid = msg.key.remoteJid;
         if (!rawJid || rawJid === 'status@broadcast') return;
 
-        const allowedChat = getSettings().whatsapp?.allowed_chat ?? null;
+        const wa = getSettings().whatsapp;
+        const allowedChat = wa?.allowed_chat ?? null;
         if (!allowedChat || rawJid !== allowedChat) return;
+
+        // Only the paired account (you) may command Fonte. WhatsApp links Fonte
+        // as a device of your own account, so your messages arrive as fromMe;
+        // other members of an allowed group do not. Opt specific people in via
+        // whatsapp.allowed_participants.
+        const senderJid = msg.key.participant || rawJid;
+        const allowedParticipants = wa?.allowed_participants ?? [];
+        if (!msg.key.fromMe && !allowedParticipants.includes(senderJid)) return;
+
+        // Drop history replayed on (re)connect and anything already handled.
+        const tsMs = Number(msg.messageTimestamp ?? 0) * 1000;
+        if (tsMs && tsMs < this.bootTime) return;
+        if (this.alreadySeen(msg.key.id)) return;
+        this.markSeen(msg.key.id);
 
         const m = msg.message;
         const text = (
@@ -209,9 +228,7 @@ export class WhatsAppService {
         const hasMedia = !!(m.imageMessage || m.videoMessage || m.audioMessage || m.documentMessage || m.stickerMessage);
         if (!text && !hasMedia) return;
 
-        if (msg.key.fromMe && text && this.wasRecentlySent(text)) return;
-
-        const sender = msg.pushName || (msg.key.participant || rawJid).split('@')[0];
+        const sender = msg.pushName || senderJid.split('@')[0];
         const messageId = `wa_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
         const files: string[] = [];
@@ -268,24 +285,23 @@ export class WhatsAppService {
         }
     }
 
-    private markRecentSent(text: string): void {
-        const trimmed = text.trim();
-        if (!trimmed) return;
-        this.recentSentTexts.set(trimmed, Date.now());
-        const cutoff = Date.now() - this.SEND_DEDUPE_MS;
-        for (const [t, ts] of this.recentSentTexts) {
-            if (ts < cutoff) this.recentSentTexts.delete(t);
+    private markSeen(id?: string | null): void {
+        if (!id) return;
+        this.seenIds.set(id, Date.now());
+        const cutoff = Date.now() - this.SEEN_TTL;
+        for (const [k, ts] of this.seenIds) {
+            if (ts < cutoff) this.seenIds.delete(k);
         }
     }
 
-    private wasRecentlySent(text: string): boolean {
-        const ts = this.recentSentTexts.get(text);
-        if (!ts) return false;
-        if (Date.now() - ts > this.SEND_DEDUPE_MS) {
-            this.recentSentTexts.delete(text);
+    private alreadySeen(id?: string | null): boolean {
+        if (!id) return false;
+        const ts = this.seenIds.get(id);
+        if (ts == null) return false;
+        if (Date.now() - ts > this.SEEN_TTL) {
+            this.seenIds.delete(id);
             return false;
         }
-        this.recentSentTexts.delete(text);
         return true;
     }
 
@@ -311,7 +327,7 @@ export class WhatsAppService {
         this._status = 'disconnected';
         this._qr = null;
         this.pending.clear();
-        this.recentSentTexts.clear();
+        this.seenIds.clear();
         log('INFO', 'WhatsApp: stopped');
     }
 
@@ -385,12 +401,13 @@ export class WhatsAppService {
                 const payload = this.buildMediaPayload(file, ext);
                 if (!payload) continue;
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                await this.sock.sendMessage(destinationJid, payload as any, pending ? { quoted: pending.message } : undefined);
+                const sent = await this.sock.sendMessage(destinationJid, payload as any, pending ? { quoted: pending.message } : undefined);
+                this.markSeen(sent?.key?.id);
             }
 
             if (resp.message) {
-                this.markRecentSent(resp.message);
-                await this.sock.sendMessage(destinationJid, { text: resp.message }, pending ? { quoted: pending.message } : undefined);
+                const sent = await this.sock.sendMessage(destinationJid, { text: resp.message }, pending ? { quoted: pending.message } : undefined);
+                this.markSeen(sent?.key?.id);
             }
 
             ackResponse(resp.id);
