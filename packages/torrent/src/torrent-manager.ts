@@ -68,7 +68,6 @@ export class TorrentManager {
     // sync and when payload data last arrived.
     private downloadActivity = new Map<string, { downloaded: number; lastDataAt: number }>();
     private stalledNotified = new Set<string>();
-    // Map our internal IDs to Transmission torrent IDs
     private transmissionIds = new Map<string, number>();
 
     constructor(config?: Partial<TorrentConfig>) {
@@ -94,7 +93,6 @@ export class TorrentManager {
             await this.buildTransmissionIdMap();
         }
 
-        // Periodic sync
         this.updateInterval = setInterval(() => this.syncStats(), 3000);
 
         log('INFO', `TorrentManager started (Transmission RPC, download_dir=${this.config.download_dir})`);
@@ -148,7 +146,6 @@ export class TorrentManager {
 
         insertTorrent({ id, infoHash: tempHash, name: '', magnetUri, status: 'adding', savePath });
 
-        // Add to Transmission
         try {
             const args: Record<string, any> = { 'download-dir': savePath, paused: false };
 
@@ -156,14 +153,12 @@ export class TorrentManager {
                 if (source.startsWith('magnet:') || source.match(/^[a-fA-F0-9]{40}$/)) {
                     args.filename = source;
                 } else if (fs.existsSync(source)) {
-                    // .torrent file path — read and send as base64
                     const fileData = fs.readFileSync(source);
                     args.metainfo = fileData.toString('base64');
                 } else {
                     args.filename = source;
                 }
             } else {
-                // Buffer — send as base64
                 args.metainfo = source.toString('base64');
             }
 
@@ -268,7 +263,6 @@ export class TorrentManager {
         if (tId !== undefined && this.rpc) {
             await this.rpc.call('torrent-stop', { ids: [tId] });
         }
-        // If fully downloaded, mark as completed (not paused)
         const isComplete = record.progress >= 1;
         this.downloadActivity.delete(record.infoHash);
         this.stalledNotified.delete(record.infoHash);
@@ -374,7 +368,7 @@ export class TorrentManager {
         if (wanted.length > 0) args['files-wanted'] = wanted;
         if (unwanted.length > 0) args['files-unwanted'] = unwanted;
         await this.rpc.call('torrent-set', args);
-        // Refresh file selection from Transmission so DB matches
+        // Refresh file selection from Transmission so the DB matches.
         await this.syncTorrentFiles(id, tId);
     }
 
@@ -471,7 +465,7 @@ export class TorrentManager {
                 existingFiles = getTorrentFiles(recordId);
             }
 
-            // Refresh per-file progress + wanted state from Transmission, but only write when changed
+            // Refresh per-file progress and wanted state, writing only on change.
             const byPath = new Map(existingFiles.map(f => [f.path, f]));
             const fileStats: any[] = t.fileStats || [];
             for (let i = 0; i < t.files.length; i++) {
@@ -588,14 +582,14 @@ export class TorrentManager {
                 fetchTorrentPoster(record.id, undefined, { force: true }).catch(err => log('WARN', `Poster: fetch failed for ${record.id}: ${(err as Error).message}`));
             }
 
-            // Completion detection — only fire once per torrent
+            // Fire completion once per torrent.
             if (isDone && wasPending && !record.completedAt) {
                 updateTorrent(record.id, { completedAt: Date.now() });
                 emitEvent(TORRENT_EVENTS.COMPLETED, { id: record.id, name: record.name || t.name });
                 log('INFO', `Torrent completed: ${t.name}`);
             }
 
-            // Announce once per stall episode, re-arm when data flows again
+            // Announce once per stall episode; re-arm when data flows again.
             if (stalledSince !== null) {
                 if (!this.stalledNotified.has(hash)) {
                     this.stalledNotified.add(hash);
@@ -620,7 +614,7 @@ export class TorrentManager {
             }
         }
 
-        // Detect DB records missing from Transmission (removed externally)
+        // Records missing from Transmission were removed by an external client.
         const transmissionHashes = new Set(transmissionTorrents.map((t: any) => (t.hashString || '').toLowerCase()));
         const activeDbRecords = getActiveTorrents();
         for (const record of activeDbRecords) {

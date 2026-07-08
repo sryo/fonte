@@ -150,7 +150,6 @@ export function ScheduleFormModal({
             className="text-sm"
           />
 
-          {/* Repeat */}
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <ArrowsClockwise className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -170,7 +169,6 @@ export function ScheduleFormModal({
               </Select>
             </div>
 
-            {/* Date + time picker for one-time events */}
             {formRepeat === "once" && (
               <div className="flex items-center gap-3">
                 <Popover>
@@ -244,7 +242,6 @@ export function ScheduleFormModal({
               </div>
             )}
 
-            {/* Time picker for recurring */}
             {formRepeat !== "custom" && formRepeat !== "once" && (
               <div className="flex items-center gap-3">
                 <CalendarDots className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -320,7 +317,6 @@ export function ScheduleFormModal({
               </div>
             )}
 
-            {/* Day-of-week toggles for weekly */}
             {formRepeat === "weekly" && (
               <div className="flex items-center gap-1.5 pl-7">
                 {DAYS_OF_WEEK.map((day, i) => (
@@ -342,7 +338,6 @@ export function ScheduleFormModal({
               </div>
             )}
 
-            {/* Day of month for monthly */}
             {formRepeat === "monthly" && (
               <div className="flex items-center gap-2 pl-7">
                 <span className="text-sm text-muted-foreground">on day</span>
@@ -362,7 +357,6 @@ export function ScheduleFormModal({
               </div>
             )}
 
-            {/* Custom cron input */}
             {formRepeat === "custom" && (
               <div className="pl-7">
                 <Input
@@ -379,7 +373,6 @@ export function ScheduleFormModal({
             )}
           </div>
 
-          {/* Summary */}
           <div className="rounded-md bg-muted/50 px-3 py-2">
             <p className="text-xs text-muted-foreground">
               {describeSchedule({

@@ -123,43 +123,38 @@ export function initTorrentDb(): void {
         CREATE INDEX IF NOT EXISTS idx_auto_logs_rule ON automation_logs(rule_id);
     `);
 
-    // Migration: add poster_url to watchlist
     const wlCols = db.prepare("PRAGMA table_info(watchlist)").all() as { name: string }[];
     if (!wlCols.some(c => c.name === 'poster_url')) {
         db.exec('ALTER TABLE watchlist ADD COLUMN poster_url TEXT');
     }
 
-    // Migration: add results_viewed_at to watchlist
     if (!wlCols.some(c => c.name === 'results_viewed_at')) {
         db.exec('ALTER TABLE watchlist ADD COLUMN results_viewed_at INTEGER');
     }
 
-    // Migration: add first_found_at to watchlist_results. found_at refreshes
-    // on every re-find, so it can't tell new results from re-found ones.
+    // found_at refreshes on every re-find; first_found_at is needed to tell
+    // new results from re-found ones.
     const wlResultCols = db.prepare("PRAGMA table_info(watchlist_results)").all() as { name: string }[];
     if (!wlResultCols.some(c => c.name === 'first_found_at')) {
         db.exec('ALTER TABLE watchlist_results ADD COLUMN first_found_at INTEGER');
         db.exec('UPDATE watchlist_results SET first_found_at = found_at WHERE first_found_at IS NULL');
     }
 
-    // Migration: add poster_url to torrents
     const torrentCols = db.prepare("PRAGMA table_info(torrents)").all() as { name: string }[];
     if (!torrentCols.some(c => c.name === 'poster_url')) {
         db.exec('ALTER TABLE torrents ADD COLUMN poster_url TEXT');
     }
 
-    // Migration: add stalled_since to torrents
     if (!torrentCols.some(c => c.name === 'stalled_since')) {
         db.exec('ALTER TABLE torrents ADD COLUMN stalled_since INTEGER');
     }
 
-    // Migration: add prompt to automation_rules
     const autoRuleCols = getDb().prepare("PRAGMA table_info(automation_rules)").all() as { name: string }[];
     if (!autoRuleCols.some(c => c.name === 'prompt')) {
         getDb().exec("ALTER TABLE automation_rules ADD COLUMN prompt TEXT DEFAULT ''");
     }
 
-    // Migration: decode names stored URL-encoded from magnet dn= parameters
+    // Backfill names that were stored URL-encoded from magnet dn= parameters.
     const encodedRows = db.prepare("SELECT id, name FROM torrents WHERE name LIKE '%+%' OR name LIKE '%\\%%' ESCAPE '\\'").all() as { id: string; name: string }[];
     for (const row of encodedRows) {
         const decoded = decodeTorrentName(row.name);

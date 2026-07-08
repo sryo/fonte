@@ -6,7 +6,6 @@ import { SCRIPT_DIR, FONTE_HOME } from './config';
 import { loadMemoryIndex } from './memory';
 import { log } from './logging';
 
-/** Path to the global SOUL.md personality file. */
 export const SOUL_PATH = path.join(FONTE_HOME, 'SOUL.md');
 
 const DEFAULT_SOUL = `# Soul
@@ -31,9 +30,6 @@ function hashString(value: string): string {
     return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-/**
- * Recursively copy directory
- */
 export function copyDirSync(src: string, dest: string): void {
     fs.mkdirSync(dest, { recursive: true });
     const entries = fs.readdirSync(src, { withFileTypes: true });
@@ -58,7 +54,7 @@ export function syncAgentSkills(agentDir: string): void {
     const sourceSkills = path.join(SCRIPT_DIR, '.agents', 'skills');
     if (!fs.existsSync(sourceSkills)) return;
 
-    // Copy default skills into .agents/skills (overwrites existing, preserves custom)
+    // Overwrites default skills, preserving any custom ones alongside.
     const targetAgentsSkills = path.join(agentDir, '.agents', 'skills');
     fs.mkdirSync(targetAgentsSkills, { recursive: true });
     for (const entry of fs.readdirSync(sourceSkills, { withFileTypes: true })) {
@@ -68,11 +64,10 @@ export function syncAgentSkills(agentDir: string): void {
         copyDirSync(path.join(sourceSkills, entry.name), dest);
     }
 
-    // Ensure .claude/skills is a symlink to ../.agents/skills
     const targetClaudeSkills = path.join(agentDir, '.claude', 'skills');
     fs.mkdirSync(path.join(agentDir, '.claude'), { recursive: true });
 
-    // Remove whatever exists (real dir, stale symlink, or file) and replace with symlink
+    // Replace whatever is there (real dir, stale symlink, or file) with the symlink.
     try {
         const lstat = fs.lstatSync(targetClaudeSkills);
         if (lstat.isSymbolicLink()) {
@@ -96,22 +91,19 @@ export function ensureAgentDirectory(agentDir: string): void {
     fs.mkdirSync(agentDir, { recursive: true });
 
     if (isNew) {
-        // Copy .claude directory
         const sourceClaudeDir = path.join(SCRIPT_DIR, '.claude');
         if (fs.existsSync(sourceClaudeDir)) {
             copyDirSync(sourceClaudeDir, path.join(agentDir, '.claude'));
         }
 
-        // Copy heartbeat.md
         const sourceHeartbeat = path.join(SCRIPT_DIR, 'heartbeat.md');
         if (fs.existsSync(sourceHeartbeat)) {
             fs.copyFileSync(sourceHeartbeat, path.join(agentDir, 'heartbeat.md'));
         }
 
-        // Create empty AGENTS.md for user customization
+        // Empty so the user can add their own customization.
         fs.writeFileSync(path.join(agentDir, 'AGENTS.md'), '');
 
-        // Create .fonte directory and copy SOUL.md
         const targetAitorrent = path.join(agentDir, '.fonte');
         fs.mkdirSync(targetAitorrent, { recursive: true });
         const sourceSoul = path.join(SCRIPT_DIR, 'SOUL.md');
@@ -120,15 +112,13 @@ export function ensureAgentDirectory(agentDir: string): void {
         }
     }
 
-    // Ensure global SOUL.md exists with default content
     if (!fs.existsSync(SOUL_PATH)) {
         fs.writeFileSync(SOUL_PATH, DEFAULT_SOUL, 'utf8');
     }
 
-    // Create memory directory for hierarchical memory system
     fs.mkdirSync(path.join(agentDir, 'memory'), { recursive: true });
 
-    // Always sync skills (keeps them up to date for both new and existing dirs)
+    // Sync unconditionally so existing dirs pick up skill updates too.
     syncAgentSkills(agentDir);
 }
 
@@ -146,11 +136,9 @@ export function buildSystemPrompt(
 ): string {
     let prompt = BUILTIN_AGENT_INSTRUCTIONS;
 
-    // Build teammate block
     const startMarker = '<!-- TEAMMATES_START -->';
     const endMarker = '<!-- TEAMMATES_END -->';
 
-    // Collect teams this agent belongs to
     const agentTeams: { teamId: string; teamName: string; leaderId: string; members: { id: string; name: string; model: string }[] }[] = [];
     for (const [teamId, team] of Object.entries(teams)) {
         if (!team.agents.includes(agentId)) continue;
@@ -183,14 +171,12 @@ export function buildSystemPrompt(
         }
     }
 
-    // Inject teammate block into the built-in instructions
     const startIdx = prompt.indexOf(startMarker);
     const endIdx = prompt.indexOf(endMarker);
     if (startIdx !== -1 && endIdx !== -1) {
         prompt = prompt.substring(0, startIdx + startMarker.length) + block + prompt.substring(endIdx);
     }
 
-    // Inject memory index into the system prompt
     const memStartMarker = '<!-- MEMORY_START -->';
     const memEndMarker = '<!-- MEMORY_END -->';
     const memoryTree = loadMemoryIndex(agentDir);
@@ -208,7 +194,6 @@ export function buildSystemPrompt(
         prompt = prompt.substring(0, memStartIdx + memStartMarker.length) + memBlock + prompt.substring(memEndIdx);
     }
 
-    // Inject soul/personality
     if (fs.existsSync(SOUL_PATH)) {
         const soulContent = fs.readFileSync(SOUL_PATH, 'utf8').trim();
         if (soulContent) {
@@ -216,7 +201,6 @@ export function buildSystemPrompt(
         }
     }
 
-    // Append torrent management API documentation
     prompt += `
 
 ## Torrent Management API
@@ -277,7 +261,6 @@ curl -X POST http://localhost:3777/api/automations \\
 When the user asks you to create one or more automations, call POST /api/automations once per rule and confirm by including the returned \`id\` in your reply. Don't suggest "I'll create one" without actually calling the API.
 `;
 
-    // Append user's custom AGENTS.md from agent workspace (if non-empty)
     const userAgentsMd = path.join(agentDir, 'AGENTS.md');
     let userContent = '';
     if (fs.existsSync(userAgentsMd)) {
@@ -287,7 +270,6 @@ When the user asks you to create one or more automations, call POST /api/automat
         }
     }
 
-    // Append config system prompt (from settings.json)
     let promptFileContent = '';
     if (configPromptFile) {
         try {

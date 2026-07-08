@@ -28,7 +28,6 @@ export function FileList({
       {files.map((file, idx) => {
         const filePct = toPct(file.progress);
         const onToggle = async () => {
-          // Optimistic flip
           setFiles((prev) =>
             prev.map((f, i) => (i === idx ? { ...f, selected: !f.selected } : f)),
           );
@@ -40,7 +39,6 @@ export function FileList({
             );
             if (res.ok && res.files) setFiles(res.files);
           } catch {
-            // Revert on failure
             setFiles((prev) =>
               prev.map((f, i) => (i === idx ? { ...f, selected: file.selected } : f)),
             );

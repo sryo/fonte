@@ -50,8 +50,6 @@ export const claudeAdapter: AgentAdapter = {
                         if (json.result) response = json.result;
                         if (json.usage) log('INFO', `Claude usage (${agentId}): ${JSON.stringify(json.usage)}`);
                         if (json.modelUsage) log('INFO', `Claude model usage (${agentId}): ${JSON.stringify(json.modelUsage)}`);
-                        // Result received — all useful output is done.
-                        // Signal that the process should exit soon or be killed.
                         signalDone();
                         return;
                     }

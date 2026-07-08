@@ -8,7 +8,6 @@ import { ensureAgentDirectory, buildSystemPrompt } from './agent';
 import { getAdapter } from './adapters';
 
 // ── Active process tracking ─────────────────────────────────────────────────
-// Tracks the active child process per agent for manual session management.
 const activeProcesses = new Map<string, ChildProcess>();
 
 export function getActiveAgentIds(): string[] {
@@ -93,7 +92,6 @@ export function runCommandStreaming(
             env,
         });
 
-        // Track active process for manual session management
         if (agentId) {
             activeProcesses.set(agentId, child);
             child.on('close', () => {
@@ -119,8 +117,6 @@ export function runCommandStreaming(
             }
         }
 
-        // When the caller signals that all useful output has been received,
-        // give the process a grace period to exit cleanly, then kill it.
         signalDoneCallback = () => {
             if (settled) return;
             graceTimer = setTimeout(() => {
@@ -188,7 +184,6 @@ export async function invokeAgent(
     teams: Record<string, TeamConfig> = {},
     onEvent?: (text: string) => void,
 ): Promise<string> {
-    // Ensure agent directory exists with config files
     const agentDir = path.join(workspacePath, agentId);
     const isNewAgent = !fs.existsSync(agentDir);
     ensureAgentDirectory(agentDir);
@@ -198,10 +193,8 @@ export async function invokeAgent(
         shouldReset = true;
     }
 
-    // Build system prompt in-memory (built-in instructions + teammates + memory + user customization)
     const systemPrompt = buildSystemPrompt(agentId, agentDir, agents, teams, agent.system_prompt, agent.prompt_file);
 
-    // Resolve working directory
     const workingDir = agent.working_directory
         ? (path.isAbsolute(agent.working_directory)
             ? agent.working_directory
@@ -210,7 +203,6 @@ export async function invokeAgent(
 
     const rawProvider = agent.provider || 'anthropic';
 
-    // Resolve custom provider if using "custom:<id>" prefix
     let provider = rawProvider;
     let customProvider: CustomProvider | undefined;
     let envOverrides: Record<string, string> = {
@@ -227,7 +219,6 @@ export async function invokeAgent(
         // Map harness back to built-in provider for adapter selection
         provider = customProvider.harness === 'codex' ? 'openai' : 'anthropic';
 
-        // Build env overrides based on harness
         if (customProvider.harness === 'claude') {
             envOverrides.ANTHROPIC_BASE_URL = customProvider.base_url;
             envOverrides.ANTHROPIC_AUTH_TOKEN = customProvider.api_key;
@@ -239,7 +230,6 @@ export async function invokeAgent(
 
         log('INFO', `Using custom provider '${customId}' (harness: ${customProvider.harness}, base_url: ${customProvider.base_url})`);
     } else {
-        // For built-in providers, check if credentials are configured in settings
         const settings = getSettings();
         if (provider === 'anthropic' && settings.models?.anthropic?.oauth_token) {
             envOverrides.CLAUDE_CODE_OAUTH_TOKEN = settings.models.anthropic.oauth_token;
@@ -254,13 +244,12 @@ export async function invokeAgent(
         }
     }
 
-    // Resolve model — custom providers use their own model, otherwise resolve via aliases
+    // Custom providers use their own model; built-ins resolve via aliases.
     const effectiveModel = agent.model || customProvider?.model || '';
     const model = customProvider
         ? effectiveModel
         : resolveModel(effectiveModel, provider as 'anthropic' | 'openai' | 'opencode');
 
-    // Look up the adapter
     const adapter = getAdapter(provider);
     if (!adapter) {
         throw new Error(`No adapter registered for provider '${provider}'`);

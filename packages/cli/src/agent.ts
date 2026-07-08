@@ -33,7 +33,6 @@ async function agentAdd() {
         defaultValue: agentId,
     }));
 
-    // Provider — check for custom providers
     const customProviders = settings.custom_providers || {};
     const hasCustom = Object.keys(customProviders).length > 0;
 
@@ -320,7 +319,6 @@ function agentProvider(agentId: string, providerArg?: string, flag?: string, mod
         process.exit(1);
     }
 
-    // Show current provider if no args
     if (!providerArg) {
         p.log.info(`Agent: @${agentId} (${agent.name})`);
         p.log.message(`Provider: ${agent.provider}`);

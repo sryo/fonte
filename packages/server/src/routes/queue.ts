@@ -11,7 +11,6 @@ import { ok, fail } from '../http';
 export function createQueueRoutes() {
     const app = new Hono();
 
-    // GET /api/queue/status
     app.get('/api/queue/status', (c) => {
         const status = getQueueStatus();
         return ok(c, {
@@ -26,7 +25,6 @@ export function createQueueRoutes() {
         });
     });
 
-    // GET /api/responses
     app.get('/api/responses', (c) => {
         const limit = parseInt(c.req.query('limit') || '20', 10);
         const rows = getRecentResponses(limit);
@@ -46,7 +44,6 @@ export function createQueueRoutes() {
         });
     });
 
-    // GET /api/responses/pending?channel=whatsapp
     app.get('/api/responses/pending', (c) => {
         const channel = c.req.query('channel');
         if (!channel) return fail(c, 'channel query param required');
@@ -68,7 +65,6 @@ export function createQueueRoutes() {
         });
     });
 
-    // POST /api/responses — enqueue a proactive outgoing message
     app.post('/api/responses', async (c) => {
         const body = await c.req.json();
         const { channel, sender, senderId, message, agent, files } = body as {
@@ -97,19 +93,16 @@ export function createQueueRoutes() {
         return ok(c, { messageId });
     });
 
-    // POST /api/responses/:id/ack — acknowledge a response
     app.post('/api/responses/:id/ack', (c) => {
         const id = parseInt(c.req.param('id'), 10);
         ackResponse(id);
         return ok(c);
     });
 
-    // GET /api/queue/agents — per-agent queue depth
     app.get('/api/queue/agents', (c) => {
         return ok(c, { agents: getAgentQueueStatus() });
     });
 
-    // GET /api/queue/dead
     app.get('/api/queue/dead', (c) => {
         const dead = getDeadMessages();
         return ok(c, {
@@ -130,7 +123,6 @@ export function createQueueRoutes() {
         });
     });
 
-    // POST /api/queue/dead/:id/retry
     app.post('/api/queue/dead/:id/retry', (c) => {
         const id = parseInt(c.req.param('id'), 10);
         const retried = retryDeadMessage(id);
@@ -139,7 +131,6 @@ export function createQueueRoutes() {
         return ok(c);
     });
 
-    // DELETE /api/queue/dead/:id
     app.delete('/api/queue/dead/:id', (c) => {
         const id = parseInt(c.req.param('id'), 10);
         const deleted = deleteDeadMessage(id);
@@ -148,7 +139,6 @@ export function createQueueRoutes() {
         return ok(c);
     });
 
-    // GET /api/queue/processing — list active processing messages + process status
     app.get('/api/queue/processing', (c) => {
         const activeAgents = new Set(getActiveAgentIds());
         const messages = getProcessingMessages();
@@ -171,7 +161,6 @@ export function createQueueRoutes() {
         });
     });
 
-    // POST /api/queue/processing/:id/kill — kill agent process + fail the message
     app.post('/api/queue/processing/:id/kill', (c) => {
         const id = parseInt(c.req.param('id'), 10);
         const messages = getProcessingMessages();

@@ -6,7 +6,6 @@ import { log } from '../logging';
  * Extract displayable text from a Gemini CLI JSON event.
  */
 function extractEventText(json: any): string | null {
-    // Gemini CLI outputs events with type and content
     if (json.type === 'response' && json.response) {
         return json.response;
     }
@@ -38,7 +37,6 @@ export const geminiAdapter: AgentAdapter = {
             PATH: process.env.PATH || '',
         };
 
-        // Pass API key if configured
         if (envOverrides.GOOGLE_API_KEY) {
             env.GOOGLE_API_KEY = envOverrides.GOOGLE_API_KEY;
         }
@@ -57,7 +55,6 @@ export const geminiAdapter: AgentAdapter = {
             }, workingDir, env);
             const output = await promise;
 
-            // Try to parse final JSON output
             try {
                 const parsed = JSON.parse(output);
                 return parsed.response || parsed.text || output;
@@ -65,7 +62,6 @@ export const geminiAdapter: AgentAdapter = {
                 return output;
             }
         } else {
-            // Non-streaming: run and capture output
             const { runCommand } = await import('../invoke');
             const output = await runCommand(cmd, args, workingDir, env);
 

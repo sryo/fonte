@@ -4,7 +4,6 @@ import { ok, fail } from '../http';
 
 const app = new Hono();
 
-// GET /api/schedules — list all schedules, optionally filtered by agent
 app.get('/api/schedules', (c) => {
     const agentId = c.req.query('agent');
     let schedules = getSchedules();
@@ -14,7 +13,6 @@ app.get('/api/schedules', (c) => {
     return ok(c, { schedules });
 });
 
-// POST /api/schedules — create a new schedule
 app.post('/api/schedules', async (c) => {
     const body = await c.req.json() as {
         cron?: string;
@@ -48,7 +46,6 @@ app.post('/api/schedules', async (c) => {
     }
 });
 
-// PUT /api/schedules/:id — update a schedule
 app.put('/api/schedules/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json() as Partial<{
@@ -72,7 +69,6 @@ app.put('/api/schedules/:id', async (c) => {
     }
 });
 
-// DELETE /api/schedules/:id — delete a schedule by id or label
 app.delete('/api/schedules/:id', (c) => {
     const id = c.req.param('id');
     const deleted = removeSchedule(id);

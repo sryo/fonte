@@ -257,16 +257,13 @@ export function TopBar({ onOpenChat }: TopBarProps) {
 
       {/* ===== Center: Search input ===== */}
       <div className="flex-1 relative" ref={searchWrapperRef}>
-        {/* Input wrapper */}
         <div className="flex items-center gap-2 rounded-md border bg-background h-9 px-3 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all">
-          {/* Left icon */}
           {loading ? (
             <SpinnerGap className="h-[18px] w-[18px] text-muted-foreground animate-spin shrink-0" />
           ) : (
             <MagnifyingGlass className="h-[18px] w-[18px] text-muted-foreground shrink-0" weight="bold" />
           )}
 
-          {/* Input */}
           <input
             ref={inputRef}
             type="text"
@@ -311,7 +308,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
             </kbd>
           )}
 
-          {/* Submit button */}
           {input.trim() && (
             <button
               onClick={handleSubmit}
@@ -324,7 +320,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
           )}
         </div>
 
-        {/* Toast */}
         {toast && (
           <div
             className={cn(
@@ -368,7 +363,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
                 key={idx}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b last:border-b-0"
               >
-                {/* Title */}
                 <div className="flex-1 min-w-0">
                   <p
                     className="text-sm font-medium truncate"
@@ -390,7 +384,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
                   </div>
                 </div>
 
-                {/* Add button */}
                 <button
                   onClick={() => handleAddResult(result)}
                   className="flex items-center gap-1.5 shrink-0 rounded-md bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium hover:bg-primary/20 transition-colors"
@@ -407,7 +400,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
 
       {/* ===== Right: Theme toggle + Chat button ===== */}
       <div className="flex items-center gap-1">
-        {/* Theme toggle */}
         <button
           onClick={() =>
             setTheme(resolvedTheme === "dark" ? "light" : "dark")
@@ -424,7 +416,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
           )}
         </button>
 
-        {/* Chat button */}
         <button
           onClick={onOpenChat}
           className="h-9 w-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"

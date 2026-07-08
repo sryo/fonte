@@ -32,7 +32,6 @@ function providerShow() {
 function providerSet(providerName: string, args: string[]) {
     const settings = requireSettings();
 
-    // Parse flags
     let modelArg = '';
     let oauthTokenArg = '';
     let apiKeyArg = '';
@@ -60,7 +59,6 @@ function providerSet(providerName: string, args: string[]) {
         if (!settings.models[providerName]) settings.models[providerName] = {};
         (settings.models as any)[providerName].model = modelArg;
 
-        // Propagate to agents matching old provider
         const agents = settings.agents || {};
         let updatedCount = 0;
         for (const [, agent] of Object.entries(agents)) {
@@ -131,7 +129,6 @@ function modelShow() {
 function modelSet(modelName: string) {
     const settings = requireSettings();
 
-    // Determine provider from model name
     const anthropicModels = ['sonnet', 'opus'];
     const openaiModels = ['gpt-5.2', 'gpt-5.3-codex'];
 
@@ -153,7 +150,6 @@ function modelSet(modelName: string) {
     if (!models[targetProvider]) models[targetProvider] = {};
     models[targetProvider].model = modelName;
 
-    // Propagate to agents matching the provider
     const agents = settings.agents || {};
     let updatedCount = 0;
     for (const [, agent] of Object.entries(agents)) {

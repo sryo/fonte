@@ -72,7 +72,6 @@ export default function AgentConfigPage({
 
   const agent = agents?.[agentId];
 
-  // Load workspace data when agent is available
   useEffect(() => {
     if (!agent) return;
 
@@ -105,7 +104,6 @@ export default function AgentConfigPage({
       setSpSaved(true);
       setTimeout(() => setSpSaved(false), 2000);
     } catch {
-      // Error handling
     } finally {
       setSpSaving(false);
     }
@@ -123,7 +121,6 @@ export default function AgentConfigPage({
       setHbSaved(true);
       setTimeout(() => setHbSaved(false), 2000);
     } catch {
-      // Error handling
     } finally {
       setHbSaving(false);
     }
@@ -186,7 +183,6 @@ export default function AgentConfigPage({
         }
       />
 
-      {/* Tabs */}
       <div className="flex items-center border-b">
         {TABS.map((tab) => {
           const Icon = tab.icon;
@@ -213,7 +209,6 @@ export default function AgentConfigPage({
         })}
       </div>
 
-      {/* Tab content */}
       <div>
         {activeTab === "chat" && (
           <div className="h-full min-h-0">

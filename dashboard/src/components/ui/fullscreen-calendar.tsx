@@ -91,7 +91,6 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
 
   return (
     <div className="flex flex-1 flex-col">
-      {/* Calendar Header */}
       <div className="flex flex-col space-y-4 p-4 md:flex-row md:items-center md:justify-between md:space-y-0 lg:flex-none">
         <div className="flex flex-auto">
           <div className="flex items-center gap-4">
@@ -161,9 +160,7 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
         </div>
       </div>
 
-      {/* Calendar Grid */}
       <div className="lg:flex lg:flex-auto lg:flex-col">
-        {/* Week Days Header */}
         <div className="grid grid-cols-7 border text-center text-xs font-semibold leading-6 lg:flex-none">
           <div className="border-r py-2.5">Sun</div>
           <div className="border-r py-2.5">Mon</div>
@@ -174,7 +171,6 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
           <div className="py-2.5">Sat</div>
         </div>
 
-        {/* Calendar Days */}
         <div className="flex text-xs leading-6 lg:flex-auto">
           <div className="hidden w-full border-x lg:grid lg:grid-cols-7 lg:grid-rows-5">
             {days.map((day, dayIdx) =>

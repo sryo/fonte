@@ -15,7 +15,6 @@ function register(adapter: AgentAdapter) {
     }
 }
 
-// Auto-register built-in adapters
 register(claudeAdapter);
 register(codexAdapter);
 register(opencodeAdapter);

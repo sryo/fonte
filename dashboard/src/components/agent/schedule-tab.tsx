@@ -39,10 +39,9 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
     try {
       await deleteSchedule(id);
       loadSchedules();
-    } catch { /* ignore */ }
+    } catch {}
   };
 
-  // Convert schedules to calendar data
   const calendarData = useMemo(() => {
     const dayMap = new Map<string, CalendarData>();
 
@@ -103,7 +102,6 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Schedule list bar */}
       {schedules.length > 0 && (
         <div className="flex items-center gap-3 px-6 py-3 border-b bg-card/50">
           <div className="flex items-center gap-2 flex-1 overflow-x-auto">
@@ -137,7 +135,6 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
         </div>
       )}
 
-      {/* New schedule form modal */}
       <ScheduleFormModal
         agentId={agentId}
         open={showForm}
@@ -145,7 +142,6 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
         onCreated={loadSchedules}
       />
 
-      {/* Calendar */}
       {schedules.length > 0 ? (
         <div className="flex-1">
           <FullScreenCalendar

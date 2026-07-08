@@ -44,11 +44,9 @@ export class AutomationEngine {
     }
 
     private async executeRule(rule: AutomationRule, eventType: string, data: Record<string, unknown>): Promise<void> {
-        // Build context from event data
         const context = this.buildEventContext(eventType, data);
         const fullMessage = `${context}\n\nAutomation instruction: ${rule.prompt}`;
 
-        // Send to agent
         enqueueMessage({
             channel: 'automation',
             sender: 'Automation',
@@ -57,7 +55,6 @@ export class AutomationEngine {
             agent: 'fonte',
         });
 
-        // Update rule stats
         updateAutomationRule(rule.id, {
             lastTriggeredAt: Date.now(),
             triggerCount: rule.triggerCount + 1,
@@ -80,7 +77,6 @@ export class AutomationEngine {
     }
 
     private buildEventContext(type: string, data: Record<string, unknown>): string {
-        // Enrich with torrent record if available
         if (data.id) {
             const torrent = getTorrent(data.id as string);
             if (torrent) {
@@ -107,7 +103,6 @@ export class AutomationEngine {
     }
 }
 
-// Singleton
 let engine: AutomationEngine | null = null;
 export function getAutomationEngine(): AutomationEngine {
     if (!engine) engine = new AutomationEngine();

@@ -25,16 +25,12 @@ const CATEGORY_MAP: Record<string, number> = {
 
 const app = new Hono();
 
-// ── Smart search: try multiple query strategies across all sources ────────
-
 async function multiSearch(title: string, year?: number, quality?: string, category?: number): Promise<any[]> {
     return searchReleases({ title, year, quality, category });
 }
 
-// ── POST /api/search — universal "find me this" endpoint ─────────────────
-// Accepts: title, IMDB URL/ID, magnet URI, or info hash.
-// Does the right thing automatically.
-
+// Accepts a title, IMDB URL/ID, magnet URI, or info hash and dispatches
+// on the shape of the query.
 app.post('/api/search', async (c) => {
     try {
         const body = await c.req.json() as {
@@ -49,24 +45,20 @@ app.post('/api/search', async (c) => {
             return fail(c, 'query is required');
         }
 
-        // If it's a magnet link, just add it directly
         if (query.startsWith('magnet:')) {
             const torrent = await getTorrentManager().addTorrent(query);
             return ok(c, { action: 'added', torrent });
         }
 
-        // If it's an info hash (40 hex chars), add directly
         if (/^[a-fA-F0-9]{40}$/.test(query)) {
             const magnetUri = `magnet:?xt=urn:btih:${query}`;
             const torrent = await getTorrentManager().addTorrent(magnetUri);
             return ok(c, { action: 'added', torrent });
         }
 
-        // If it's an IMDB URL or ID, extract the ID and resolve the title
         const imdbMatch = query.match(/tt\d{7,}/);
         if (imdbMatch) {
             const imdbId = imdbMatch[0];
-            // Resolve title via TMDB
             const settings = getSettings();
             const tmdbKey = settings.subtitles?.tmdb_api_key;
             if (tmdbKey) {
@@ -89,7 +81,6 @@ app.post('/api/search', async (c) => {
                     }
                 } catch {}
             }
-            // If no TMDB key, just strip the URL and use the ID as-is won't help much
             if (query === imdbMatch[0]) {
                 return fail(c, 'Could not resolve IMDB ID. Set subtitles.tmdb_api_key in settings.');
             }
@@ -114,8 +105,6 @@ app.post('/api/search', async (c) => {
         return fail(c, msg, 500);
     }
 });
-
-// ── POST /api/watchlist — add a watchlist entry ──────────────────────────
 
 app.post('/api/watchlist', async (c) => {
     try {
@@ -155,7 +144,6 @@ app.post('/api/watchlist', async (c) => {
             category,
         });
 
-        // Try to get poster from TMDB
         const settings = getSettings();
         const tmdbKey = settings.subtitles?.tmdb_api_key;
         if (tmdbKey && (mediaType === 'movie' || mediaType === 'tv')) {
@@ -181,8 +169,6 @@ app.post('/api/watchlist', async (c) => {
     }
 });
 
-// ── GET /api/watchlist ───────────────────────────────────────────────────
-
 app.get('/api/watchlist', (c) => {
     const status = c.req.query('status') as WatchlistStatus | undefined;
     const newCounts = getNewResultCounts();
@@ -190,8 +176,6 @@ app.get('/api/watchlist', (c) => {
         .map(e => ({ ...e, newResultsCount: newCounts[e.id] ?? 0 }));
     return ok(c, { entries });
 });
-
-// ── GET /api/watchlist/:id ───────────────────────────────────────────────
 
 app.get('/api/watchlist/:id', (c) => {
     const id = c.req.param('id');
@@ -202,8 +186,6 @@ app.get('/api/watchlist/:id', (c) => {
     const results = getWatchlistResults(id);
     return ok(c, { entry, results });
 });
-
-// ── PUT /api/watchlist/:id ───────────────────────────────────────────────
 
 app.put('/api/watchlist/:id', async (c) => {
     const id = c.req.param('id');
@@ -219,8 +201,6 @@ app.put('/api/watchlist/:id', async (c) => {
     }
 });
 
-// ── DELETE /api/watchlist/:id ────────────────────────────────────────────
-
 app.delete('/api/watchlist/:id', (c) => {
     const id = c.req.param('id');
     if (!getWatchlistEntry(id)) {
@@ -229,8 +209,6 @@ app.delete('/api/watchlist/:id', (c) => {
     deleteWatchlistEntry(id);
     return ok(c);
 });
-
-// ── POST /api/watchlist/:id/search — trigger search for this entry ───────
 
 app.post('/api/watchlist/:id/search', async (c) => {
     const id = c.req.param('id');
@@ -268,8 +246,6 @@ app.post('/api/watchlist/:id/search', async (c) => {
     }
 });
 
-// ── POST /api/watchlist/:id/results/:rid/add — add result as torrent ─────
-
 app.post('/api/watchlist/:id/results/:rid/add', async (c) => {
     const id = c.req.param('id');
     const rid = parseInt(c.req.param('rid'), 10);
@@ -301,8 +277,6 @@ app.post('/api/watchlist/:id/results/:rid/add', async (c) => {
     }
 });
 
-// ── POST /api/watchlist/:id/results/viewed — reset the new-results count ─
-
 app.post('/api/watchlist/:id/results/viewed', (c) => {
     const id = c.req.param('id');
     const entry = getWatchlistEntry(id);
@@ -312,8 +286,6 @@ app.post('/api/watchlist/:id/results/viewed', (c) => {
     markWatchlistResultsViewed(id);
     return ok(c);
 });
-
-// ── POST /api/watchlist/check — trigger global check ─────────────────────
 
 app.post('/api/watchlist/check', async (c) => {
     try {

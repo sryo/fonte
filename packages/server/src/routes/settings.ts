@@ -16,12 +16,10 @@ export function mutateSettings(fn: (settings: Settings) => void): Settings {
 
 const app = new Hono();
 
-// GET /api/settings
 app.get('/api/settings', (c) => {
     return ok(c, { settings: getSettings() });
 });
 
-// PUT /api/settings
 app.put('/api/settings', async (c) => {
     const body = await c.req.json();
     const { typeErrors } = validateSettings(body);
@@ -35,7 +33,6 @@ app.put('/api/settings', async (c) => {
     return ok(c, { settings: merged });
 });
 
-// POST /api/setup — run initial setup (write settings + create directories)
 app.post('/api/setup', async (c) => {
     const settings = (await c.req.json()) as Settings;
 
@@ -50,16 +47,13 @@ app.post('/api/setup', async (c) => {
         }
     }
 
-    // Write settings.json
     fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2) + '\n');
     log('INFO', '[API] Setup: settings.json written');
 
-    // Create FONTE_HOME directories
     fs.mkdirSync(path.join(FONTE_HOME, 'logs'), { recursive: true });
     fs.mkdirSync(path.join(FONTE_HOME, 'files'), { recursive: true });
 
-    // Copy template files into FONTE_HOME
     const templateItems = ['.claude', 'heartbeat.md', 'AGENTS.md'];
     for (const item of templateItems) {
         const srcPath = path.join(SCRIPT_DIR, item);
@@ -73,13 +67,11 @@ app.post('/api/setup', async (c) => {
         }
     }
 
-    // Create workspace directory
     const workspacePath = settings.workspace?.path;
     if (workspacePath) {
         fs.mkdirSync(workspacePath, { recursive: true });
     }
 
-    // Create agent directories
     if (settings.agents) {
         for (const agent of Object.values(settings.agents)) {
             ensureAgentDirectory(agent.working_directory);
@@ -90,7 +82,6 @@ app.post('/api/setup', async (c) => {
     return ok(c, { settings });
 });
 
-// GET /api/soul — read soul personality file
 app.get('/api/soul', (c) => {
     let content = '';
     try {
@@ -101,7 +92,6 @@ app.get('/api/soul', (c) => {
     return ok(c, { content, path: SOUL_PATH });
 });
 
-// PUT /api/soul — write soul personality file
 app.put('/api/soul', async (c) => {
     try {
         const body = await c.req.json() as { content: string };

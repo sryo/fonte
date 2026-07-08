@@ -65,7 +65,6 @@ export function AgentsSection() {
       setProviderForm({ id: "", name: "", harness: "claude", base_url: "", api_key: "", model: "" });
       setShowAddProvider(false);
       await fetchAll();
-      // Auto-select the freshly added provider for the agent being created
       setForm((f) => ({ ...f, provider: `custom:${newId}` }));
     } catch {}
     setSavingProvider(false);
@@ -115,7 +114,6 @@ export function AgentsSection() {
       }
     >
       <div className="space-y-4">
-        {/* Agent list */}
         {Object.keys(agents).length > 0 && (
           <div className="divide-y divide-border/50">
             {Object.entries(agents).map(([id, agent]) => (
@@ -157,7 +155,6 @@ export function AgentsSection() {
           <p className="text-sm text-muted-foreground">No agents configured yet.</p>
         )}
 
-        {/* Add agent form */}
         {showAdd && (
           <div className="border rounded-xl p-4 space-y-3 bg-muted/30">
             <div className="grid grid-cols-2 gap-3">
@@ -218,7 +215,6 @@ export function AgentsSection() {
               </div>
             </div>
 
-            {/* Inline custom-provider creation */}
             {showAddProvider && (
               <div className="border rounded-xl p-3 space-y-2 bg-background">
                 <div className="flex items-center justify-between">

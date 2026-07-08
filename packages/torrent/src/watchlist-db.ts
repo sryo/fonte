@@ -117,7 +117,7 @@ export function deleteWatchlistEntry(id: string): void {
 
 // ── Watchlist Results ────────────────────────────────────────────────────────
 
-/** Insert a search result, or refresh the existing row for the same magnet (keeps repeated checks from growing the table unboundedly). */
+/** Insert a search result, or refresh the existing row for the same magnet so repeated checks don't grow the table unboundedly. */
 export function insertWatchlistResult(result: {
     watchlistId: string;
     title: string;

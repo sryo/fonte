@@ -23,7 +23,6 @@ export function StatusStrip() {
       setUploadSpeed(stats.uploadSpeed);
       setActiveTorrents(stats.activeTorrents);
 
-      // Calculate remaining bytes and aggregate progress from active torrents
       const active = torrentsRes.torrents.filter(
         (t) => t.status === "downloading" || t.status === "seeding"
       );
@@ -53,7 +52,6 @@ export function StatusStrip() {
 
   return (
     <div className="border-t bg-card/80 backdrop-blur-sm">
-      {/* Progress bar */}
       <ProgressBar
         value={aggregateProgress / 100}
         variant="ambient"
@@ -62,7 +60,6 @@ export function StatusStrip() {
         label={`Overall download progress: ${Math.round(aggregateProgress)}%`}
       />
 
-      {/* Stats text */}
       <div className="max-w-6xl mx-auto text-xs text-muted-foreground text-center py-2 flex items-center justify-center gap-1">
         <span>
           <span aria-label="Download speed" className="text-torrent">&#8595;</span>{" "}

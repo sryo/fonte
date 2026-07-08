@@ -11,7 +11,6 @@ import { ok, fail } from '../http';
 
 const app = new Hono();
 
-// GET /api/automations — list rules
 app.get('/api/automations', (c) => {
     const enabled = c.req.query('enabled');
     const trigger = c.req.query('trigger');
@@ -25,7 +24,6 @@ app.get('/api/automations', (c) => {
     return ok(c, { rules });
 });
 
-// POST /api/automations — create rule
 app.post('/api/automations', async (c) => {
     try {
         const body = await c.req.json() as {
@@ -63,7 +61,6 @@ app.post('/api/automations', async (c) => {
     }
 });
 
-// GET /api/automations/:id — get rule + recent logs + last assistant response
 app.get('/api/automations/:id', (c) => {
     const id = c.req.param('id');
     const rule = getAutomationRule(id);
@@ -76,7 +73,6 @@ app.get('/api/automations/:id', (c) => {
     return ok(c, { rule, logs, lastResponse });
 });
 
-// PUT /api/automations/:id — update rule
 app.put('/api/automations/:id', async (c) => {
     const id = c.req.param('id');
     if (!getAutomationRule(id)) {
@@ -91,7 +87,6 @@ app.put('/api/automations/:id', async (c) => {
     }
 });
 
-// DELETE /api/automations/:id — delete rule
 app.delete('/api/automations/:id', (c) => {
     const id = c.req.param('id');
     if (!getAutomationRule(id)) {
@@ -101,7 +96,6 @@ app.delete('/api/automations/:id', (c) => {
     return ok(c);
 });
 
-// POST /api/automations/:id/toggle — toggle enabled/disabled
 app.post('/api/automations/:id/toggle', (c) => {
     const id = c.req.param('id');
     const rule = getAutomationRule(id);
@@ -112,7 +106,6 @@ app.post('/api/automations/:id/toggle', (c) => {
     return ok(c, { rule: getAutomationRule(id) });
 });
 
-// POST /api/automations/:id/trigger — manually trigger
 app.post('/api/automations/:id/trigger', async (c) => {
     const id = c.req.param('id');
     const rule = getAutomationRule(id);
@@ -129,7 +122,6 @@ app.post('/api/automations/:id/trigger', async (c) => {
     }
 });
 
-// GET /api/automations/:id/logs — get execution logs
 app.get('/api/automations/:id/logs', (c) => {
     const id = c.req.param('id');
     if (!getAutomationRule(id)) {

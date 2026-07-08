@@ -49,7 +49,6 @@ export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void>
     const parsed = parseTorrentName(torrent.name);
     log('INFO', `Subtitles: processing "${parsed.title}" (${parsed.year || 'unknown year'})`);
 
-    // Detect original language via TMDB
     let originalLanguage = 'en';
     if (tmdbApiKey) {
         try {
@@ -68,9 +67,7 @@ export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void>
         }
     }
 
-    // Search for subtitles in original language
     const searchLangs = [originalLanguage];
-    // Also search target languages if different
     for (const lang of targetLanguages) {
         if (!searchLangs.includes(lang)) searchLangs.push(lang);
     }
@@ -88,7 +85,6 @@ export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void>
             return;
         }
 
-        // Download original language subtitle
         const originalSub = results.find(r => r.language.toLowerCase().startsWith(originalLanguage))
             || results[0];
 
@@ -120,7 +116,6 @@ export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void>
         });
         log('INFO', `Subtitles: downloaded ${originalSub.language} subs for "${parsed.title}"`);
 
-        // Translate to target languages
         if (shouldTranslate) {
             for (const targetLang of targetLanguages) {
                 if (targetLang === originalSub.language) continue;
@@ -220,7 +215,6 @@ async function translateSubtitleFile(
             return;
         }
 
-        // Translate in batches of 50 blocks
         const batchSize = 50;
         const translatedBlocks: SrtBlock[] = [];
 
@@ -293,19 +287,15 @@ async function callAnthropicTranslate(apiKey: string, text: string, sourceLang: 
 // ── Name Parsing ──────────────────────────────────────────────────────────────
 
 export function parseTorrentName(name: string): { title: string; year?: number; isTv: boolean } {
-    // Strip file extension and normalize separators to spaces
     let cleaned = name
         .replace(/\.(mkv|mp4|avi|m4v)$/i, '')
         .replace(/[._+]/g, ' ');
 
-    // Detect TV show pattern (S01E01, etc.)
     const isTv = /S\d{2}E?\d{0,2}/i.test(cleaned);
 
-    // Extract year
     const yearMatch = cleaned.match(/[\s.(](\d{4})[\s.)]/);
     const year = yearMatch ? parseInt(yearMatch[1], 10) : undefined;
 
-    // Extract title (everything before year or quality tags)
     const cutoffs = ['1080p', '720p', '2160p', '4K', 'BluRay', 'WEBRip', 'WEB-DL', 'HDRip', 'BRRip', 'HDTV', 'x264', 'x265', 'HEVC', 'AAC', 'DTS'];
     let title = cleaned;
 
@@ -319,13 +309,11 @@ export function parseTorrentName(name: string): { title: string; year?: number; 
         if (idx > 0) title = title.substring(0, idx);
     }
 
-    // Clean TV pattern from title
     const tvMatch = title.match(/(.+?)\s*S\d{2}/i);
     if (tvMatch) title = tvMatch[1];
 
-    // Strip trailing junk left behind by the cutoffs (e.g. "Movie (" after the
-    // year cut, or "Show -" before a release tag). Without this the cleaned
-    // title carries garbage characters that confuse downstream APIs.
+    // Strip trailing junk left by the cutoffs (e.g. "Movie (" after the year
+    // cut) — otherwise the title carries characters that confuse downstream APIs.
     title = title.replace(/[\s\(\[\-_]+$/, '').trim();
 
     return { title, year, isTv };

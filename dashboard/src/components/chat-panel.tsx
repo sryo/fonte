@@ -41,7 +41,6 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     setTimeout(() => onClose(), 200);
   }, [onClose]);
 
-  // Poll for messages when panel is open
   useEffect(() => {
     if (!open) return;
 
@@ -73,7 +72,6 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     };
   }, [open]);
 
-  // Scroll to bottom + focus input when panel opens
   useEffect(() => {
     if (open) {
       setTimeout(() => {
@@ -97,12 +95,11 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
         sender: "Web",
       });
       setInput("");
-      // Immediately fetch to show the user message
+      // Fetch right away so the user's own message shows before the next poll.
       const data = await getAgentMessages("fonte", 50);
       setMessages([...data].reverse());
     } catch {
       setThinking(false);
-      // Errors silently handled
     } finally {
       setSending(false);
     }
@@ -112,20 +109,17 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
 
   return (
     <>
-      {/* Backdrop */}
       <div
         className={`fixed inset-0 z-40 bg-black/20 ${closing ? "animate-chat-backdrop-out" : "animate-chat-backdrop-in"}`}
         onClick={handleClose}
         aria-hidden="true"
       />
 
-      {/* Panel */}
       <div
         className={`fixed right-0 top-0 h-full w-96 z-50 bg-card border-l shadow-xl flex flex-col ${closing ? "animate-chat-panel-out" : "animate-chat-panel-in"}`}
         role="dialog"
         aria-label="Fonte Agent Chat"
       >
-        {/* Header */}
         <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <div className="flex items-center justify-center h-7 w-7 rounded-md bg-primary/10">
@@ -142,7 +136,6 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           </button>
         </div>
 
-        {/* Message list */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
@@ -187,7 +180,6 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           <div ref={messagesEndRef} style={{ overflowAnchor: "auto" }} />
         </div>
 
-        {/* Input */}
         <div className="px-4 py-3 border-t flex gap-2 shrink-0">
           <input
             type="text"

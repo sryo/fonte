@@ -55,7 +55,6 @@ export default function SettingsPage() {
     }
   }
 
-  // Save torrent config
   const saveTorrentSettings = useCallback(async (updates: Partial<TorrentConfig>) => {
     setSavingSection("torrent");
     setErrorMsg(null);
@@ -71,7 +70,6 @@ export default function SettingsPage() {
     }
   }, []);
 
-  // Save general settings
   const saveGeneralSettings = useCallback(async (updates: Partial<Settings>, section: string) => {
     setSavingSection(section);
     setErrorMsg(null);
@@ -88,7 +86,6 @@ export default function SettingsPage() {
     }
   }, []);
 
-  // Save raw JSON
   const saveRawJson = useCallback(async () => {
     setSavingSection("advanced");
     setErrorMsg(null);
@@ -135,7 +132,6 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-6 space-y-6 animate-card-enter">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
           <svg className="h-5 w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -149,7 +145,6 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      {/* Error banner */}
       {errorMsg && (
         <div className="flex items-center justify-between px-4 py-3 text-sm rounded-xl border border-destructive/30 bg-destructive/5 text-destructive">
           <span>{errorMsg}</span>
@@ -164,10 +159,8 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Agent Personality */}
       <AgentPersonalitySection />
 
-      {/* Torrent Settings */}
       {torrentConfig && (
         <TorrentSettingsCard
           config={torrentConfig}
@@ -177,7 +170,6 @@ export default function SettingsPage() {
         />
       )}
 
-      {/* Watchlist Settings */}
       {settings && (
         <WatchlistSettingsCard
           settings={settings}
@@ -187,7 +179,6 @@ export default function SettingsPage() {
         />
       )}
 
-      {/* Subtitle Settings */}
       {settings && (
         <SubtitleSettingsCard
           settings={settings}
@@ -197,16 +188,12 @@ export default function SettingsPage() {
         />
       )}
 
-      {/* WhatsApp Channel */}
       <WhatsAppSection />
 
-      {/* Agents — with inline custom-provider creation */}
       <AgentsSection />
 
-      {/* Providers — built-in + custom (management) */}
       <ProvidersSection />
 
-      {/* Advanced: Raw JSON */}
       <div className="rounded-xl bg-card shadow-card overflow-hidden">
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}

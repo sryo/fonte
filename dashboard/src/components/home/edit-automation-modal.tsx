@@ -99,7 +99,6 @@ export function EditAutomationModal({
           </Button>
         </div>
 
-        {/* History — last response + trigger log */}
         <div className="pt-3 border-t space-y-3">
           <div>
             <Label className="text-xs text-muted-foreground">Last response</Label>

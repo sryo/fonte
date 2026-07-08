@@ -8,14 +8,12 @@ import { ok, fail } from '../http';
 
 const app = new Hono();
 
-// GET /api/torrents/:id/subtitles — list subtitles for a torrent
 app.get('/api/torrents/:id/subtitles', (c) => {
     const torrentId = c.req.param('id');
     const subtitles = getSubtitlesByTorrent(torrentId);
     return ok(c, { subtitles });
 });
 
-// POST /api/torrents/:id/subtitles/fetch — trigger subtitle fetch
 app.post('/api/torrents/:id/subtitles/fetch', async (c) => {
     const torrentId = c.req.param('id');
     try {
@@ -29,7 +27,6 @@ app.post('/api/torrents/:id/subtitles/fetch', async (c) => {
     }
 });
 
-// POST /api/subtitles/:id/translate — translate a subtitle
 app.post('/api/subtitles/:id/translate', async (c) => {
     const subtitleId = parseInt(c.req.param('id'), 10);
     if (isNaN(subtitleId)) {
@@ -52,7 +49,6 @@ app.post('/api/subtitles/:id/translate', async (c) => {
     }
 });
 
-// DELETE /api/subtitles/:id — remove a subtitle
 app.delete('/api/subtitles/:id', (c) => {
     const subtitleId = parseInt(c.req.param('id'), 10);
     if (isNaN(subtitleId)) {

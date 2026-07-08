@@ -5,7 +5,7 @@ export type ProgressColor = DomainColor | "primary";
 
 // Ranked weights. Hierarchy comes from size + depth, not color: ambient is a
 // flat 3px system rail, list a seated 6px pill, hero a carved-and-lit 14px
-// trough. See README.md.
+// trough.
 export type ProgressVariant = "ambient" | "list" | "hero";
 
 const FILL: Record<ProgressColor, string> = {
@@ -47,7 +47,7 @@ export function ProgressBar({
 }: {
   value: number; // 0–1
   color?: ProgressColor;
-  variant?: ProgressVariant; // ranked weight: ambient | list | hero
+  variant?: ProgressVariant;
   className?: string; // layout only, e.g. "w-full" or "flex-1"
   label?: string; // accessible name announced to screen readers
   shine?: boolean; // sweep a highlight across the fill (active transfer)

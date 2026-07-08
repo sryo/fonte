@@ -262,7 +262,7 @@ export default function HomePage() {
         />
       )}
 
-      {/* Row 1: Downloads — one lane for every non-removed torrent */}
+      {/* One lane for every non-removed torrent */}
       {showDownloads && (
         <ContentRow
           title="Downloads"
@@ -319,7 +319,6 @@ export default function HomePage() {
         </ContentRow>
       )}
 
-      {/* Row 2: Watchlist */}
       {showWatching && (
         <ContentRow
           title="Watchlist"
@@ -357,7 +356,6 @@ export default function HomePage() {
         </ContentRow>
       )}
 
-      {/* Row 3: Automations */}
       {showAutomations && (
         <ContentRow
           title="Automations"

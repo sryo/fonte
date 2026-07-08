@@ -168,7 +168,6 @@ export async function statusDaemon(): Promise<void> {
     log(GREEN, `Fonte is running (PID: ${pid}, uptime: ${formatUptime(status.uptime)})`);
     log(NC, `  Server:    ${GREEN}● http://localhost:${status.server?.port || API_PORT}${NC}`);
 
-    // Queue status
     try {
         const qRes = await fetch(`${API_URL}/api/queue/status`);
         const body: any = await qRes.json();
@@ -184,7 +183,6 @@ export async function statusDaemon(): Promise<void> {
         log(NC, `  Queue:     ${YELLOW}? unknown${NC}`);
     }
 
-    // Channels
     const channels = status.channels || {};
     const channelNames = Object.keys(channels);
     if (channelNames.length > 0) {
@@ -198,7 +196,6 @@ export async function statusDaemon(): Promise<void> {
         log(NC, `  Channels:  ${YELLOW}none enabled${NC}`);
     }
 
-    // Heartbeat
     const hb = status.heartbeat || {};
     if (hb.running) {
         const lastSent = Object.entries(hb.lastSent || {});

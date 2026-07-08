@@ -95,7 +95,6 @@ export async function loadPlugins(): Promise<void> {
         const pluginName = entry.name;
         const pluginDir = path.join(pluginsDir, pluginName);
 
-        // Try to load index.js or index.ts (compiled)
         const indexJs = path.join(pluginDir, 'index.js');
         const indexTs = path.join(pluginDir, 'index.ts');
 
@@ -112,17 +111,14 @@ export async function loadPlugins(): Promise<void> {
         }
 
         try {
-            // Dynamic import
             const pluginModule = await import(indexPath);
             const plugin: LoadedPlugin = { name: pluginName };
 
-            // Call activate() if present
             if (typeof pluginModule.activate === 'function') {
                 const ctx = createPluginContext(pluginName);
                 await pluginModule.activate(ctx);
             }
 
-            // Store hooks if present
             if (pluginModule.hooks) {
                 plugin.hooks = pluginModule.hooks;
             }
@@ -137,16 +133,13 @@ export async function loadPlugins(): Promise<void> {
     if (loadedPlugins.length > 0) {
         log('INFO', `${loadedPlugins.length} plugin(s) loaded`);
 
-        // Register as an event listener so all emitEvent() calls get broadcast to plugins
+        // Broadcast every emitEvent() to plugin handlers.
         onEvent((type, data) => {
             broadcastEvent({ type, timestamp: Date.now(), ...data });
         });
     }
 }
 
-/**
- * Run all transformOutgoing hooks on a message.
- */
 export async function runOutgoingHooks(message: string, ctx: HookContext): Promise<HookResult> {
     let text = message;
     let metadata: HookMetadata = {};
@@ -170,9 +163,6 @@ export async function runOutgoingHooks(message: string, ctx: HookContext): Promi
     return { text, metadata };
 }
 
-/**
- * Run all transformIncoming hooks on a message.
- */
 export async function runIncomingHooks(message: string, ctx: HookContext): Promise<HookResult> {
     let text = message;
     let metadata: HookMetadata = {};
@@ -196,11 +186,7 @@ export async function runIncomingHooks(message: string, ctx: HookContext): Promi
     return { text, metadata };
 }
 
-/**
- * Broadcast an event to all registered handlers.
- */
 export function broadcastEvent(event: PluginEvent): void {
-    // Call specific event type handlers
     const typeHandlers = eventHandlers.get(event.type) || [];
     for (const handler of typeHandlers) {
         try {
@@ -210,7 +196,6 @@ export function broadcastEvent(event: PluginEvent): void {
         }
     }
 
-    // Call wildcard handlers
     const wildcardHandlers = eventHandlers.get('*') || [];
     for (const handler of wildcardHandlers) {
         try {

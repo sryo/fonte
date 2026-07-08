@@ -85,7 +85,6 @@ export async function runWatchlistCheck(): Promise<void> {
                 seasonPattern: entry.seasonPattern,
             });
 
-            // Store results (title-matched only)
             const now = Date.now();
             for (const r of filtered.slice(0, 50)) {
                 const qm = computeQualityMatch(r.title, entry.quality);
@@ -104,16 +103,15 @@ export async function runWatchlistCheck(): Promise<void> {
 
             updateWatchlistEntry(entry.id, { lastCheckedAt: now });
 
-            // Auto-add best match (only from title-matched results)
             if (autoAdd && filtered.length > 0) {
                 const ranked = rankResults(filtered, preferredQuality);
                 const best = ranked[0];
 
                 if (best && best.seeders > 0 && computeQualityMatch(best.title, preferredQuality) >= 0.5) {
                     // Skip releases already tracked by a live torrent row.
-                    // 'removed' tombstones and 'error' rows don't count: a
-                    // failed add (e.g. a transient RPC error) must not block
-                    // this release forever — addTorrent replaces such rows.
+                    // 'removed' tombstones and 'error' rows don't count, so a
+                    // failed add doesn't block the release forever — addTorrent
+                    // replaces such rows.
                     const infoHash = extractInfoHash(best.magnetUri);
                     const existing = infoHash ? getTorrentByHash(infoHash) : null;
 

@@ -49,12 +49,10 @@ const startedAt = Date.now();
 export function startApiServer(services?: ServiceHandlers): http.Server {
     const app = new Hono();
 
-    // CORS middleware
     app.use('/*', cors({
         origin: (origin) => (LOCAL_ORIGIN.test(origin) ? origin : null),
     }));
 
-    // Mount route modules
     app.route('/', messagesRoutes);
     app.route('/', agentsRoutes);
     app.route('/', settingsRoutes);
@@ -70,7 +68,6 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
     app.route('/', automationsRoutes);
     app.route('/', whatsappRoutes);
 
-    // GET /api/status — overall system status
     app.get('/api/status', (c) => {
         return ok(c, {
             uptime: Math.floor((Date.now() - startedAt) / 1000),
@@ -78,7 +75,7 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
         });
     });
 
-    // SSE endpoint — needs raw Node.js response for streaming
+    // SSE needs the raw Node.js response to stream.
     app.get('/api/events/stream', (c) => {
         const nodeRes = (c.env as { outgoing: http.ServerResponse }).outgoing;
         const origin = c.req.header('origin');
@@ -94,12 +91,10 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
         return RESPONSE_ALREADY_SENT;
     });
 
-    // 404 fallback
     app.notFound((c) => {
         return fail(c, 'Not found', 404);
     });
 
-    // Error handler
     app.onError((err, c) => {
         log('ERROR', `[API] ${err.message}`);
         return fail(c, 'Internal server error', 500);

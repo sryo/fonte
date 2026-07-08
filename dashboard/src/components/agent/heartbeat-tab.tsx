@@ -45,7 +45,6 @@ export function HeartbeatTab({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Toggle */}
           <div className="flex items-center justify-between p-3 bg-secondary/50 border">
             <div>
               <p className="text-sm font-medium">Heartbeat Enabled</p>
@@ -58,7 +57,6 @@ export function HeartbeatTab({
 
           {enabled && (
             <>
-              {/* Interval */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">
                   Interval (seconds)
@@ -80,7 +78,6 @@ export function HeartbeatTab({
                 </p>
               </div>
 
-              {/* Heartbeat prompt from file */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <label className="text-xs font-medium text-muted-foreground">
@@ -113,7 +110,6 @@ export function HeartbeatTab({
                 )}
               </div>
 
-              {/* Status + Save */}
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

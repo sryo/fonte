@@ -5,7 +5,6 @@ import { ok } from '../http';
 
 const app = new Hono();
 
-// GET /api/logs
 app.get('/api/logs', (c) => {
     const limit = parseInt(c.req.query('limit') || '100', 10);
     try {

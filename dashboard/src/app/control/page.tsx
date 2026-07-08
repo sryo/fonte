@@ -44,7 +44,6 @@ export default function ControlPlanePage() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-6 space-y-6 animate-card-enter">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">System</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -52,19 +51,14 @@ export default function ControlPlanePage() {
         </p>
       </div>
 
-      {/* Stats row */}
       <StatsRow />
 
-      {/* Daemon */}
       <DaemonSection status={status} refresh={refresh} />
 
-      {/* API Connection */}
       <ApiConnectionSection />
 
-      {/* Agent Sessions */}
       <AgentSessionsSection />
 
-      {/* Logs */}
       <LogsSection />
     </div>
   );
@@ -371,7 +365,6 @@ function LogsSection() {
 
   return (
     <div className="space-y-4">
-      {/* Queue Logs */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold flex items-center gap-1.5">
@@ -403,7 +396,6 @@ function LogsSection() {
         </Card>
       </div>
 
-      {/* Live Events */}
       <div>
         <p className="text-sm font-semibold flex items-center gap-1.5 mb-2">
           <Pulse className="h-3.5 w-3.5" />

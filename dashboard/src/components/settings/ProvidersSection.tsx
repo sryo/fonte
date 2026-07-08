@@ -92,7 +92,6 @@ export function ProvidersSection() {
       }
     >
       <div className="space-y-4">
-        {/* Built-in chips */}
         <div>
           <p className="text-2xs uppercase tracking-wider text-muted-foreground mb-1.5">Built-in</p>
           <div className="flex flex-wrap gap-1.5">
@@ -111,7 +110,6 @@ export function ProvidersSection() {
           <p className="text-2xs uppercase tracking-wider text-muted-foreground">Custom</p>
         )}
 
-        {/* Provider list */}
         {entries.length > 0 && (
           <div className="divide-y divide-border/50">
             {entries.map(([id, p]) => (
@@ -147,7 +145,6 @@ export function ProvidersSection() {
           <p className="text-sm text-muted-foreground">No custom providers configured yet.</p>
         )}
 
-        {/* Add provider form */}
         {showAdd && (
           <div className="border rounded-xl p-4 space-y-3 bg-muted/30">
             <div className="grid grid-cols-2 gap-3">

@@ -50,7 +50,6 @@ async function subtitleList(torrentId: string) {
         return;
     }
 
-    // Header
     console.log(
         padRight('ID', 6) +
         padRight('Language', 12) +

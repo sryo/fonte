@@ -34,12 +34,10 @@ async function runSkills(args: string[], cwd: string): Promise<string> {
     });
     return `${stdout}${stderr ? `\n${stderr}` : ''}`.trim();
 }
-// GET /api/agents
 app.get('/api/agents', (c) => {
     return ok(c, { agents: getAgents(getSettings()) });
 });
 
-// PUT /api/agents/:id
 app.put('/api/agents/:id', async (c) => {
     const agentId = c.req.param('id');
     const body = await c.req.json() as Partial<AgentConfig>;
@@ -85,7 +83,6 @@ app.put('/api/agents/:id', async (c) => {
     });
 });
 
-// DELETE /api/agents/:id
 app.delete('/api/agents/:id', (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
@@ -99,7 +96,6 @@ app.delete('/api/agents/:id', (c) => {
 
 // ── Agent workspace data endpoints ───────────────────────────────────────────
 
-// GET /api/agents/:id/skills — list skills from .agents/skills/ in workspace
 app.get('/api/agents/:id/skills', (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
@@ -135,7 +131,6 @@ app.get('/api/agents/:id/skills', (c) => {
     return ok(c, { skills });
 });
 
-// GET /api/agents/:id/skills/registry?query=seo — search skills registry
 app.get('/api/agents/:id/skills/registry', async (c) => {
     const agentId = c.req.param('id');
     const query = c.req.query('query') || '';
@@ -187,7 +182,6 @@ app.get('/api/agents/:id/skills/registry', async (c) => {
     }
 });
 
-// POST /api/agents/:id/skills/install — install a registry skill to codex agent
 app.post('/api/agents/:id/skills/install', async (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
@@ -207,7 +201,6 @@ app.post('/api/agents/:id/skills/install', async (c) => {
     }
 });
 
-// GET /api/agents/:id/system-prompt — read AGENTS.md from workspace
 app.get('/api/agents/:id/system-prompt', (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
@@ -222,7 +215,6 @@ app.get('/api/agents/:id/system-prompt', (c) => {
     return ok(c, { content, path: agentsMd });
 });
 
-// PUT /api/agents/:id/system-prompt — write AGENTS.md to workspace
 app.put('/api/agents/:id/system-prompt', async (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
@@ -235,7 +227,6 @@ app.put('/api/agents/:id/system-prompt', async (c) => {
     return ok(c);
 });
 
-// GET /api/agents/:id/memory — load memory index from workspace memory/ folder
 app.get('/api/agents/:id/memory', (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
@@ -265,7 +256,6 @@ app.get('/api/agents/:id/memory', (c) => {
     return ok(c, { index, files, memoryDir });
 });
 
-// GET /api/agents/:id/heartbeat — read heartbeat.md and settings from workspace
 app.get('/api/agents/:id/heartbeat', (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
@@ -285,7 +275,6 @@ app.get('/api/agents/:id/heartbeat', (c) => {
     });
 });
 
-// PUT /api/agents/:id/heartbeat — write heartbeat.md and settings to workspace
 app.put('/api/agents/:id/heartbeat', async (c) => {
     const agentId = c.req.param('id');
     const settings = getSettings();
@@ -294,13 +283,11 @@ app.put('/api/agents/:id/heartbeat', async (c) => {
 
     const body = await c.req.json() as { content?: string; enabled?: boolean; interval?: number };
 
-    // Write heartbeat.md if content provided
     if (body.content != null) {
         const heartbeatMd = path.join(agent.working_directory, 'heartbeat.md');
         fs.writeFileSync(heartbeatMd, body.content || '', 'utf8');
     }
 
-    // Persist heartbeat overrides to settings.json
     if (body.enabled != null || body.interval != null) {
         mutateSettings(s => {
             if (!s.agents?.[agentId]) return;
@@ -315,13 +302,11 @@ app.put('/api/agents/:id/heartbeat', async (c) => {
 
 // ── Custom Providers ─────────────────────────────────────────────────────────
 
-// GET /api/custom-providers
 app.get('/api/custom-providers', (c) => {
     const settings = getSettings();
     return ok(c, { providers: settings.custom_providers || {} });
 });
 
-// PUT /api/custom-providers/:id
 app.put('/api/custom-providers/:id', async (c) => {
     const providerId = c.req.param('id');
     const body = await c.req.json() as Partial<CustomProvider>;
@@ -347,7 +332,6 @@ app.put('/api/custom-providers/:id', async (c) => {
     return ok(c, { provider: settings.custom_providers![providerId] });
 });
 
-// DELETE /api/custom-providers/:id
 app.delete('/api/custom-providers/:id', (c) => {
     const providerId = c.req.param('id');
     const settings = getSettings();

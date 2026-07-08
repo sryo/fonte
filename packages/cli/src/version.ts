@@ -1,7 +1,3 @@
-/**
- * Version display.
- */
-
 import fs from 'fs';
 import path from 'path';
 import { SCRIPT_DIR } from '@fonte/core';

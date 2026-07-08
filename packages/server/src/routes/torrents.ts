@@ -6,8 +6,6 @@ import { ok, fail } from '../http';
 
 const app = new Hono();
 
-// POST /api/torrents — add a torrent via magnet URI, info hash, file path,
-// or base64-encoded .torrent contents
 app.post('/api/torrents', async (c) => {
     try {
         const body = await c.req.json() as { magnetUri?: string; infoHash?: string; filePath?: string; metainfo?: string };
@@ -28,7 +26,6 @@ app.post('/api/torrents', async (c) => {
     }
 });
 
-// POST /api/torrents/create — build a .torrent from a local path and seed it
 app.post('/api/torrents/create', async (c) => {
     try {
         const body = await c.req.json() as { path?: string; trackers?: string[] };
@@ -47,7 +44,6 @@ app.post('/api/torrents/create', async (c) => {
     }
 });
 
-// GET /api/torrents — list all torrents
 app.get('/api/torrents', (c) => {
     const status = c.req.query('status') as TorrentStatus | undefined;
     const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : undefined;
@@ -57,19 +53,16 @@ app.get('/api/torrents', (c) => {
     return ok(c, { torrents });
 });
 
-// GET /api/torrents/stats — global speed and counts
 app.get('/api/torrents/stats', (c) => {
     const manager = getTorrentManager();
     return ok(c, { ...manager.getStats() });
 });
 
-// GET /api/torrents/config — current torrent configuration
 app.get('/api/torrents/config', (c) => {
     const manager = getTorrentManager();
     return ok(c, { config: manager.getConfig() });
 });
 
-// PUT /api/torrents/config — update torrent configuration
 app.put('/api/torrents/config', async (c) => {
     try {
         const body = await c.req.json();
@@ -81,7 +74,6 @@ app.put('/api/torrents/config', async (c) => {
     }
 });
 
-// GET /api/torrents/:id — single torrent detail
 app.get('/api/torrents/:id', (c) => {
     const id = c.req.param('id');
     const manager = getTorrentManager();
@@ -92,7 +84,6 @@ app.get('/api/torrents/:id', (c) => {
     return ok(c, { torrent });
 });
 
-// DELETE /api/torrents/:id — remove a torrent
 app.delete('/api/torrents/:id', async (c) => {
     const id = c.req.param('id');
     const deleteFiles = c.req.query('deleteFiles') === 'true';
@@ -106,7 +97,6 @@ app.delete('/api/torrents/:id', async (c) => {
     }
 });
 
-// POST /api/torrents/:id/pause — pause a torrent
 app.post('/api/torrents/:id/pause', async (c) => {
     const id = c.req.param('id');
     try {
@@ -118,7 +108,6 @@ app.post('/api/torrents/:id/pause', async (c) => {
     }
 });
 
-// POST /api/torrents/:id/resume — resume a torrent
 app.post('/api/torrents/:id/resume', async (c) => {
     const id = c.req.param('id');
     try {
@@ -130,7 +119,6 @@ app.post('/api/torrents/:id/resume', async (c) => {
     }
 });
 
-// POST /api/torrents/:id/verify — re-check downloaded data
 app.post('/api/torrents/:id/verify', async (c) => {
     const id = c.req.param('id');
     try {
@@ -141,7 +129,6 @@ app.post('/api/torrents/:id/verify', async (c) => {
     }
 });
 
-// POST /api/torrents/:id/reannounce — ask trackers for peers now
 app.post('/api/torrents/:id/reannounce', async (c) => {
     const id = c.req.param('id');
     try {
@@ -152,7 +139,6 @@ app.post('/api/torrents/:id/reannounce', async (c) => {
     }
 });
 
-// POST /api/torrents/:id/alternatives — search indexers for other releases of the same title
 app.post('/api/torrents/:id/alternatives', async (c) => {
     const id = c.req.param('id');
     try {
@@ -181,7 +167,6 @@ app.post('/api/torrents/:id/alternatives', async (c) => {
     }
 });
 
-// POST /api/torrents/:id/swap — add an alternative release and remove the stuck torrent
 app.post('/api/torrents/:id/swap', async (c) => {
     const id = c.req.param('id');
     try {
@@ -197,7 +182,6 @@ app.post('/api/torrents/:id/swap', async (c) => {
     }
 });
 
-// GET /api/torrents/:id/files — list files within a torrent
 app.get('/api/torrents/:id/files', (c) => {
     const id = c.req.param('id');
     const manager = getTorrentManager();
@@ -209,7 +193,6 @@ app.get('/api/torrents/:id/files', (c) => {
     return ok(c, { files });
 });
 
-// POST /api/torrents/:id/files/wanted — set wanted/unwanted file indices
 app.post('/api/torrents/:id/files/wanted', async (c) => {
     const id = c.req.param('id');
     const manager = getTorrentManager();

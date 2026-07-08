@@ -15,7 +15,6 @@ export class TransmissionRpc {
     }
 
     async call(method: string, args?: Record<string, any>): Promise<any> {
-        // If we don't have a session ID yet, acquire one first
         if (!this.sessionId) {
             await this.acquireSessionId();
         }

@@ -260,7 +260,6 @@ if (watchlistSettings?.enabled) {
 const automationEngine = createAutomationEngine();
 automationEngine.start();
 
-// Auto-restore WhatsApp session if previously paired
 const waAuthDir = path.join(FONTE_HOME, 'whatsapp-auth');
 if (fs.existsSync(waAuthDir) && fs.readdirSync(waAuthDir).length > 0) {
     log('INFO', 'WhatsApp: restoring previous session...');
@@ -293,7 +292,7 @@ function shutdown(exitCode = 0): void {
     clearInterval(maintenanceInterval);
     apiServer.close();
     closeQueueDb();
-    // Clean up PID file on normal shutdown (not restart)
+    // On restart the replacement process owns the PID file, so only remove it here.
     if (exitCode !== 75) {
         try { fs.unlinkSync(path.join(FONTE_HOME, 'fonte.pid')); } catch {}
     }

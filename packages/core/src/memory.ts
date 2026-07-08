@@ -59,14 +59,13 @@ function scanMemoryDir(dirPath: string, relativePath: string): MemoryFolder {
     const items = fs.readdirSync(dirPath, { withFileTypes: true });
 
     for (const item of items) {
-        if (item.name.startsWith('.')) continue; // skip hidden files
+        if (item.name.startsWith('.')) continue;
 
         const itemPath = path.join(dirPath, item.name);
         const itemRelative = relativePath ? `${relativePath}/${item.name}` : item.name;
 
         if (item.isDirectory()) {
             const subfolder = scanMemoryDir(itemPath, itemRelative);
-            // Only include folders that have content (entries or non-empty subfolders)
             if (subfolder.entries.length > 0 || subfolder.subfolders.length > 0) {
                 folder.subfolders.push(subfolder);
             }
@@ -90,19 +89,14 @@ function scanMemoryDir(dirPath: string, relativePath: string): MemoryFolder {
     return folder;
 }
 
-/**
- * Format a memory folder hierarchy as a readable markdown tree.
- */
 function formatMemoryTree(folder: MemoryFolder, indent: number = 0): string {
     const lines: string[] = [];
     const prefix = '  '.repeat(indent);
 
-    // Add entries at this level
     for (const entry of folder.entries) {
         lines.push(`${prefix}- **${entry.name}** — ${entry.summary}  \`${entry.filePath}\``);
     }
 
-    // Add subfolders
     for (const sub of folder.subfolders) {
         lines.push(`${prefix}- **[${sub.name}/]**`);
         const subContent = formatMemoryTree(sub, indent + 1);

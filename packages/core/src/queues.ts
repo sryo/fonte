@@ -1,6 +1,5 @@
 /**
- * Simplified SQLite queue — messages + responses + chat_messages.
- * ~130 lines replacing the old 427-line db.ts.
+ * SQLite-backed queue: messages, responses, and per-agent chat history.
  */
 
 import Database from 'better-sqlite3';

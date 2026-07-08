@@ -52,7 +52,6 @@ async function torrentList() {
         return;
     }
 
-    // Header
     console.log(
         padRight('ID', 14) +
         padRight('Name', 36) +
@@ -78,7 +77,6 @@ async function torrentList() {
         );
     }
 
-    // Summary
     const statsResult = await apiRequest('GET', '/api/torrents/stats');
     if (statsResult.ok) {
         console.log('');
@@ -109,7 +107,6 @@ async function torrentStatus(id: string) {
     if (t.completedAt) console.log(`  Completed: ${new Date(t.completedAt).toLocaleString()}`);
     if (t.errorMessage) console.log(`  Error:     ${t.errorMessage}`);
 
-    // Show files
     const filesResult = await apiRequest('GET', `/api/torrents/${id}/files`);
     if (filesResult.ok && filesResult.files.length > 0) {
         console.log(`\n  Files (${filesResult.files.length}):`);
@@ -153,7 +150,6 @@ async function torrentRemove(id: string, deleteFiles: boolean) {
 
 async function torrentConfig(key?: string, value?: string) {
     if (!key) {
-        // Show current config
         const result = await apiRequest('GET', '/api/torrents/config');
         if (result.ok) {
             console.log('Torrent Configuration:');
@@ -171,7 +167,6 @@ async function torrentConfig(key?: string, value?: string) {
         process.exit(1);
     }
 
-    // Parse value: numbers, booleans, strings
     let parsed: any = value;
     if (value === 'true') parsed = true;
     else if (value === 'false') parsed = false;

@@ -46,7 +46,6 @@ async function pollResponses(client: Client): Promise<void> {
 
                 await client.sendMessage(chatId, resp.message);
 
-                // Acknowledge delivery
                 if (resp.id) {
                     await apiRequest('POST', `/api/responses/${resp.id}/ack`);
                 }
@@ -91,12 +90,10 @@ client.on('ready', () => {
     console.log('  Messages from any other chat are ignored (their chat id is logged here).');
     console.log('');
 
-    // Start polling for responses every 2 seconds
     setInterval(() => pollResponses(client), 2000);
 });
 
 client.on('message', async (msg: Message) => {
-    // Ignore status broadcasts and own messages
     if (msg.from === 'status@broadcast') return;
     if (msg.fromMe) return;
 
@@ -116,7 +113,6 @@ client.on('message', async (msg: Message) => {
 
     console.log(`[WhatsApp] ${sender}: ${text}`);
 
-    // Forward to Fonte agent
     try {
         const result = await sendToAgent(text, sender, chatId);
         if (result?.ok) {
@@ -144,10 +140,8 @@ client.on('auth_failure', (msg: string) => {
     process.exit(1);
 });
 
-// Start
 client.initialize();
 
-// Graceful shutdown
 process.on('SIGINT', async () => {
     console.log('\n[WhatsApp] Shutting down...');
     await client.destroy();

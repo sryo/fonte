@@ -29,7 +29,6 @@ export function WhatsAppSection() {
   const [pairingError, setPairingError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Poll status every 2s
   useEffect(() => {
     let mounted = true;
     const poll = async () => {
@@ -48,7 +47,6 @@ export function WhatsAppSection() {
     return () => { mounted = false; clearInterval(id); };
   }, []);
 
-  // Render QR to canvas
   useEffect(() => {
     if (qr && canvasRef.current) {
       import("qrcode").then((QRCode) => {

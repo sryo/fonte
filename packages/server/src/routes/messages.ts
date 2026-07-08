@@ -4,7 +4,6 @@ import { ok, fail } from '../http';
 
 const app = new Hono();
 
-// POST /api/message
 app.post('/api/message', async (c) => {
     const body = await c.req.json();
     const { message, agent, sender, senderId, channel, messageId: clientMessageId } = body as {

@@ -130,7 +130,6 @@ export function AgentChatView({
 
       setInput("");
     } catch {
-      // ignore send errors for now
     } finally {
       setSending(false);
     }
@@ -138,7 +137,6 @@ export function AgentChatView({
 
   return (
     <div className="flex h-full flex-col relative">
-      {/* Polling status */}
       <div className="absolute top-3 right-4 z-10 flex items-center gap-1.5">
         <div className={cn("h-1.5 w-1.5", pollError ? "bg-destructive" : "bg-primary animate-pulse-dot")} />
         <span className="text-2xs text-muted-foreground">
@@ -146,7 +144,6 @@ export function AgentChatView({
         </span>
       </div>
 
-      {/* Messages */}
       {messages.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center">
           <Robot className="h-8 w-8 text-muted-foreground/30 mb-3" />
@@ -190,7 +187,6 @@ export function AgentChatView({
         </ChatContainerRoot>
       )}
 
-      {/* Floating composer */}
       <div className="absolute bottom-4 left-6 right-6 z-10">
         <PromptInput
           value={input}

@@ -44,8 +44,7 @@ export function WatchlistSettingsCard({
   const [jackettUrl, setJackettUrl] = useState(raw?.jackett_url ?? "");
   const [jackettApiKey, setJackettApiKey] = useState(raw?.jackett_api_key ?? "");
 
-  // Resync when settings are refetched (e.g. after another section saves),
-  // so saving this card doesn't write back a stale snapshot.
+  // Resync on refetch so saving this card doesn't write back a stale snapshot.
   useEffect(() => {
     setEnabled(raw?.enabled ?? false);
     setCheckInterval(raw?.check_interval ?? 30);

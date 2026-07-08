@@ -46,7 +46,7 @@ function fireSchedule(schedule: Schedule): void {
     try {
         const rowId = enqueueMessage(data);
         if (rowId) {
-            // Persist user-side message so it appears in agent_messages (same as API route)
+            // Persist the user-side message so it shows up in agent history.
             insertAgentMessage({
                 agentId: schedule.agentId,
                 role: 'user',
@@ -70,7 +70,6 @@ function startJob(schedule: Schedule): void {
 
     try {
         if (schedule.runAt) {
-            // One-time schedule: fire at the specified date, then auto-disable
             const runDate = new Date(schedule.runAt);
             if (runDate.getTime() <= Date.now()) {
                 log('WARN', `[Schedule] One-time '${schedule.label}' is in the past, skipping`);
@@ -78,7 +77,6 @@ function startJob(schedule: Schedule): void {
             }
             const job = new Cron(runDate, () => {
                 fireSchedule(schedule);
-                // Auto-disable after firing
                 const all = getSchedules();
                 const idx = all.findIndex(s => s.id === schedule.id);
                 if (idx !== -1) {
@@ -149,7 +147,7 @@ export function addSchedule(opts: {
     }
 
     if (opts.cron) {
-        // Validate by attempting to construct a Cron (throws on invalid expression)
+        // Constructing a Cron throws on an invalid expression.
         try {
             const testJob = new Cron(opts.cron.trim());
             testJob.stop();

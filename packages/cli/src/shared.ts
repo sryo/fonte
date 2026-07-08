@@ -4,7 +4,6 @@ import http from 'http';
 import path from 'path';
 import { Settings, SETTINGS_FILE, FONTE_HOME, SCRIPT_DIR } from '@fonte/core';
 
-// Re-export for convenience
 export { SETTINGS_FILE, FONTE_HOME, SCRIPT_DIR };
 
 // ── API helpers ───────────────────────────────────────────────────────────────
@@ -70,9 +69,6 @@ const BANNER = `
    █  █ █ ▀█  █  █▀█ █▄█ █
 `;
 
-/**
- * Print the Fonte ASCII banner.
- */
 export function printBanner(): void {
     console.log(BANNER);
 }
@@ -236,9 +232,6 @@ export async function promptModel(provider: string): Promise<string> {
     return choice as string;
 }
 
-/**
- * Prompt for harness selection (claude or codex).
- */
 export function harnessOptions(): ProviderOption[] {
     return [
         { value: 'claude', label: 'claude (Anthropic CLI)' },

@@ -122,7 +122,6 @@ export function getSettings(): Settings {
         try {
             parsed = JSON.parse(settingsData);
         } catch (parseError) {
-            // JSON is invalid — attempt auto-fix with jsonrepair
             console.error(`[WARN] settings.json contains invalid JSON: ${(parseError as Error).message}`);
 
             try {
@@ -136,7 +135,6 @@ export function getSettings(): Settings {
                     return {};
                 }
 
-                // Write the fixed JSON back and create a backup
                 const backupPath = SETTINGS_FILE + '.bak';
                 fs.copyFileSync(SETTINGS_FILE, backupPath);
                 fs.writeFileSync(SETTINGS_FILE, JSON.stringify(parsed, null, 2) + '\n');
@@ -154,7 +152,6 @@ export function getSettings(): Settings {
             for (const w of [...typeErrors, ...warnings]) console.error(`[WARN] settings.json: ${w}`);
         }
 
-        // Auto-detect provider if not specified
         if (!settings?.models?.provider) {
             if (settings?.models?.openai) {
                 if (!settings.models) settings.models = {};
@@ -213,7 +210,6 @@ export function getDefaultAgentFromModels(settings: Settings): AgentConfig {
         model = settings?.models?.anthropic?.model || 'sonnet';
     }
 
-    // Get workspace path from settings or use default
     const workspacePath = settings?.workspace?.path || path.join(require('os').homedir(), 'fonte-workspace');
     const defaultAgentDir = path.join(workspacePath, 'fonte');
 
@@ -233,13 +229,9 @@ export function getAgents(settings: Settings): Record<string, AgentConfig> {
     if (settings.agents && Object.keys(settings.agents).length > 0) {
         return settings.agents;
     }
-    // Fall back to default agent from models section
     return { fonte: getDefaultAgentFromModels(settings) };
 }
 
-/**
- * Get all configured teams.
- */
 export function getTeams(settings: Settings): Record<string, TeamConfig> {
     return settings.teams || {};
 }

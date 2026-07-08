@@ -65,7 +65,6 @@ async function watchlistList() {
         return;
     }
 
-    // Header
     console.log(
         padRight('ID', 14) +
         padRight('Title', 30) +

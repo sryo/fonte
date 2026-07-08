@@ -35,8 +35,7 @@ export function SubtitleSettingsCard({
   const [targetLanguages, setTargetLanguages] = useState((raw?.target_languages ?? []).join(", "));
   const [tmdbApiKey, setTmdbApiKey] = useState(raw?.tmdb_api_key ?? "");
 
-  // Resync when settings are refetched (e.g. after another section saves),
-  // so saving this card doesn't write back a stale snapshot.
+  // Resync on refetch so saving this card doesn't write back a stale snapshot.
   useEffect(() => {
     setEnabled(raw?.enabled ?? false);
     setAutoDownload(raw?.auto_download ?? false);
@@ -50,8 +49,8 @@ export function SubtitleSettingsCard({
       .split(",")
       .map((l) => l.trim())
       .filter(Boolean);
-    // Send only this section, spreading the existing sub-object so fields
-    // this card doesn't edit (e.g. opensubtitles_api_key) survive the save.
+    // Spread the existing sub-object so fields this card doesn't edit
+    // (e.g. opensubtitles_api_key) survive the save.
     onSave({
       subtitles: {
         ...raw,
