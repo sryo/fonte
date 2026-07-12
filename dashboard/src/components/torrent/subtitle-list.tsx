@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { translateSubtitleApi, type SubtitleRecord } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -12,6 +13,7 @@ export function SubtitleList({
   subtitles: SubtitleRecord[];
   onChanged: () => void;
 }) {
+  const [error, setError] = useState<string | null>(null);
   if (subtitles.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -22,6 +24,7 @@ export function SubtitleList({
 
   return (
     <div className="space-y-2">
+      {error && <p className="text-2xs text-destructive">{error}</p>}
       {subtitles.map((sub) => (
         <div
           key={sub.id}
@@ -41,8 +44,13 @@ export function SubtitleList({
               onClick={async () => {
                 const lang = prompt("Translate to language code (e.g. en, es, fr):");
                 if (lang) {
-                  await translateSubtitleApi(sub.id, lang);
-                  onChanged();
+                  try {
+                    setError(null);
+                    await translateSubtitleApi(sub.id, lang);
+                    onChanged();
+                  } catch (err) {
+                    setError((err as Error).message);
+                  }
                 }
               }}
             >

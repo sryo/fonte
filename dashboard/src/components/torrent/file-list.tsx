@@ -1,21 +1,19 @@
 "use client";
 
-import { type Dispatch, type SetStateAction } from "react";
-import { setTorrentFilesWanted, type TorrentFileRecord } from "@/lib/api";
+import { type TorrentFileRecord } from "@/lib/api";
 import { formatBytes } from "@/lib/format";
 import { ProgressBar, toPct } from "@/components/ui/progress-bar";
 
 /** Per-file rows with wanted-toggle checkboxes and list progress bars. */
 export function FileList({
-  torrentId,
   files,
-  setFiles,
+  onToggle,
   downloading,
   stalled,
 }: {
-  torrentId: string;
   files: TorrentFileRecord[];
-  setFiles: Dispatch<SetStateAction<TorrentFileRecord[]>>;
+  /** Flip a file's wanted state; receives the index and its current value. */
+  onToggle: (idx: number, selected: boolean) => void;
   downloading: boolean;
   stalled: boolean;
 }) {
@@ -27,23 +25,6 @@ export function FileList({
     <div className="space-y-2">
       {files.map((file, idx) => {
         const filePct = toPct(file.progress);
-        const onToggle = async () => {
-          setFiles((prev) =>
-            prev.map((f, i) => (i === idx ? { ...f, selected: !f.selected } : f)),
-          );
-          try {
-            const res = await setTorrentFilesWanted(
-              torrentId,
-              file.selected ? [] : [idx],
-              file.selected ? [idx] : [],
-            );
-            if (res.ok && res.files) setFiles(res.files);
-          } catch {
-            setFiles((prev) =>
-              prev.map((f, i) => (i === idx ? { ...f, selected: file.selected } : f)),
-            );
-          }
-        };
         return (
           <div
             key={idx}
@@ -52,7 +33,7 @@ export function FileList({
             <input
               type="checkbox"
               checked={file.selected}
-              onChange={onToggle}
+              onChange={() => onToggle(idx, file.selected)}
               title={file.selected ? "Skip this file" : "Download this file"}
               className="h-4 w-4 shrink-0 cursor-pointer accent-primary"
             />

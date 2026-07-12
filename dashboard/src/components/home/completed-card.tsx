@@ -27,6 +27,7 @@ export function CompletedCard({
     <MediaCard
       title={torrent.name}
       posterUrl={torrent.posterUrl}
+      complete={torrent.status === "seeding"}
       exiting={exiting}
       exitDelay={exitDelay}
       onClick={() => router.push(`/torrents/${torrent.id}`)}
@@ -35,15 +36,15 @@ export function CompletedCard({
       }
       primaryAction={
         torrent.status === "seeding" ? (
-          <CardAction variant="primary" icon={Stop} label="Stop seeding" onClick={() => { pauseTorrent(torrent.id); onRefresh(); }} />
+          <CardAction variant="primary" icon={Stop} label="Stop seeding" onClick={async () => { try { await pauseTorrent(torrent.id); } finally { onRefresh(); } }} />
         ) : (
-          <CardAction variant="primary" icon={Play} label="Seed" onClick={() => { resumeTorrent(torrent.id); onRefresh(); }} />
+          <CardAction variant="primary" icon={Play} label="Seed" onClick={async () => { try { await resumeTorrent(torrent.id); } finally { onRefresh(); } }} />
         )
       }
       secondaryAction={<CardAction icon={Trash} label="Remove" destructive onClick={onPoofRemove} />}
     >
       <p className="text-2xs text-muted-foreground">
-        {torrent.status === "seeding" && (
+        {torrent.status === "seeding" && torrent.uploadSpeed > 0 && (
           <span className="text-green-600 dark:text-green-400">&uarr; {formatSpeed(torrent.uploadSpeed)} &middot; </span>
         )}
         {formatBytes(torrent.size)}

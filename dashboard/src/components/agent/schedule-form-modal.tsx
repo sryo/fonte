@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent } from "@/components/ui/card";
+import { Modal } from "@/components/ui/modal";
 import {
   Popover,
   PopoverContent,
@@ -32,13 +32,13 @@ import {
   Calendar as CalendarIcon,
   Clock,
   ArrowsClockwise,
-  X,
 } from "@phosphor-icons/react";
 import { Spinner } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils";
 
-// New-schedule form modal. Stays mounted while closed (renders null) so form
-// state survives close/reopen; fields only reset after a successful create.
+// New-schedule form modal. The form state lives here (outside Modal's
+// unmounting content) so it survives close/reopen; fields only reset after a
+// successful create.
 export function ScheduleFormModal({
   agentId,
   open,
@@ -118,23 +118,9 @@ export function ScheduleFormModal({
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <Card className="w-full max-w-lg shadow-lg">
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <div className="text-sm font-semibold">New Schedule</div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={onClose}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <CardContent className="p-4 space-y-5">
+    <Modal open={open} onClose={onClose} title="New Schedule" wide>
+        <div className="space-y-5">
           <Input
             value={formLabel}
             onChange={(e) => setFormLabel(e.target.value)}
@@ -407,8 +393,7 @@ export function ScheduleFormModal({
               {formSaving ? <Spinner size="xs" /> : "Save"}
             </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+    </Modal>
   );
 }

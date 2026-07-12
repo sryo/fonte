@@ -71,8 +71,8 @@ export async function searchTorrentAlternatives(id: string): Promise<{ ok: boole
   return apiFetch(`/api/torrents/${encodeURIComponent(id)}/alternatives`, { method: "POST" });
 }
 
-export async function swapTorrent(id: string, magnetUri: string): Promise<{ ok: boolean; torrent: TorrentRecord }> {
-  return apiFetch(`/api/torrents/${encodeURIComponent(id)}/swap`, { method: "POST", body: JSON.stringify({ magnetUri }) });
+export async function swapTorrent(id: string, magnetUris: string[]): Promise<{ ok: boolean; torrent: TorrentRecord }> {
+  return apiFetch(`/api/torrents/${encodeURIComponent(id)}/swap`, { method: "POST", body: JSON.stringify({ magnetUris }) });
 }
 
 export async function getTorrentFiles(id: string): Promise<{ ok: boolean; files: TorrentFileRecord[] }> {

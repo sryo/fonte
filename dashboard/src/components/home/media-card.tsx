@@ -15,6 +15,7 @@ export function MediaCard({
   progress,
   busy,
   ringColor,
+  complete,
   exiting,
   exitDelay = 0,
 }: {
@@ -30,6 +31,7 @@ export function MediaCard({
   progress?: { value: number; stalled?: boolean };
   busy?: boolean;
   ringColor?: RingColor;
+  complete?: boolean;
   exiting?: boolean;
   exitDelay?: number;
 }) {
@@ -82,7 +84,7 @@ export function MediaCard({
         <p className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-foreground" title={title}>{title}</p>
         {children}
       </div>
-      <ProgressRing progress={progress} busy={busy} color={ringColor} />
+      <ProgressRing progress={progress} busy={busy} color={ringColor} complete={complete} />
     </div>
     </div>
   );

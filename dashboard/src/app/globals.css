@@ -347,6 +347,13 @@ body {
   );
   animation-duration: 1.6s;
 }
+/* Seeding: the full arc in done-green with the same perimeter shine as a
+   download — the ring means live activity, and seeding is upload activity.
+   Inert (done-and-stopped) cards get no ring at all. */
+.progress-ring--complete {
+  --progress: 1;
+  --ring-color: var(--done);
+}
 @keyframes progress-ring-shine {
   to { --shine-angle: 360deg; }
 }

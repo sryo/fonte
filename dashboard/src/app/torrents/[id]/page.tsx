@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { DotsThree } from "@phosphor-icons/react";
 import {
   getTorrent, getTorrentFiles, pauseTorrent, resumeTorrent, removeTorrent,
   verifyTorrent, reannounceTorrent, searchTorrentAlternatives, swapTorrent,
-  getTorrentSubtitles, fetchTorrentSubtitles,
+  getTorrentSubtitles, fetchTorrentSubtitles, setTorrentFilesWanted,
   type TorrentRecord, type TorrentFileRecord, type SubtitleRecord, type AlternativeResult,
 } from "@/lib/api";
 import { formatBytes, formatSpeed } from "@/lib/format";
-import { usePolling } from "@/hooks/usePolling";
+import { usePollingEffect } from "@/lib/hooks";
 import { PageHeader } from "@/components/ui/page-header";
 import { Section } from "@/components/ui/section";
 import { Callout } from "@/components/ui/callout";
@@ -45,6 +45,16 @@ export default function TorrentDetailPage() {
   const [altSearching, setAltSearching] = useState(false);
   const [altError, setAltError] = useState<string | null>(null);
 
+  // Wanted-toggles still in flight, by file index. Poll responses overlay
+  // these so a fetch that started before the toggle can't bounce the checkbox
+  // back to its pre-toggle state.
+  const pendingFileToggles = useRef(new Map<number, boolean>());
+  const overlayPendingToggles = useCallback((serverFiles: TorrentFileRecord[]) => {
+    const pending = pendingFileToggles.current;
+    if (pending.size === 0) return serverFiles;
+    return serverFiles.map((f, i) => (pending.has(i) ? { ...f, selected: pending.get(i)! } : f));
+  }, []);
+
   const fetchData = useCallback(async () => {
     try {
       const [torrentRes, filesRes, subsRes] = await Promise.all([
@@ -53,7 +63,7 @@ export default function TorrentDetailPage() {
         getTorrentSubtitles(id).catch(() => ({ ok: false, subtitles: [] })),
       ]);
       setTorrent(torrentRes.torrent);
-      setFiles(filesRes.files);
+      setFiles(overlayPendingToggles(filesRes.files));
       setSubtitles(subsRes.subtitles || []);
       setError(null);
     } catch (err) {
@@ -61,9 +71,23 @@ export default function TorrentDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, overlayPendingToggles]);
 
-  usePolling(fetchData, 2000);
+  usePollingEffect(fetchData, 2000);
+
+  const handleFileToggle = useCallback(async (idx: number, selected: boolean) => {
+    const target = !selected;
+    pendingFileToggles.current.set(idx, target);
+    setFiles((prev) => prev.map((f, i) => (i === idx ? { ...f, selected: target } : f)));
+    try {
+      const res = await setTorrentFilesWanted(id, target ? [idx] : [], target ? [] : [idx]);
+      pendingFileToggles.current.delete(idx);
+      if (res.ok && res.files) setFiles(overlayPendingToggles(res.files));
+    } catch {
+      pendingFileToggles.current.delete(idx);
+      setFiles((prev) => prev.map((f, i) => (i === idx ? { ...f, selected } : f)));
+    }
+  }, [id, overlayPendingToggles]);
 
   const runAction = useCallback(async (action: (id: string) => Promise<unknown>) => {
     setActionLoading(true);
@@ -112,13 +136,15 @@ export default function TorrentDetailPage() {
     if (!confirm("Swap in this release? The current torrent and its partial files will be removed.")) return;
     setActionLoading(true);
     try {
-      const res = await swapTorrent(id, magnetUri);
+      // Chosen release first, then the rest as auto-advance fallbacks.
+      const rest = alternatives.map((a) => a.magnetUri).filter((u) => u !== magnetUri);
+      const res = await swapTorrent(id, [magnetUri, ...rest]);
       router.push(`/torrents/${res.torrent.id}`);
     } catch (err) {
       setAltError((err as Error).message);
       setActionLoading(false);
     }
-  }, [id, router]);
+  }, [id, router, alternatives]);
 
   const handleFetchSubtitles = useCallback(async () => {
     try {
@@ -167,7 +193,7 @@ export default function TorrentDetailPage() {
                 <DropdownMenuItem onClick={handleReannounce} disabled={actionLoading}>Update trackers</DropdownMenuItem>
                 <DropdownMenuItem onClick={handleFindAlternatives} disabled={altSearching}>Find alternatives</DropdownMenuItem>
                 {torrent.magnetUri && (
-                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(torrent.magnetUri!)}>
+                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(torrent.magnetUri!).catch(() => {})}>
                     Copy magnet
                   </DropdownMenuItem>
                 )}
@@ -223,7 +249,7 @@ export default function TorrentDetailPage() {
       </DetailHero>
 
       <Section title="Files" count={files.length}>
-        <FileList torrentId={id} files={files} setFiles={setFiles} downloading={torrent.status === "downloading"} stalled={isStalled} />
+        <FileList files={files} onToggle={handleFileToggle} downloading={torrent.status === "downloading"} stalled={isStalled} />
       </Section>
 
       <Section

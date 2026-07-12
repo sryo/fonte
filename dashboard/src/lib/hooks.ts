@@ -3,6 +3,19 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { subscribeToEvents, type EventData } from "./api";
 
+/**
+ * Runs an imperative fetch on mount and at regular intervals. For pages that
+ * own several state slices; when a single fetched value is enough, prefer
+ * usePolling below, which also guards against post-unmount setState.
+ */
+export function usePollingEffect(fn: () => void, intervalMs: number) {
+  useEffect(() => {
+    fn();
+    const interval = setInterval(fn, intervalMs);
+    return () => clearInterval(interval);
+  }, [fn, intervalMs]);
+}
+
 /** Polls a fetcher at regular intervals. */
 export function usePolling<T>(
   fetcher: () => Promise<T>,

@@ -7,7 +7,6 @@ import {
   deleteAgent,
   sendMessage,
   getCustomProviders,
-  saveCustomProvider,
   BUILTIN_PROVIDERS,
   type AgentConfig,
   type CustomProvider,
@@ -24,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Section } from "@/components/ui/section";
 import { Spinner } from "@/components/ui/feedback";
+import { CustomProviderForm } from "./custom-provider-form";
 
 // ── Agents Section ─────────────────────────────────────────────────────
 
@@ -34,11 +34,6 @@ export function AgentsSection() {
   const [form, setForm] = useState({ id: "", name: "", provider: "anthropic", model: "sonnet" });
   const [saving, setSaving] = useState(false);
   const [showAddProvider, setShowAddProvider] = useState(false);
-  const [providerForm, setProviderForm] = useState({
-    id: "", name: "", harness: "claude" as "claude" | "codex",
-    base_url: "", api_key: "", model: "",
-  });
-  const [savingProvider, setSavingProvider] = useState(false);
 
   const fetchAll = async () => {
     try {
@@ -49,26 +44,6 @@ export function AgentsSection() {
   };
 
   useEffect(() => { fetchAll(); }, []);
-
-  const handleSaveProvider = async () => {
-    if (!providerForm.id || !providerForm.name || !providerForm.base_url || !providerForm.api_key) return;
-    setSavingProvider(true);
-    try {
-      await saveCustomProvider(providerForm.id, {
-        name: providerForm.name,
-        harness: providerForm.harness,
-        base_url: providerForm.base_url,
-        api_key: providerForm.api_key,
-        model: providerForm.model || undefined,
-      });
-      const newId = providerForm.id;
-      setProviderForm({ id: "", name: "", harness: "claude", base_url: "", api_key: "", model: "" });
-      setShowAddProvider(false);
-      await fetchAll();
-      setForm((f) => ({ ...f, provider: `custom:${newId}` }));
-    } catch {}
-    setSavingProvider(false);
-  };
 
   const handleSave = async () => {
     if (!form.id || !form.name || !form.model) return;
@@ -216,71 +191,14 @@ export function AgentsSection() {
             </div>
 
             {showAddProvider && (
-              <div className="border rounded-xl p-3 space-y-2 bg-background">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium">New custom provider</p>
-                  <button
-                    onClick={() => setShowAddProvider(false)}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    Cancel
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    value={providerForm.id}
-                    onChange={(e) => setProviderForm((f) => ({ ...f, id: e.target.value }))}
-                    placeholder="ID (e.g. groq)"
-                    className="text-xs"
-                  />
-                  <Input
-                    value={providerForm.name}
-                    onChange={(e) => setProviderForm((f) => ({ ...f, name: e.target.value }))}
-                    placeholder="Display name"
-                    className="text-xs"
-                  />
-                  <Select
-                    value={providerForm.harness}
-                    onValueChange={(v) => setProviderForm((f) => ({ ...f, harness: v as "claude" | "codex" }))}
-                  >
-                    <SelectTrigger className="text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="claude">Claude harness</SelectItem>
-                      <SelectItem value="codex">Codex harness</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    value={providerForm.model}
-                    onChange={(e) => setProviderForm((f) => ({ ...f, model: e.target.value }))}
-                    placeholder="Default model (optional)"
-                    className="text-xs"
-                  />
-                </div>
-                <Input
-                  value={providerForm.base_url}
-                  onChange={(e) => setProviderForm((f) => ({ ...f, base_url: e.target.value }))}
-                  placeholder="Base URL (https://...)"
-                  className="text-xs"
-                />
-                <Input
-                  type="password"
-                  value={providerForm.api_key}
-                  onChange={(e) => setProviderForm((f) => ({ ...f, api_key: e.target.value }))}
-                  placeholder="API key"
-                  className="text-xs"
-                />
-                <Button
-                  size="sm"
-                  onClick={handleSaveProvider}
-                  disabled={savingProvider || !providerForm.id || !providerForm.name || !providerForm.base_url || !providerForm.api_key}
-                  className="text-xs"
-                >
-                  {savingProvider && <Spinner size="xs" />}
-                  Save provider
-                </Button>
-              </div>
+              <CustomProviderForm
+                onSaved={async (id) => {
+                  setShowAddProvider(false);
+                  await fetchAll();
+                  setForm((f) => ({ ...f, provider: `custom:${id}` }));
+                }}
+                onCancel={() => setShowAddProvider(false)}
+              />
             )}
 
             <div className="flex items-center gap-2 pt-1">

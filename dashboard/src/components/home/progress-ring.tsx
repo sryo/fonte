@@ -10,11 +10,14 @@ export function ProgressRing({
   progress,
   busy,
   color = "torrent",
+  complete,
 }: {
   progress?: { value: number; stalled?: boolean };
   busy?: boolean;
   color?: RingColor;
+  complete?: boolean;
 }) {
+  if (complete) return <div aria-hidden className="progress-ring progress-ring--complete" />;
   const indeterminate = !progress && busy;
   if (!progress && !busy) return null;
   if (progress && progress.value >= 1) return null;

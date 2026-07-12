@@ -10,12 +10,9 @@ import {
   getIndexerStatus,
   removeTorrent,
   deleteWatchlistEntry,
-  updateAutomation,
-  getAutomation,
   triggerAutomation,
   deleteAutomation,
   triggerWatchlistSearch,
-  type AutomationLog,
 } from "@/lib/api";
 import type {
   TorrentRecord,
@@ -30,7 +27,7 @@ import {
   Plus,
   Trash,
 } from "@phosphor-icons/react";
-import { usePolling } from "@/hooks/usePolling";
+import { usePollingEffect } from "@/lib/hooks";
 import { usePoofRemoval } from "@/hooks/use-poof-removal";
 import { usePersistedState } from "@/hooks/use-persisted-state";
 import {
@@ -81,17 +78,9 @@ export default function HomePage() {
   const [indexerStatus, setIndexerStatus] = useState<IndexerStatus | null>(null);
   const [showAddWatchlist, setShowAddWatchlist] = useState(false);
   const [showAddAutomation, setShowAddAutomation] = useState(false);
-  const [editAutoId, setEditAutoId] = useState<string | null>(null);
-  const [editAutoForm, setEditAutoForm] = useState({
-    name: "",
-    triggerType: "torrent:completed",
-    cron: "",
-    prompt: "",
-  });
+  const [editAutoRule, setEditAutoRule] = useState<AutomationRule | null>(null);
   const [runningAutoId, setRunningAutoId] = useState<string | null>(null);
   const [searchingWlIds, setSearchingWlIds] = useState<Set<string>>(new Set());
-  const [editAutoLogs, setEditAutoLogs] = useState<AutomationLog[]>([]);
-  const [editAutoLastResponse, setEditAutoLastResponse] = useState<{ text: string; ts: number } | null>(null);
 
   // usePoofRemoval needs to trigger refetches and fetchAll needs filterHidden;
   // the ref breaks the cycle.
@@ -116,7 +105,7 @@ export default function HomePage() {
   }, [filterHidden]);
   fetchAllRef.current = fetchAll;
 
-  usePolling(fetchAll, 3000);
+  usePollingEffect(fetchAll, 3000);
 
   // Indexer status is a real Jackett search on every call; check once on
   // mount instead of every poll tick.
@@ -139,44 +128,9 @@ export default function HomePage() {
     setRunningAutoId(null);
   };
 
-  const editAutomation = (rule: AutomationRule) => {
-    setEditAutoId(rule.id);
-    setEditAutoForm({
-      name: rule.name,
-      triggerType: rule.triggerType,
-      cron: (rule.triggerConfig as { cron?: string })?.cron || "",
-      prompt: rule.prompt,
-    });
-    setEditAutoLogs([]);
-    setEditAutoLastResponse(null);
-    getAutomation(rule.id)
-      .then((res) => {
-        setEditAutoLogs(res.logs || []);
-        setEditAutoLastResponse(res.lastResponse);
-      })
-      .catch(() => {});
-  };
-
   const deleteAutomationRule = async (rule: AutomationRule) => {
     await deleteAutomation(rule.id);
     await fetchAll();
-  };
-
-  const saveEditAutomation = async () => {
-    if (!editAutoId || !editAutoForm.name.trim()) return;
-    const patch: Parameters<typeof updateAutomation>[1] = {
-      name: editAutoForm.name.trim(),
-      prompt: editAutoForm.prompt.trim(),
-      triggerType: editAutoForm.triggerType,
-    };
-    if (editAutoForm.triggerType === "schedule") {
-      patch.triggerConfig = editAutoForm.cron.trim() ? { cron: editAutoForm.cron.trim() } : {};
-    } else {
-      patch.triggerConfig = {};
-    }
-    await updateAutomation(editAutoId, patch);
-    setEditAutoId(null);
-    fetchAll();
   };
 
   // ── Derived data ───────────────────────────────────────────────────────
@@ -203,8 +157,9 @@ export default function HomePage() {
     : null;
   const shownTorrents = sortTorrents(pillPredicate ? lane.filter(pillPredicate) : lane, sort);
   // "Finished" in the user's sense: done downloading, whether still seeding
-  // or stopped — the same set the Finished pill shows.
-  const finishedClearable = lane.filter(isFinished);
+  // or stopped. Scoped to the visible cards so Clear never poofs torrents
+  // hidden by the active pill.
+  const finishedClearable = shownTorrents.filter(isFinished);
 
   // A pill you can't see or that has drained falls back to All — one rule
   // covering both the last-error-resolved case and unchecking the pill
@@ -386,7 +341,7 @@ export default function HomePage() {
               rule={rule}
               running={runningAutoId === rule.id}
               onRun={() => runAutomation(rule)}
-              onEdit={() => editAutomation(rule)}
+              onEdit={() => setEditAutoRule(rule)}
               onDelete={() => deleteAutomationRule(rule)}
             />
           ))}
@@ -405,14 +360,11 @@ export default function HomePage() {
         onCreated={fetchAll}
       />
 
-      {editAutoId && (
+      {editAutoRule && (
         <EditAutomationModal
-          form={editAutoForm}
-          setForm={setEditAutoForm}
-          logs={editAutoLogs}
-          lastResponse={editAutoLastResponse}
-          onClose={() => setEditAutoId(null)}
-          onSave={saveEditAutomation}
+          rule={editAutoRule}
+          onClose={() => setEditAutoRule(null)}
+          onSaved={fetchAll}
         />
       )}
     </div>

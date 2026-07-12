@@ -1,6 +1,6 @@
 "use client";
 
-import { Children, useEffect, useRef, useState, type ReactNode } from "react";
+import { Children, isValidElement, useEffect, useRef, useState, type ReactNode } from "react";
 import { CheckCircle, StackSimple, Trash } from "@phosphor-icons/react";
 import { CardStack } from "@/components/home/card-stack";
 import { CardAction } from "@/components/home/card-action";
@@ -104,7 +104,9 @@ export function FulfilledTray({
           const delay = closing ? staggerDelay(items.length - 1 - i) : staggerDelay(i);
           return (
             <div
-              key={i}
+              // The child's own key (entry id), so removing one card mid-fan
+              // doesn't shift identities and replay enter animations.
+              key={isValidElement(child) && child.key != null ? child.key : i}
               className={closing ? "animate-card-exit" : "animate-card-enter"}
               style={{
                 animationDelay: `${delay}ms`,

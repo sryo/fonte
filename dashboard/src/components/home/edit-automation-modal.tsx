@@ -1,6 +1,7 @@
 "use client";
 
-import type { AutomationLog } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { getAutomation, updateAutomation, type AutomationLog, type AutomationRule, type TriggerType } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,28 +17,62 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { TRIGGER_TYPES } from "@/components/home/add-automation-modal";
 
-export type EditAutomationForm = {
-  name: string;
-  triggerType: string;
-  cron: string;
-  prompt: string;
-};
+const formFromRule = (rule: AutomationRule) => ({
+  name: rule.name,
+  triggerType: rule.triggerType,
+  cron: (rule.triggerConfig as { cron?: string })?.cron || "",
+  prompt: rule.prompt,
+});
 
+// Self-contained like the Add modals: owns its form, fetches its own
+// logs/last-response, and runs the save — the page just picks the rule.
 export function EditAutomationModal({
-  form,
-  setForm,
-  logs,
-  lastResponse,
+  rule,
   onClose,
-  onSave,
+  onSaved,
 }: {
-  form: EditAutomationForm;
-  setForm: (form: EditAutomationForm) => void;
-  logs: AutomationLog[];
-  lastResponse: { text: string; ts: number } | null;
+  rule: AutomationRule;
   onClose: () => void;
-  onSave: () => void;
+  onSaved: () => void;
 }) {
+  const [form, setForm] = useState(() => formFromRule(rule));
+  const [logs, setLogs] = useState<AutomationLog[]>([]);
+  const [lastResponse, setLastResponse] = useState<{ text: string; ts: number } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setForm(formFromRule(rule));
+    setLogs([]);
+    setLastResponse(null);
+    getAutomation(rule.id)
+      .then((res) => {
+        setLogs(res.logs || []);
+        setLastResponse(res.lastResponse);
+      })
+      .catch(() => {});
+  }, [rule]);
+
+  const onSave = async () => {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await updateAutomation(rule.id, {
+        name: form.name.trim(),
+        prompt: form.prompt.trim(),
+        triggerType: form.triggerType,
+        triggerConfig: form.triggerType === "schedule" && form.cron.trim() ? { cron: form.cron.trim() } : {},
+      });
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Modal open onClose={onClose} title="Edit Automation">
       <div className="space-y-4">
@@ -51,7 +86,7 @@ export function EditAutomationModal({
           <Label>Trigger</Label>
           <Select
             value={form.triggerType}
-            onValueChange={(v) => setForm({ ...form, triggerType: v })}
+            onValueChange={(v) => setForm({ ...form, triggerType: v as TriggerType })}
           >
             <SelectTrigger className="w-full">
               <SelectValue />
@@ -86,10 +121,11 @@ export function EditAutomationModal({
             className="resize-y"
           />
         </div>
+        {error && <p className="text-2xs text-destructive">{error}</p>}
         <div className="flex gap-2 pt-1">
           <Button
             onClick={onSave}
-            disabled={!form.name.trim()}
+            disabled={!form.name.trim() || saving}
             className="flex-1 bg-automation text-automation-foreground hover:bg-automation/90"
           >
             Save

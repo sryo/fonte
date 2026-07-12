@@ -126,6 +126,9 @@ export function AddTorrentCard({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          {error && (
+            <span className="max-w-44 truncate text-2xs text-destructive" title={error}>{error}</span>
+          )}
         </div>
         <CreateTorrentModal open={showCreate} onClose={() => setShowCreate(false)} onCreated={onAdded} />
       </>

@@ -41,7 +41,10 @@ export function TorrentCard({
       exiting={exiting}
       exitDelay={exitDelay}
       onClick={() => router.push(`/torrents/${torrent.id}`)}
-      progress={{ value: torrent.progress, stalled: stalled || torrent.status === "paused" }}
+      progress={torrent.status === "adding"
+        ? undefined
+        : { value: torrent.progress, stalled: stalled || torrent.status === "paused" || torrent.status === "error" }}
+      busy={torrent.status === "adding"}
       badges={
         <PosterBadge tone={stalled ? "warn" : statusTone(torrent.status)}>
           {STATUS_LABEL[torrent.status] ?? `${Math.round(torrent.progress * 100)}%`}
@@ -49,9 +52,9 @@ export function TorrentCard({
       }
       primaryAction={
         torrent.status === "downloading" ? (
-          <CardAction variant="primary" icon={Pause} label="Pause" onClick={() => { pauseTorrent(torrent.id); onRefresh(); }} />
+          <CardAction variant="primary" icon={Pause} label="Pause" onClick={async () => { try { await pauseTorrent(torrent.id); } finally { onRefresh(); } }} />
         ) : torrent.status === "paused" ? (
-          <CardAction variant="primary" icon={Play} label="Resume" onClick={() => { resumeTorrent(torrent.id); onRefresh(); }} />
+          <CardAction variant="primary" icon={Play} label="Resume" onClick={async () => { try { await resumeTorrent(torrent.id); } finally { onRefresh(); } }} />
         ) : undefined
       }
       secondaryAction={
@@ -66,8 +69,10 @@ export function TorrentCard({
         </p>
       ) : (
         <p className="text-2xs text-muted-foreground">
-          <span className="text-torrent">&darr; {formatSpeed(torrent.downloadSpeed)}</span>
-          {" · "}{torrent.numPeers} peers
+          {torrent.downloadSpeed > 0 && (
+            <span className="text-torrent">&darr; {formatSpeed(torrent.downloadSpeed)}{" · "}</span>
+          )}
+          {torrent.numPeers} peers
         </p>
       )}
     </MediaCard>
