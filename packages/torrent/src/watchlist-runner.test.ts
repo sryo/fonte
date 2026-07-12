@@ -187,3 +187,61 @@ describe('watchlist auto-add duplicate handling', () => {
         expect(wdb.getWatchlistEntry('wl1')?.status).toBe('fulfilled');
     });
 });
+
+describe('ongoing-watch fall-through', () => {
+    const HEX2 = '0123456789abcdef0123456789abcdef01234567';
+    const MAGNET2 = `magnet:?xt=urn:btih:${HEX2}&dn=Show+S01E05+1080p`;
+
+    // Echoes the added magnet's own hash back, so tests can add releases with
+    // different hashes without colliding on installManager's fixed HEX.
+    function installEchoManager() {
+        const manager = TM.createTorrentManager();
+        (manager as any).rpc = {
+            call: async (method: string, args: any) => {
+                if (method === 'torrent-add') {
+                    const hash = /btih:([a-fA-F0-9]{40})/.exec(args.filename)?.[1] ?? HEX;
+                    return { 'torrent-added': { id: 7, hashString: hash, name: 'Show Release' } };
+                }
+                if (method === 'torrent-get') return { torrents: [] };
+                return {};
+            },
+        };
+        return manager;
+    }
+
+    it('an ongoing watch falls through a tracked top release to the next episode', async () => {
+        wdb.insertWatchlistEntry({
+            id: 'wl2', title: 'Show', mediaType: 'tv',
+            quality: '1080p', searchQuery: 'Show', category: 5000,
+        });
+        // The season pack (top-ranked by seeders) is already downloading.
+        db.insertTorrent({ id: 'tor_pack', infoHash: HEX, name: 'Show S01 1080p WEB-DL', status: 'downloading', savePath: '/downloads' });
+        aggregateSearch.mockResolvedValue([
+            { ...searchResult(), seeders: 100 },
+            { ...searchResult(), title: 'Show S01E05 1080p WEB-DL', magnetUri: MAGNET2, seeders: 5 },
+        ]);
+        installEchoManager();
+
+        await runner.runWatchlistCheck();
+
+        expect(db.getTorrentByHash(HEX2)?.status).toBe('downloading');
+        expect(eventsOf(WATCHLIST_EVENTS.MATCH)).toHaveLength(1);
+        // Ongoing watches stay watching for the next episode.
+        expect(wdb.getWatchlistEntry('wl2')?.status).toBe('watching');
+    });
+
+    it('a one-shot watch does not fall through to a duplicate copy', async () => {
+        seedEntry();
+        db.insertTorrent({ id: 'tor_live', infoHash: HEX, name: 'Show S01 1080p WEB-DL', status: 'downloading', savePath: '/downloads' });
+        aggregateSearch.mockResolvedValue([
+            { ...searchResult(), seeders: 100 },
+            { ...searchResult(), title: 'Show 1080p BluRay', magnetUri: MAGNET2, seeders: 5 },
+        ]);
+        installEchoManager();
+
+        await runner.runWatchlistCheck();
+
+        expect(db.getTorrentByHash(HEX2)).toBeUndefined();
+        expect(eventsOf(WATCHLIST_EVENTS.MATCH)).toHaveLength(0);
+    });
+});

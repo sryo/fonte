@@ -11,7 +11,9 @@ import {
 } from '@fonte/torrent';
 import type { WatchlistStatus, MediaType } from '@fonte/torrent';
 import { log, genId, getSettings } from '@fonte/core';
-import { ok, fail } from '../http';
+import { ok, fail, requireEntity } from '../http';
+
+const requireEntry = requireEntity(getWatchlistEntry, 'Watchlist entry');
 
 const CATEGORY_MAP: Record<string, number> = {
     movie: 2000,
@@ -177,21 +179,14 @@ app.get('/api/watchlist', (c) => {
     return ok(c, { entries });
 });
 
-app.get('/api/watchlist/:id', (c) => {
+app.get('/api/watchlist/:id', requireEntry, (c) => {
     const id = c.req.param('id');
-    const entry = getWatchlistEntry(id);
-    if (!entry) {
-        return fail(c, 'Watchlist entry not found', 404);
-    }
     const results = getWatchlistResults(id);
-    return ok(c, { entry, results });
+    return ok(c, { entry: c.get('entity'), results });
 });
 
-app.put('/api/watchlist/:id', async (c) => {
+app.put('/api/watchlist/:id', requireEntry, async (c) => {
     const id = c.req.param('id');
-    if (!getWatchlistEntry(id)) {
-        return fail(c, 'Watchlist entry not found', 404);
-    }
     try {
         const body = await c.req.json();
         updateWatchlistEntry(id, body);
@@ -201,21 +196,14 @@ app.put('/api/watchlist/:id', async (c) => {
     }
 });
 
-app.delete('/api/watchlist/:id', (c) => {
-    const id = c.req.param('id');
-    if (!getWatchlistEntry(id)) {
-        return fail(c, 'Watchlist entry not found', 404);
-    }
-    deleteWatchlistEntry(id);
+app.delete('/api/watchlist/:id', requireEntry, (c) => {
+    deleteWatchlistEntry(c.req.param('id'));
     return ok(c);
 });
 
-app.post('/api/watchlist/:id/search', async (c) => {
+app.post('/api/watchlist/:id/search', requireEntry, async (c) => {
     const id = c.req.param('id');
-    const entry = getWatchlistEntry(id);
-    if (!entry) {
-        return fail(c, 'Watchlist entry not found', 404);
-    }
+    const entry = c.get('entity');
 
     try {
         const found = await multiSearch(entry.title, entry.year, entry.quality, entry.category);
@@ -246,14 +234,10 @@ app.post('/api/watchlist/:id/search', async (c) => {
     }
 });
 
-app.post('/api/watchlist/:id/results/:rid/add', async (c) => {
+app.post('/api/watchlist/:id/results/:rid/add', requireEntry, async (c) => {
     const id = c.req.param('id');
     const rid = parseInt(c.req.param('rid'), 10);
-
-    const entry = getWatchlistEntry(id);
-    if (!entry) {
-        return fail(c, 'Watchlist entry not found', 404);
-    }
+    const entry = c.get('entity');
 
     const results = getWatchlistResults(id);
     const result = results.find(r => r.id === rid);
@@ -277,13 +261,8 @@ app.post('/api/watchlist/:id/results/:rid/add', async (c) => {
     }
 });
 
-app.post('/api/watchlist/:id/results/viewed', (c) => {
-    const id = c.req.param('id');
-    const entry = getWatchlistEntry(id);
-    if (!entry) {
-        return fail(c, 'Watchlist entry not found', 404);
-    }
-    markWatchlistResultsViewed(id);
+app.post('/api/watchlist/:id/results/viewed', requireEntry, (c) => {
+    markWatchlistResultsViewed(c.req.param('id'));
     return ok(c);
 });
 

@@ -10,6 +10,7 @@
  */
 
 import type { Context } from 'hono';
+import { createMiddleware } from 'hono/factory';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 export const ok = (c: Context, payload: Record<string, unknown> = {}) =>
@@ -17,3 +18,16 @@ export const ok = (c: Context, payload: Record<string, unknown> = {}) =>
 
 export const fail = (c: Context, error: string, status: ContentfulStatusCode = 400) =>
     c.json({ ok: false, error }, status);
+
+/**
+ * 404-guard for `/:id` routes: resolves the entity before the handler runs
+ * and stashes it on the context, replacing per-handler lookup-or-404 blocks.
+ * Handlers read it back with `c.get('entity')`.
+ */
+export const requireEntity = <T>(lookup: (id: string) => T | undefined | null, what: string) =>
+    createMiddleware<{ Variables: { entity: T } }>(async (c, next) => {
+        const entity = lookup(c.req.param('id') ?? '');
+        if (!entity) return fail(c, `${what} not found`, 404);
+        c.set('entity', entity);
+        await next();
+    });

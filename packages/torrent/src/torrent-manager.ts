@@ -15,6 +15,7 @@ import {
 } from './torrent-db';
 import { fetchTorrentPoster } from './poster-manager';
 import { extractInfoHash } from './search-aggregator';
+import { resolveReleaseSource } from './release-source';
 
 // The single stall definition, shared by every surface: a downloading,
 // incomplete torrent that has received no payload data for this long is
@@ -156,7 +157,11 @@ export class TorrentManager {
                     const fileData = fs.readFileSync(source);
                     args.metainfo = fileData.toString('base64');
                 } else {
-                    args.filename = source;
+                    // An HTTP release link: resolve to a magnet or .torrent bytes
+                    // here rather than letting Transmission fetch the indexer.
+                    const resolved = await resolveReleaseSource(source);
+                    if (typeof resolved === 'string') args.filename = resolved;
+                    else args.metainfo = resolved.toString('base64');
                 }
             } else {
                 args.metainfo = source.toString('base64');
@@ -190,6 +195,13 @@ export class TorrentManager {
                 if (name) {
                     updateTorrent(id, { name: decodeTorrentName(name), status: 'downloading' });
                     fetchTorrentPoster(id).catch(err => log('WARN', `Poster: fetch failed for ${id}: ${(err as Error).message}`));
+                } else {
+                    // Magnet adds often return no name until metadata arrives.
+                    // Still pull the row out of 'adding' — a syncStats
+                    // reconciliation pass landing during the torrent-add await
+                    // can have marked it 'removed', and a 'removed' row is
+                    // skipped by every later sync, stranding the download.
+                    updateTorrent(id, { status: 'downloading' });
                 }
 
                 await this.syncTorrentFiles(id, tId);
@@ -545,8 +557,10 @@ export class TorrentManager {
             const receivedData = (t.rateDownload ?? 0) > 0 || (t.downloadedEver ?? 0) > activity.downloaded;
             activity.downloaded = t.downloadedEver ?? 0;
             // The stall clock only accumulates while actively downloading;
-            // checking/paused/errored stretches don't count against it.
-            if (receivedData || newStatus !== 'downloading' || isDone) {
+            // checking/paused/errored stretches don't count against it, and
+            // neither does dl-wait (status 3) — a torrent queued behind
+            // download-queue-size receives no data by design, not by stall.
+            if (receivedData || newStatus !== 'downloading' || isDone || t.status === 3) {
                 activity.lastDataAt = Date.now();
             }
             const stalledSince = newStatus === 'downloading' && !isDone && Date.now() - activity.lastDataAt > STALL_TIMEOUT_MS

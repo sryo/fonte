@@ -4,12 +4,13 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { Hono } from 'hono';
 import { AgentConfig, CustomProvider } from '@fonte/core';
-import { getSettings, getAgents, ensureAgentDirectory } from '@fonte/core';
+import { getSettings, getAgents, ensureAgentDirectory, expandHomePath } from '@fonte/core';
 import { log } from '@fonte/core';
 import { mutateSettings } from './settings';
-import { ok, fail } from '../http';
+import { ok, fail, requireEntity } from '../http';
 
 const app = new Hono();
+const requireAgent = requireEntity((id) => getSettings().agents?.[id], 'Agent');
 const execFileAsync = promisify(execFile);
 
 async function ensureSkillsCli(cwd: string) {
@@ -50,7 +51,9 @@ app.put('/api/agents/:id', async (c) => {
 
     const workspacePath = currentSettings.workspace?.path
         || path.join(require('os').homedir(), 'fonte-workspace');
-    const workingDir = body.working_directory || path.join(workspacePath, agentId);
+    // Expand ~/$HOME like the setup wizard does, so the same value behaves
+    // identically no matter which screen wrote it.
+    const workingDir = expandHomePath(body.working_directory) || path.join(workspacePath, agentId);
 
     const settings = mutateSettings(s => {
         if (!s.agents) s.agents = {};
@@ -83,12 +86,8 @@ app.put('/api/agents/:id', async (c) => {
     });
 });
 
-app.delete('/api/agents/:id', (c) => {
+app.delete('/api/agents/:id', requireAgent, (c) => {
     const agentId = c.req.param('id');
-    const settings = getSettings();
-    if (!settings.agents?.[agentId]) {
-        return fail(c, `agent '${agentId}' not found`, 404);
-    }
     mutateSettings(s => { delete s.agents![agentId]; });
     log('INFO', `[API] Agent '${agentId}' deleted`);
     return ok(c);
@@ -96,11 +95,8 @@ app.delete('/api/agents/:id', (c) => {
 
 // ── Agent workspace data endpoints ───────────────────────────────────────────
 
-app.get('/api/agents/:id/skills', (c) => {
-    const agentId = c.req.param('id');
-    const settings = getSettings();
-    const agent = settings.agents?.[agentId];
-    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
+app.get('/api/agents/:id/skills', requireAgent, (c) => {
+    const agent = c.get('entity');
 
     const skillsDir = path.join(agent.working_directory, '.agents', 'skills');
     const skills: { id: string; name: string; description: string }[] = [];
@@ -131,12 +127,9 @@ app.get('/api/agents/:id/skills', (c) => {
     return ok(c, { skills });
 });
 
-app.get('/api/agents/:id/skills/registry', async (c) => {
-    const agentId = c.req.param('id');
+app.get('/api/agents/:id/skills/registry', requireAgent, async (c) => {
     const query = c.req.query('query') || '';
-    const settings = getSettings();
-    const agent = settings.agents?.[agentId];
-    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
+    const agent = c.get('entity');
     if (!query.trim()) return ok(c, { results: [] });
 
     try {
@@ -182,11 +175,8 @@ app.get('/api/agents/:id/skills/registry', async (c) => {
     }
 });
 
-app.post('/api/agents/:id/skills/install', async (c) => {
-    const agentId = c.req.param('id');
-    const settings = getSettings();
-    const agent = settings.agents?.[agentId];
-    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
+app.post('/api/agents/:id/skills/install', requireAgent, async (c) => {
+    const agent = c.get('entity');
 
     const body = await c.req.json() as { ref?: string };
     const ref = (body.ref || '').trim();
@@ -201,11 +191,8 @@ app.post('/api/agents/:id/skills/install', async (c) => {
     }
 });
 
-app.get('/api/agents/:id/system-prompt', (c) => {
-    const agentId = c.req.param('id');
-    const settings = getSettings();
-    const agent = settings.agents?.[agentId];
-    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
+app.get('/api/agents/:id/system-prompt', requireAgent, (c) => {
+    const agent = c.get('entity');
 
     const agentsMd = path.join(agent.working_directory, 'AGENTS.md');
     let content = '';
@@ -215,11 +202,8 @@ app.get('/api/agents/:id/system-prompt', (c) => {
     return ok(c, { content, path: agentsMd });
 });
 
-app.put('/api/agents/:id/system-prompt', async (c) => {
-    const agentId = c.req.param('id');
-    const settings = getSettings();
-    const agent = settings.agents?.[agentId];
-    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
+app.put('/api/agents/:id/system-prompt', requireAgent, async (c) => {
+    const agent = c.get('entity');
 
     const body = await c.req.json() as { content: string };
     const agentsMd = path.join(agent.working_directory, 'AGENTS.md');
@@ -227,11 +211,8 @@ app.put('/api/agents/:id/system-prompt', async (c) => {
     return ok(c);
 });
 
-app.get('/api/agents/:id/memory', (c) => {
-    const agentId = c.req.param('id');
-    const settings = getSettings();
-    const agent = settings.agents?.[agentId];
-    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
+app.get('/api/agents/:id/memory', requireAgent, (c) => {
+    const agent = c.get('entity');
 
     const { loadMemoryIndex } = require('@fonte/core');
     const index = loadMemoryIndex(agent.working_directory);
@@ -256,11 +237,8 @@ app.get('/api/agents/:id/memory', (c) => {
     return ok(c, { index, files, memoryDir });
 });
 
-app.get('/api/agents/:id/heartbeat', (c) => {
-    const agentId = c.req.param('id');
-    const settings = getSettings();
-    const agent = settings.agents?.[agentId];
-    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
+app.get('/api/agents/:id/heartbeat', requireAgent, (c) => {
+    const agent = c.get('entity');
 
     const heartbeatMd = path.join(agent.working_directory, 'heartbeat.md');
     let content = '';
@@ -275,11 +253,9 @@ app.get('/api/agents/:id/heartbeat', (c) => {
     });
 });
 
-app.put('/api/agents/:id/heartbeat', async (c) => {
+app.put('/api/agents/:id/heartbeat', requireAgent, async (c) => {
     const agentId = c.req.param('id');
-    const settings = getSettings();
-    const agent = settings.agents?.[agentId];
-    if (!agent) return fail(c, `agent '${agentId}' not found`, 404);
+    const agent = c.get('entity');
 
     const body = await c.req.json() as { content?: string; enabled?: boolean; interval?: number };
 

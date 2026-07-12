@@ -14,6 +14,21 @@ export function mutateSettings(fn: (settings: Settings) => void): Settings {
     return settings;
 }
 
+// Expand ~/$HOME in every path-valued leaf, so a value entered on any
+// screen lands on disk the same way the setup wizard would store it.
+function expandSettingsPaths(settings: Settings): void {
+    if (settings.workspace?.path) {
+        settings.workspace.path = expandHomePath(settings.workspace.path);
+    }
+    if (settings.agents) {
+        for (const agent of Object.values(settings.agents)) {
+            if (agent.working_directory) {
+                agent.working_directory = expandHomePath(agent.working_directory) || agent.working_directory;
+            }
+        }
+    }
+}
+
 const app = new Hono();
 
 app.get('/api/settings', (c) => {
@@ -28,6 +43,7 @@ app.put('/api/settings', async (c) => {
     }
     const current = getSettings();
     const merged = { ...current, ...body } as Settings;
+    expandSettingsPaths(merged);
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2) + '\n');
     log('INFO', '[API] Settings updated');
     return ok(c, { settings: merged });
@@ -36,16 +52,7 @@ app.put('/api/settings', async (c) => {
 app.post('/api/setup', async (c) => {
     const settings = (await c.req.json()) as Settings;
 
-    if (settings.workspace?.path) {
-        settings.workspace.path = expandHomePath(settings.workspace.path);
-    }
-    if (settings.agents) {
-        for (const agent of Object.values(settings.agents)) {
-            if (agent.working_directory) {
-                agent.working_directory = expandHomePath(agent.working_directory) || agent.working_directory;
-            }
-        }
-    }
+    expandSettingsPaths(settings);
 
     fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2) + '\n');

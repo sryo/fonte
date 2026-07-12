@@ -7,9 +7,10 @@ import {
 } from '@fonte/torrent';
 import type { TriggerType } from '@fonte/torrent';
 import { log, genId, getLastAssistantMessageByMessageIdPrefix } from '@fonte/core';
-import { ok, fail } from '../http';
+import { ok, fail, requireEntity } from '../http';
 
 const app = new Hono();
+const requireRule = requireEntity(getAutomationRule, 'Automation rule');
 
 app.get('/api/automations', (c) => {
     const enabled = c.req.query('enabled');
@@ -61,23 +62,16 @@ app.post('/api/automations', async (c) => {
     }
 });
 
-app.get('/api/automations/:id', (c) => {
+app.get('/api/automations/:id', requireRule, (c) => {
     const id = c.req.param('id');
-    const rule = getAutomationRule(id);
-    if (!rule) {
-        return fail(c, 'Automation rule not found', 404);
-    }
     const logs = getAutomationLogs(id, 20);
     const last = getLastAssistantMessageByMessageIdPrefix(`auto_${id}_`);
     const lastResponse = last ? { text: last.content as string, ts: last.created_at as number } : null;
-    return ok(c, { rule, logs, lastResponse });
+    return ok(c, { rule: c.get('entity'), logs, lastResponse });
 });
 
-app.put('/api/automations/:id', async (c) => {
+app.put('/api/automations/:id', requireRule, async (c) => {
     const id = c.req.param('id');
-    if (!getAutomationRule(id)) {
-        return fail(c, 'Automation rule not found', 404);
-    }
     try {
         const body = await c.req.json();
         updateAutomationRule(id, body);
@@ -87,48 +81,31 @@ app.put('/api/automations/:id', async (c) => {
     }
 });
 
-app.delete('/api/automations/:id', (c) => {
-    const id = c.req.param('id');
-    if (!getAutomationRule(id)) {
-        return fail(c, 'Automation rule not found', 404);
-    }
-    deleteAutomationRule(id);
+app.delete('/api/automations/:id', requireRule, (c) => {
+    deleteAutomationRule(c.req.param('id'));
     return ok(c);
 });
 
-app.post('/api/automations/:id/toggle', (c) => {
+app.post('/api/automations/:id/toggle', requireRule, (c) => {
     const id = c.req.param('id');
-    const rule = getAutomationRule(id);
-    if (!rule) {
-        return fail(c, 'Automation rule not found', 404);
-    }
-    updateAutomationRule(id, { enabled: !rule.enabled });
+    updateAutomationRule(id, { enabled: !c.get('entity').enabled });
     return ok(c, { rule: getAutomationRule(id) });
 });
 
-app.post('/api/automations/:id/trigger', async (c) => {
-    const id = c.req.param('id');
-    const rule = getAutomationRule(id);
-    if (!rule) {
-        return fail(c, 'Automation rule not found', 404);
-    }
-
+app.post('/api/automations/:id/trigger', requireRule, async (c) => {
+    const rule = c.get('entity');
     try {
         const engine = getAutomationEngine();
-        await engine.evaluateEvent(rule.triggerType, { manualTrigger: true, ruleId: id });
+        await engine.evaluateEvent(rule.triggerType, { manualTrigger: true, ruleId: rule.id });
         return ok(c, { message: `Rule "${rule.name}" triggered` });
     } catch (err) {
         return fail(c, (err as Error).message, 500);
     }
 });
 
-app.get('/api/automations/:id/logs', (c) => {
-    const id = c.req.param('id');
-    if (!getAutomationRule(id)) {
-        return fail(c, 'Automation rule not found', 404);
-    }
+app.get('/api/automations/:id/logs', requireRule, (c) => {
     const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : 50;
-    const logs = getAutomationLogs(id, limit);
+    const logs = getAutomationLogs(c.req.param('id'), limit);
     return ok(c, { logs });
 });
 

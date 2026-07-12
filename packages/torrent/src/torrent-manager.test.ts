@@ -169,6 +169,15 @@ describe('stall detection', () => {
         expect(eventsOf(TORRENT_EVENTS.STALLED)).toHaveLength(1);
     });
 
+    it('does not flag a queue-waiting (dl-wait) torrent as stalled', async () => {
+        insertBasic('t1');
+        const manager = managerWith([tRow('t1', { status: 3, percentDone: 0.5, peersConnected: 2 })]);
+        seedActivity(manager, 'hash-t1', sixMinAgo());
+        await sync(manager);
+        expect(eventsOf(TORRENT_EVENTS.STALLED)).toHaveLength(0);
+        expect(db.getTorrent('t1')?.stalledSince).toBeUndefined();
+    });
+
     it('clears the stall and re-arms when data flows again', async () => {
         insertBasic('t1');
         const manager = managerWith([tRow('t1', { status: 4, percentDone: 0.5, rateDownload: 5000, peersConnected: 2 })]);
@@ -323,6 +332,79 @@ describe('addTorrent duplicate handling', () => {
         await expect(manager.addTorrent(Buffer.from('d4:infoe'), { savePath: '/downloads' })).rejects.toThrow(/already exists/);
         expect(db.getTorrents()).toHaveLength(1);
         expect(db.getTorrents({ status: 'error' })).toHaveLength(0);
+    });
+
+    it('recovers a nameless magnet add that a sync pass marked removed mid-flight', async () => {
+        const manager = new TM.TorrentManager();
+        (manager as any).rpc = {
+            call: async (method: string) => {
+                if (method === 'torrent-add') {
+                    // Simulate the reconciliation race: syncStats sees the
+                    // fresh 'adding' row missing from Transmission and marks
+                    // it removed while torrent-add is still in flight; the add
+                    // then resolves without a name (magnet metadata pending).
+                    const row = db.getTorrents({ status: 'adding' })[0];
+                    if (row) db.updateTorrent(row.id, { status: 'removed' });
+                    return { 'torrent-added': { id: 9, hashString: hex, name: '' } };
+                }
+                if (method === 'torrent-get') return { torrents: [] };
+                return {};
+            },
+        };
+
+        const rec = await manager.addTorrent(magnet, { savePath: '/downloads' });
+        expect(db.getTorrent(rec.id)?.status).toBe('downloading');
+    });
+
+    // Records torrent-add args so we can assert what actually reached Transmission.
+    function recordingManager(calls: { method: string; args: any }[]) {
+        const manager = new TM.TorrentManager();
+        (manager as any).rpc = {
+            call: async (method: string, args: any) => {
+                calls.push({ method, args });
+                if (method === 'torrent-add') return { 'torrent-added': { id: 7, hashString: hex, name: 'Linked' } };
+                if (method === 'torrent-get') return { torrents: [] };
+                return {};
+            },
+        };
+        return manager;
+    }
+
+    it('resolves an HTTP release link to a magnet before adding, not the raw URL', async () => {
+        const calls: { method: string; args: any }[] = [];
+        const manager = recordingManager(calls);
+        vi.stubGlobal('fetch', vi.fn(async () => ({
+            status: 302, ok: false,
+            headers: { get: (k: string) => (k.toLowerCase() === 'location' ? magnet : null) },
+            body: { cancel: async () => {} },
+            arrayBuffer: async () => new ArrayBuffer(0),
+        })));
+
+        await manager.addTorrent('https://jackett.test/dl/token', { savePath: '/downloads' });
+
+        const add = calls.find(c => c.method === 'torrent-add')!;
+        expect(add.args.filename).toBe(magnet);
+        expect(add.args.metainfo).toBeUndefined();
+        vi.unstubAllGlobals();
+    });
+
+    it('downloads a .torrent link and adds it as metainfo', async () => {
+        const bytes = Buffer.from('d8:announce9:track.url4:infod6:lengthi1eee');
+        const calls: { method: string; args: any }[] = [];
+        const manager = recordingManager(calls);
+        vi.stubGlobal('fetch', vi.fn(async () => ({
+            status: 200, ok: true,
+            headers: { get: () => null },
+            body: { cancel: async () => {} },
+            arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+        })));
+
+        await manager.addTorrent('https://jackett.test/dl/token.torrent', { savePath: '/downloads' });
+
+        const add = calls.find(c => c.method === 'torrent-add')!;
+        expect(add.args.metainfo).toBe(bytes.toString('base64'));
+        expect(add.args.filename).toBeUndefined();
+        vi.unstubAllGlobals();
     });
 });
 

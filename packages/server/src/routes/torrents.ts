@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { getTorrentManager, parseTorrentName, searchReleases, computeQualityMatch } from '@fonte/torrent';
+import { getTorrentManager, parseTorrentName, searchReleases, computeQualityMatch, resolveReleaseSource } from '@fonte/torrent';
 import type { TorrentStatus } from '@fonte/torrent';
 import { log, expandHomePath } from '@fonte/core';
 import { ok, fail } from '../http';
@@ -54,8 +54,16 @@ app.get('/api/torrents', (c) => {
 });
 
 app.get('/api/torrents/stats', (c) => {
-    const manager = getTorrentManager();
-    return ok(c, { ...manager.getStats() });
+    // Keys stay top-level for wire compat (CLI + agent API docs), but are
+    // spelled out so a future TorrentStats field can't collide with the
+    // envelope's own keys.
+    const stats = getTorrentManager().getStats();
+    return ok(c, {
+        downloadSpeed: stats.downloadSpeed,
+        uploadSpeed: stats.uploadSpeed,
+        activeTorrents: stats.activeTorrents,
+        totalTorrents: stats.totalTorrents,
+    });
 });
 
 app.get('/api/torrents/config', (c) => {
@@ -169,17 +177,43 @@ app.post('/api/torrents/:id/alternatives', async (c) => {
 
 app.post('/api/torrents/:id/swap', async (c) => {
     const id = c.req.param('id');
+    let body: { magnetUris?: string[]; magnetUri?: string };
     try {
-        const body = await c.req.json() as { magnetUri?: string };
-        if (!body.magnetUri) return fail(c, 'magnetUri required');
-
-        const manager = getTorrentManager();
-        const created = await manager.addTorrent(body.magnetUri);
-        await manager.removeTorrent(id, true);
-        return ok(c, { torrent: created });
-    } catch (err) {
-        return fail(c, (err as Error).message);
+        body = await c.req.json();
+    } catch {
+        return fail(c, 'magnetUris required');
     }
+    const candidates = (body.magnetUris ?? (body.magnetUri ? [body.magnetUri] : []))
+        .filter((u): u is string => typeof u === 'string' && u.length > 0);
+    if (candidates.length === 0) return fail(c, 'magnetUris required');
+
+    const manager = getTorrentManager();
+    // Try the chosen release first, then fall through to the remaining
+    // alternatives. Resolve each link before adding so a dead indexer link
+    // throws before any DB write — no errored rows litter the Issues list.
+    const errors: string[] = [];
+    for (const uri of candidates) {
+        let created;
+        try {
+            const source = await resolveReleaseSource(uri);
+            created = await manager.addTorrent(source);
+        } catch (err) {
+            errors.push((err as Error).message);
+            continue;
+        }
+        // The swap succeeded once the replacement exists; a failure removing
+        // the old torrent must not fall through and add a second candidate.
+        try {
+            await manager.removeTorrent(id, true);
+        } catch (err) {
+            log('WARN', `Swap added ${created.id} but could not remove ${id}: ${(err as Error).message}`);
+        }
+        return ok(c, { torrent: created });
+    }
+    log('WARN', `Swap failed for ${id}: ${errors.join(' | ')}`);
+    return fail(c, candidates.length === 1
+        ? errors[0]
+        : `None of the ${candidates.length} alternatives could be loaded`, 502);
 });
 
 app.get('/api/torrents/:id/files', (c) => {

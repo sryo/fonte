@@ -105,42 +105,49 @@ export async function runWatchlistCheck(): Promise<void> {
 
             if (autoAdd && filtered.length > 0) {
                 const ranked = rankResults(filtered, preferredQuality);
-                const best = ranked[0];
-
-                if (best && best.seeders > 0 && computeQualityMatch(best.title, preferredQuality) >= 0.5) {
-                    // Skip releases already tracked by a live torrent row.
-                    // 'removed' tombstones and 'error' rows don't count, so a
-                    // failed add doesn't block the release forever — addTorrent
-                    // replaces such rows.
-                    const infoHash = extractInfoHash(best.magnetUri);
+                // Ongoing watches fall through past already-tracked releases —
+                // that's what lets a show keep grabbing new episodes after its
+                // first, higher-ranked grab (a season pack would otherwise pin
+                // ranked[0] forever). One-shot watches only ever consider the
+                // top release so an already-tracked best doesn't pull in a
+                // duplicate copy of the same movie.
+                const pool = isOngoingWatch(entry) ? ranked : ranked.slice(0, 1);
+                // A release already tracked by a live torrent row doesn't
+                // count as addable; 'removed' tombstones and 'error' rows do,
+                // so a failed add doesn't block the release forever —
+                // addTorrent replaces such rows.
+                const best = pool.find((r) => {
+                    if (r.seeders <= 0 || computeQualityMatch(r.title, preferredQuality) < 0.5) return false;
+                    const infoHash = extractInfoHash(r.magnetUri);
                     const existing = infoHash ? getTorrentByHash(infoHash) : null;
+                    return !existing || existing.status === 'removed' || existing.status === 'error';
+                });
 
-                    if (!existing || existing.status === 'removed' || existing.status === 'error') {
-                        try {
-                            const torrent = await getTorrentManager().addTorrent(best.magnetUri);
+                if (best) {
+                    try {
+                        const torrent = await getTorrentManager().addTorrent(best.magnetUri);
 
-                            const selected = getWatchlistResultByMagnet(entry.id, best.magnetUri);
-                            if (selected) {
-                                markResultSelected(selected.id);
-                            }
-
-                            updateWatchlistEntry(entry.id, {
-                                lastMatchAt: now,
-                                matchedTorrentId: torrent.id,
-                                status: isOngoingWatch(entry) ? 'watching' : 'fulfilled',
-                            });
-
-                            emitEvent(WATCHLIST_EVENTS.MATCH, {
-                                watchlistId: entry.id,
-                                title: entry.title,
-                                torrentId: torrent.id,
-                                torrentName: best.title,
-                            });
-
-                            log('INFO', `Watchlist: auto-added "${best.title}" for "${entry.title}"`);
-                        } catch (err) {
-                            log('ERROR', `Watchlist: failed to add torrent for "${entry.title}": ${(err as Error).message}`);
+                        const selected = getWatchlistResultByMagnet(entry.id, best.magnetUri);
+                        if (selected) {
+                            markResultSelected(selected.id);
                         }
+
+                        updateWatchlistEntry(entry.id, {
+                            lastMatchAt: now,
+                            matchedTorrentId: torrent.id,
+                            status: isOngoingWatch(entry) ? 'watching' : 'fulfilled',
+                        });
+
+                        emitEvent(WATCHLIST_EVENTS.MATCH, {
+                            watchlistId: entry.id,
+                            title: entry.title,
+                            torrentId: torrent.id,
+                            torrentName: best.title,
+                        });
+
+                        log('INFO', `Watchlist: auto-added "${best.title}" for "${entry.title}"`);
+                    } catch (err) {
+                        log('ERROR', `Watchlist: failed to add torrent for "${entry.title}": ${(err as Error).message}`);
                     }
                 }
             }

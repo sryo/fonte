@@ -18,8 +18,8 @@ app.post('/api/whatsapp/start', async (c) => {
 });
 
 app.get('/api/whatsapp/status', (c) => {
-    const service = getWhatsAppService();
-    return ok(c, service.getStatusInfo());
+    const info = getWhatsAppService().getStatusInfo();
+    return ok(c, { status: info.status, qr: info.qr });
 });
 
 app.get('/api/whatsapp/qr', (c) => {
