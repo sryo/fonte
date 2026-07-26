@@ -248,33 +248,44 @@ body {
   .animate-chat-backdrop-in, .animate-chat-backdrop-out { animation: none; }
 }
 
-/* Card poof — macOS Dock "poof": a 5-frame vertical smoke sprite from
-   /poof.webp (128px frames) scaled up to 160px and played with steps(5).
-   The card vanishes (no fade) while smoke plays over its spot; the slot then
-   collapses to pull neighbours in. Per-card stagger comes from a JS
-   animation-delay. The 11rem width / 0.75rem margin match w-44 and gap-3. */
-@keyframes card-poof-sprite {
-  from { background-position: 0 0; }
-  to   { background-position: 0 -800px; } /* 5 frames × 160px */
-}
-.card-poof-sprite {
-  width: 160px;
-  height: 160px;
-  background-image: url(/poof.webp);
-  background-repeat: no-repeat;
-  background-size: 160px 800px;
+/* Card poof — the card dissolves (quick fade + slight grow) while
+   poofBurst() (lib/poof-burst.ts) plays a dust cloud over its spot; the
+   slot then collapses to pull neighbours in. Per-card stagger comes from
+   a JS animation-delay (the JS spawn uses the same delay). The 11rem
+   width / 0.75rem margin match w-44 and gap-3. */
+.card-poof {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
   pointer-events: none;
-  animation: card-poof-sprite 500ms steps(5) forwards;
+}
+.card-poof-puff, .card-poof-mote {
+  position: absolute;
+  border-radius: 50%;
+}
+@keyframes card-poof-puff {
+  0%   { transform: translate(0, 0) scale(0.55); opacity: 0; }
+  8%   { transform: translate(calc(var(--tx) * 0.08), calc(var(--ty) * 0.08)) scale(1); opacity: 1; }
+  62%  { opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(var(--shrink)); opacity: 0; }
+}
+.card-poof-puff {
+  animation: card-poof-puff var(--dur) cubic-bezier(0.17, 0.66, 0.24, 1) var(--delay) both;
+}
+@keyframes card-poof-mote {
+  0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0.15); opacity: 0; }
+}
+.card-poof-mote {
+  animation: card-poof-mote var(--dur) cubic-bezier(0.1, 0.6, 0.2, 1) both;
 }
 
-/* The card snaps out (no fade) exactly when its own poof fires — a 1ms snap
-   gated by the same per-card animation-delay the sprite uses. */
-@keyframes card-poof-vanish {
-  from { opacity: 1; }
-  to   { opacity: 0; }
+@keyframes card-poof-dissolve {
+  to { opacity: 0; transform: scale(1.12); }
 }
-.card-poof-vanishing {
-  animation: card-poof-vanish 1ms linear both;
+.card-poof-dissolving {
+  animation: card-poof-dissolve 160ms ease both;
 }
 
 @keyframes card-poof-collapse {
@@ -286,7 +297,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card-poof-sprite, .card-poof-collapsing, .card-poof-vanishing { animation: none; }
+  .card-poof-collapsing, .card-poof-dissolving { animation: none; }
 }
 
 /* Progress ring — paints the card's own border as the progress indicator,

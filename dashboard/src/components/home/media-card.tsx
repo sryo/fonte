@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { FilmStrip } from "@phosphor-icons/react";
+import { poofBurst } from "@/lib/poof-burst";
 import { ProgressRing, type RingColor } from "./progress-ring";
 
 export function MediaCard({
@@ -36,24 +37,32 @@ export function MediaCard({
   exitDelay?: number;
 }) {
   const delayStyle = exiting ? { animationDelay: `${exitDelay}ms` } : undefined;
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Spawn the dust cloud at the card's center on the same stagger delay
+  // that gates the CSS dissolve, so the card fades into its own poof.
+  useEffect(() => {
+    if (!exiting) return;
+    const timer = window.setTimeout(() => {
+      const rect = cardRef.current?.getBoundingClientRect();
+      // Cards scrolled out of view skip the burst — nobody would see it.
+      if (!rect || rect.right < 0 || rect.left > window.innerWidth ||
+          rect.bottom < 0 || rect.top > window.innerHeight) return;
+      poofBurst(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    }, exitDelay);
+    return () => window.clearTimeout(timer);
+  }, [exiting, exitDelay]);
   return (
     <div
       className={`relative${exiting ? " card-poof-collapsing pointer-events-none" : ""}`}
       style={delayStyle}
     >
-      {exiting && (
-        <div
-          aria-hidden
-          className="card-poof-sprite absolute left-[5.5rem] top-1/2 -translate-x-1/2 -translate-y-1/2 z-10"
-          style={delayStyle}
-        />
-      )}
     <div
+      ref={cardRef}
       onClick={exiting ? undefined : onClick}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === "Enter") onClick?.(); }}
-      className={`w-44 h-full rounded-xl shadow-card bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative${exiting ? " card-poof-vanishing" : ""}`}
+      className={`w-44 h-full rounded-xl shadow-card bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative${exiting ? " card-poof-dissolving" : ""}`}
       style={delayStyle}
     >
       <div className="aspect-[2/3] w-full bg-muted relative overflow-hidden">

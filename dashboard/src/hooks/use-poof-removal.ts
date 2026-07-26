@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 
-// Staggered macOS-Dock-style poof exit animation for card removal.
+// Staggered dust-poof exit animation for card removal.
 export function usePoofRemoval(refetch: () => void) {
   // id → stagger delay (ms) for cards currently playing the poof-out animation
   const [exitingIds, setExitingIds] = useState<Map<string, number>>(new Map());
@@ -29,7 +29,7 @@ export function usePoofRemoval(refetch: () => void) {
     [],
   );
 
-  // Play the staggered macOS-style poof, then delete server-side and refetch.
+  // Play the staggered dust poof, then delete server-side and refetch.
   // Cards stay mounted for the animation's duration so it runs before they
   // leave the DOM. Honours reduced-motion.
   const poofThenRemove = useCallback(
