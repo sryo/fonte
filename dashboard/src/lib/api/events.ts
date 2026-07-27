@@ -6,8 +6,6 @@ export interface EventData {
   [key: string]: unknown;
 }
 
-// ── SSE ───────────────────────────────────────────────────────────────────
-
 export function subscribeToEvents(
   onEvent: (event: EventData) => void,
   onError?: (err: Event) => void,
@@ -16,7 +14,7 @@ export function subscribeToEvents(
   const es = new EventSource(`${getApiBase()}/api/events/stream`);
 
   const handler = (e: MessageEvent) => {
-    try { onEvent(JSON.parse(e.data)); } catch { /* ignore parse errors */ }
+    try { onEvent(JSON.parse(e.data)); } catch {}
   };
 
   const types = eventTypes ?? [

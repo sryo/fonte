@@ -3,9 +3,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-// Two-tier hover actions: the contextual verb (pause, search, run…) renders
-// as a big centered circle; remove/delete recedes into a small corner button
-// whose red only materializes on direct hover.
+// Two-tier hover actions: the contextual verb is prominent, remove/delete recedes.
 export function CardAction({ icon: Icon, label, onClick, destructive, variant = "secondary" }: {
   icon: React.ElementType;
   label: string;

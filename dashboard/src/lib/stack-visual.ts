@@ -32,7 +32,7 @@ function hash(str: string): number {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** Tilt for ghost layer `layer` (0 = closest to the card). Angle ±1–3°, offsets 2–6px, alternating sides. */
+/** Tilt for ghost layer `layer` (0 = closest to the card). */
 export function stackTilt(seed: string, layer: number): StackTilt {
     const h = hash(`${seed}#${layer}`);
     const sign = layer % 2 === 0 ? 1 : -1;

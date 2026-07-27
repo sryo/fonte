@@ -12,8 +12,6 @@ import { Section } from "@/components/ui/section";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CustomProviderForm } from "./custom-provider-form";
 
-// ── Providers Section (built-in + custom) ──────────────────────────────
-
 export function ProvidersSection() {
   const [providers, setProviders] = useState<Record<string, CustomProvider>>({});
   const [loading, setLoading] = useState(true);

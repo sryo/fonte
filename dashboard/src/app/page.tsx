@@ -58,8 +58,6 @@ import { EditAutomationModal } from "@/components/home/edit-automation-modal";
 import { RemoveTorrentDialog } from "@/components/torrent/remove-torrent-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
-// ── Main Page ────────────────────────────────────────────────────────────
-
 export default function HomePage() {
   const [pill, setPill] = useState<PillKey>("all");
   const [sort, setSort] = usePersistedState<SortKey>(
@@ -102,7 +100,7 @@ export default function HomePage() {
       setWatchlist(filterHidden(watchlistRes.entries));
       setAutomations(automationsRes.rules);
     } catch {
-      /* silently ignore */
+      // keep the last good data
     } finally {
       setLoading(false);
     }
@@ -127,7 +125,7 @@ export default function HomePage() {
   const searchWatchlistEntry = async (id: string) => {
     setSearchingWlIds((prev) => { const next = new Set(prev); next.add(id); return next; });
     try { await triggerWatchlistSearch(id); }
-    catch { /* ignore */ }
+    catch {}
     setSearchingWlIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
     fetchAll();
   };
@@ -143,8 +141,6 @@ export default function HomePage() {
     await deleteAutomation(rule.id);
     await fetchAll();
   };
-
-  // ── Derived data ───────────────────────────────────────────────────────
 
   const lane = torrents.filter((t) => t.status !== "removed");
   // Every entry stays reachable from home; fulfilled ones pile into the tray.
@@ -184,14 +180,10 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pill, counts.active, counts.seeding, counts.paused, counts.finished, counts.issues, counts.watching, visiblePills]);
 
-  // ── Visibility based on filter ─────────────────────────────────────────
-
   const showDownloads = pill !== "watching";
   const showWatching = pill === "all" || pill === "watching";
   const showAutomations = pill === "all";
   const showPillRow = lane.length > 0 || watchlist.length > 0;
-
-  // ── Render ─────────────────────────────────────────────────────────────
 
   const renderWatchlistCard = (entry: WatchlistRecord) => (
     <WatchlistCard
@@ -228,7 +220,6 @@ export default function HomePage() {
         />
       )}
 
-      {/* One lane for every non-removed torrent */}
       {showDownloads && (
         <ContentRow
           title="Downloads"

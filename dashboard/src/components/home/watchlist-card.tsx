@@ -12,8 +12,7 @@ import { CardAction } from "@/components/home/card-action";
 import { PosterBadge } from "@/components/home/poster-badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
-// Poster card for a watchlist entry; the watchlist-colored ring spins
-// (indeterminate) while a manual search is in flight.
+// The ring spins while a manual search is in flight.
 export function WatchlistCard({
   entry,
   exiting,

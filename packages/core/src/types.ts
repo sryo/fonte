@@ -3,7 +3,7 @@ export interface CustomProvider {
     harness: 'claude' | 'codex';  // which CLI to invoke
     base_url: string;
     api_key: string;
-    model?: string;               // model name to pass to the CLI
+    model?: string;
 }
 
 export interface AgentConfig {

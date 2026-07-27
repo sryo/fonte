@@ -217,7 +217,7 @@ export function updateSchedule(id: string, updates: Partial<Omit<Schedule, 'id' 
 
     Object.assign(schedules[idx], updates);
     saveSchedules(schedules);
-    startJob(schedules[idx]); // restart with updated config
+    startJob(schedules[idx]); // pick up the updated config
     log('INFO', `[Schedule] Updated schedule '${schedules[idx].label}'`);
     return schedules[idx];
 }

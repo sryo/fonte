@@ -3,9 +3,7 @@ import { cn, type DomainColor } from "@/lib/utils";
 
 export type ProgressColor = DomainColor | "primary";
 
-// Ranked weights. Hierarchy comes from size + depth, not color: ambient is a
-// flat 3px system rail, list a seated 6px pill, hero a carved-and-lit 14px
-// trough.
+// Hierarchy comes from size + depth, not color.
 export type ProgressVariant = "ambient" | "list" | "hero";
 
 const FILL: Record<ProgressColor, string> = {
@@ -21,8 +19,6 @@ const TRACK: Record<ProgressVariant, string> = {
   hero: "h-3.5 rounded-full shadow-[inset_0_1px_3px_rgb(0_0_0/0.12)] dark:shadow-[inset_0_1px_3px_rgb(0_0_0/0.35)]",
 };
 
-// Top-down sheen so the hero fill reads as a lit, rounded surface rather than a
-// flat block; the shine sweep rakes across it.
 const FILL_SHEEN: Record<ProgressVariant, string> = {
   ambient: "",
   list: "",
@@ -50,9 +46,9 @@ export function ProgressBar({
   variant?: ProgressVariant;
   className?: string; // layout only, e.g. "w-full" or "flex-1"
   label?: string; // accessible name announced to screen readers
-  shine?: boolean; // sweep a highlight across the fill (active transfer)
-  stalled?: boolean; // fade + freeze — nothing is moving
-  done?: boolean; // finished — fill turns green (overrides color)
+  shine?: boolean; // active transfer
+  stalled?: boolean; // nothing is moving
+  done?: boolean; // finished — turns green, overrides color
 }) {
   const pct = toPct(value);
   return (

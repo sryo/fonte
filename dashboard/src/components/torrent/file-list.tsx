@@ -12,7 +12,7 @@ export function FileList({
   stalled,
 }: {
   files: TorrentFileRecord[];
-  /** Flip a file's wanted state; receives the index and its current value. */
+  /** Flip a file's wanted state. */
   onToggle: (idx: number, selected: boolean) => void;
   downloading: boolean;
   stalled: boolean;

@@ -23,9 +23,8 @@ export function MediaCard({
   posterUrl?: string;
   title: string;
   badges?: React.ReactNode;
-  /** Contextual verb (pause, search, run…) — big and centered on hover. */
+  /** Contextual verb: pause, search, run… */
   primaryAction?: React.ReactNode;
-  /** Remove/delete — small in the corner. */
   secondaryAction?: React.ReactNode;
   onClick?: () => void;
   children?: React.ReactNode;
@@ -38,8 +37,7 @@ export function MediaCard({
 }) {
   const delayStyle = exiting ? { animationDelay: `${exitDelay}ms` } : undefined;
   const cardRef = useRef<HTMLDivElement>(null);
-  // Spawn the dust cloud at the card's center on the same stagger delay
-  // that gates the CSS dissolve, so the card fades into its own poof.
+  // Same stagger delay that gates the CSS dissolve, so the two stay in sync.
   useEffect(() => {
     if (!exiting) return;
     const timer = window.setTimeout(() => {

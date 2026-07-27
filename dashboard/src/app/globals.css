@@ -3,8 +3,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Layered card surface: soft drop-shadows + a hairline that replaces the border
-   (theme-aware — a light hairline delineates cards on the near-black dark bg). */
+/* A hairline stands in for a border so cards stay delineated on the near-black dark bg. */
 @utility shadow-card {
   box-shadow: var(--shadow-card);
 }
@@ -134,7 +133,6 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -150,7 +148,6 @@ body {
   background: var(--foreground);
 }
 
-/* Animation keyframes */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
@@ -195,7 +192,7 @@ body {
   animation: card-enter 0.3s ease-out;
 }
 
-/* Reverse of card-enter, for cards stacking back into a pile. */
+/* Reverse of card-enter. */
 @keyframes card-exit {
   to { opacity: 0; transform: translateY(12px) scale(0.97); }
 }
@@ -214,7 +211,6 @@ body {
   .animate-download-bounce { animation: none; }
 }
 
-/* Chat panel slide-in / slide-out */
 @keyframes chat-panel-in {
   from { transform: translateX(100%); opacity: 0.6; }
   to   { transform: translateX(0);    opacity: 1; }
@@ -248,11 +244,7 @@ body {
   .animate-chat-backdrop-in, .animate-chat-backdrop-out { animation: none; }
 }
 
-/* Card poof — the card dissolves (quick fade + slight grow) while
-   poofBurst() (lib/poof-burst.ts) plays a dust cloud over its spot; the
-   slot then collapses to pull neighbours in. Per-card stagger comes from
-   a JS animation-delay (the JS spawn uses the same delay). The 11rem
-   width / 0.75rem margin match w-44 and gap-3. */
+/* The per-card animation-delay must match the JS spawn delay in media-card.tsx. */
 .card-poof {
   position: fixed;
   inset: 0;
@@ -300,9 +292,7 @@ body {
   .card-poof-collapsing, .card-poof-dissolving { animation: none; }
 }
 
-/* Progress ring — paints the card's own border as the progress indicator,
-   plus a shine that sweeps around the perimeter. The arc length tracks
-   --progress (0–1); the rotating overlay is the eye candy from
+/* Shine technique from
    https://www.frontendhero.dev/tutorial/animated-shine-border-button/ */
 @property --shine-angle {
   syntax: '<angle>';
@@ -347,8 +337,7 @@ body {
   );
   animation: none;
 }
-/* Indeterminate: no progress arc, just a tinted shine sweeping the perimeter.
-   Used for "task is running" states (watchlist search, automation run). */
+/* Used for "task is running" states (watchlist search, automation run). */
 .progress-ring--indeterminate {
   background: conic-gradient(
     from var(--shine-angle),
@@ -358,9 +347,8 @@ body {
   );
   animation-duration: 1.6s;
 }
-/* Seeding: the full arc in done-green with the same perimeter shine as a
-   download — the ring means live activity, and seeding is upload activity.
-   Inert (done-and-stopped) cards get no ring at all. */
+/* The ring means live activity (seeding is upload activity); inert
+   done-and-stopped cards get no ring at all. */
 .progress-ring--complete {
   --progress: 1;
   --ring-color: var(--done);
@@ -372,8 +360,7 @@ body {
   .progress-ring { animation: none; }
 }
 
-/* Progress bar shine — a highlight that sweeps across the filled portion,
-   echoing the ring's perimeter shine and sharing its --ring-shine token. */
+/* Shares the ring's --ring-shine token. */
 .progress-bar-fill {
   position: relative;
   overflow: hidden;

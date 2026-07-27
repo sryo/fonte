@@ -7,8 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Section } from "@/components/ui/section";
 import { Spinner } from "@/components/ui/feedback";
 
-// ── Agent Personality Section ───────────────────────────────────────────
-
 export function AgentPersonalitySection() {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);

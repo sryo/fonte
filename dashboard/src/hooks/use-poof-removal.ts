@@ -29,7 +29,6 @@ export function usePoofRemoval(refetch: () => void) {
     [],
   );
 
-  // Play the staggered dust poof, then delete server-side and refetch.
   // Cards stay mounted for the animation's duration so it runs before they
   // leave the DOM. Honours reduced-motion.
   const poofThenRemove = useCallback(

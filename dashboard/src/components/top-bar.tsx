@@ -22,8 +22,6 @@ import { addTorrent, sendMessage, getTorrents, getWatchlist } from "@/lib/api";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatBytes } from "@/lib/format";
 
-/* ---------- Types ---------- */
-
 interface SearchResult {
   title: string;
   magnetUri: string;
@@ -43,15 +41,11 @@ interface TopBarProps {
   onOpenChat: () => void;
 }
 
-/* ---------- Nav items ---------- */
-
 const NAV_ITEMS = [
   { href: "/", label: "Home", icon: House, exact: true },
   { href: "/control", label: "Control", icon: SlidersHorizontal, exact: false },
   { href: "/settings", label: "Settings", icon: Gear, exact: false },
 ] as const;
-
-/* ---------- TopBar component ---------- */
 
 export function TopBar({ onOpenChat }: TopBarProps) {
   const pathname = usePathname();
@@ -74,10 +68,8 @@ export function TopBar({ onOpenChat }: TopBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
 
-  /* ---- Hydration guard ---- */
   useEffect(() => setMounted(true), []);
 
-  /* ---- Cmd+K global shortcut ---- */
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -89,7 +81,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  /* ---- Dismiss results on outside click ---- */
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (
@@ -105,7 +96,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /* ---- Auto-dismiss toast ---- */
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(null), 2500);
@@ -119,7 +109,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
     []
   );
 
-  /* ---- Jump-to: instant matches over already-loaded torrents/watchlist ---- */
   const ensureJumpPool = useCallback(async () => {
     if (jumpPool) return;
     try {
@@ -154,7 +143,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
     [router]
   );
 
-  /* ---- Submit handler (magnet / hash / IMDB / agent) ---- */
   const handleSubmit = async () => {
     const value = input.trim();
     if (!value || loading) return;
@@ -163,7 +151,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
     setResults([]);
 
     try {
-      // 1. Magnet link
       if (value.startsWith("magnet:")) {
         await addTorrent({ magnetUri: value });
         showToast("Torrent added");
@@ -171,7 +158,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         return;
       }
 
-      // 2. 40-char hex info hash
       if (/^[a-fA-F0-9]{40}$/.test(value)) {
         await addTorrent({ magnetUri: `magnet:?xt=urn:btih:${value}` });
         showToast("Torrent added");
@@ -179,7 +165,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         return;
       }
 
-      // 3. IMDB URL pattern
       if (/tt\d{7,}/.test(value)) {
         const res = await fetch("/api/search", {
           method: "POST",
@@ -195,7 +180,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         return;
       }
 
-      // 4. Natural language / agent message
       await sendMessage({
         message: value,
         agent: "fonte",
@@ -212,7 +196,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
     }
   };
 
-  /* ---- Add a search result ---- */
   const handleAddResult = async (result: SearchResult) => {
     try {
       await addTorrent({ magnetUri: result.magnetUri });
@@ -225,11 +208,9 @@ export function TopBar({ onOpenChat }: TopBarProps) {
     }
   };
 
-  /* ---- Render ---- */
   return (
     <header className="border-b bg-card shrink-0">
       <div className="max-w-6xl mx-auto flex items-center gap-3 px-4 py-2">
-      {/* ===== Left: Nav buttons ===== */}
       <nav className="flex items-center gap-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
           const active = exact
@@ -255,7 +236,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         })}
       </nav>
 
-      {/* ===== Center: Search input ===== */}
       <div className="flex-1 relative" ref={searchWrapperRef}>
         <div className="flex items-center gap-2 rounded-md border bg-background h-9 px-3 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all">
           {loading ? (
@@ -334,7 +314,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
           </div>
         )}
 
-        {/* Jump-to + search results dropdown */}
         {((jumpOpen && jumpMatches.length > 0) || results.length > 0) && (
           <div className="absolute w-full bg-card rounded-xl shadow-card mt-1 max-h-72 overflow-y-auto z-40">
             {jumpOpen && jumpMatches.length > 0 && (
@@ -398,7 +377,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         )}
       </div>
 
-      {/* ===== Right: Theme toggle + Chat button ===== */}
       <div className="flex items-center gap-1">
         <button
           onClick={() =>

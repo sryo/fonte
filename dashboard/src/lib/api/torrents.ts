@@ -4,8 +4,6 @@ import type {
 } from "../api-types";
 import { apiFetch } from "./client";
 
-// ── Torrents ─────────────────────────────────────────────────────────────
-
 export async function getTorrents(status?: TorrentStatus): Promise<{ ok: boolean; torrents: TorrentRecord[] }> {
   const params = status ? `?status=${status}` : "";
   return apiFetch(`/api/torrents${params}`);
@@ -105,8 +103,6 @@ export async function getTorrentConfig(): Promise<{ ok: boolean; config: Torrent
 export async function updateTorrentConfig(config: Partial<TorrentConfig>): Promise<{ ok: boolean; config: TorrentConfig }> {
   return apiFetch("/api/torrents/config", { method: "PUT", body: JSON.stringify(config) });
 }
-
-// ── Subtitles ────────────────────────────────────────────────────────────
 
 export async function getTorrentSubtitles(torrentId: string): Promise<{ ok: boolean; subtitles: SubtitleRecord[] }> {
   return apiFetch(`/api/torrents/${encodeURIComponent(torrentId)}/subtitles`);

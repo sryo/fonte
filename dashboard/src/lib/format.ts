@@ -40,7 +40,7 @@ export function formatRelativeTime(ts: number): string {
   return formatDistanceToNow(ts, { addSuffix: true });
 }
 
-// Compact variant ("3h ago") for tight card meta lines.
+// Compact variant for tight card meta lines.
 export function formatShortRelativeTime(ts: number): string {
   const seconds = Math.floor((Date.now() - ts) / 1000);
   if (seconds < 60) return `${seconds}s ago`;

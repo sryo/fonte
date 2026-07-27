@@ -1,7 +1,5 @@
 import { apiFetch } from "./client";
 
-// ── Types ─────────────────────────────────────────────────────────────────
-
 export interface AgentConfig {
   name: string;
   provider: string;
@@ -26,8 +24,6 @@ export interface Settings {
   agents?: Record<string, AgentConfig>;
   monitoring?: { heartbeat_interval?: number };
 }
-
-// ── API Functions ─────────────────────────────────────────────────────────
 
 export async function getAgents(): Promise<Record<string, AgentConfig>> {
   return apiFetch("/api/agents", undefined, "agents");
@@ -77,8 +73,6 @@ export async function deleteAgent(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/agents/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-// ── Agent Workspace Data ──────────────────────────────────────────────────
-
 export interface WorkspaceSkill {
   id: string;
   name: string;
@@ -114,8 +108,6 @@ export async function saveAgentHeartbeat(agentId: string, data: { content?: stri
     body: JSON.stringify(data),
   });
 }
-
-// ── Schedules ─────────────────────────────────────────────────────────────
 
 export interface Schedule {
   id: string;
@@ -161,8 +153,6 @@ export async function deleteSchedule(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/schedules/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-// ── Providers ─────────────────────────────────────────────────────────────
-
 export const BUILTIN_PROVIDERS = [
   { id: "anthropic", name: "Anthropic" },
   { id: "openai", name: "OpenAI" },
@@ -192,8 +182,6 @@ export async function saveCustomProvider(id: string, provider: CustomProvider): 
 export async function deleteCustomProvider(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/custom-providers/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
-
-// ── Soul ─────────────────────────────────────────────────────────────────
 
 export async function getSoul(): Promise<{ ok: boolean; content: string; path: string }> {
   return apiFetch("/api/soul");

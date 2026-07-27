@@ -26,8 +26,6 @@ import { Spinner } from "@/components/ui/feedback";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CustomProviderForm } from "./custom-provider-form";
 
-// ── Agents Section ─────────────────────────────────────────────────────
-
 export function AgentsSection() {
   const [agents, setAgents] = useState<Record<string, AgentConfig>>({});
   const [providers, setProviders] = useState<Record<string, CustomProvider>>({});

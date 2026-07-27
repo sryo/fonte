@@ -49,7 +49,6 @@ export interface TorrentStats {
     totalTorrents: number;
 }
 
-// Watchlist types
 export type WatchlistStatus = 'watching' | 'fulfilled' | 'paused';
 export type MediaType = 'movie' | 'tv' | 'music' | 'game' | 'book' | 'app' | 'other';
 
@@ -90,7 +89,6 @@ export interface WatchlistResultRecord {
     foundAt: number;
 }
 
-// Subtitle types
 export type SubtitleStatus = 'pending' | 'downloading' | 'downloaded' | 'translating' | 'translated' | 'error';
 
 export interface SubtitleRecord {

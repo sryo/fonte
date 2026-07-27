@@ -7,8 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Section } from "@/components/ui/section";
 import { SettingRow, SectionSaveButton } from "@/components/settings/shared";
 
-// ── Torrent Settings Card ───────────────────────────────────────────────
-
 export function TorrentSettingsCard({
   config,
   onSave,

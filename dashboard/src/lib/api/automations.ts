@@ -1,7 +1,5 @@
 import { apiFetch } from "./client";
 
-// ── Automations ─────────────────────────────────────────────────────────
-
 export type TriggerType =
   | "torrent:completed" | "torrent:added" | "torrent:error" | "torrent:stalled"
   | "torrent:removed"

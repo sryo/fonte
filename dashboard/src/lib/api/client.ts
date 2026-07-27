@@ -51,8 +51,6 @@ export async function apiFetch<T>(path: string, options?: RequestInit, unwrapKey
   return body;
 }
 
-// ── Control Plane ─────────────────────────────────────────────────────────
-
 export async function getSystemStatus(): Promise<{
   ok: boolean;
   uptime: number;

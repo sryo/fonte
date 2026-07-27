@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/feedback";
 
-// ── Setting Row ─────────────────────────────────────────────────────────
-
 export function SettingRow({
   label,
   description,
@@ -27,8 +25,6 @@ export function SettingRow({
     </div>
   );
 }
-
-// ── Section Save Button ─────────────────────────────────────────────────
 
 export function SectionSaveButton({
   onClick,

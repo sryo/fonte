@@ -4,9 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { subscribeToEvents, type EventData } from "./api";
 
 /**
- * Runs an imperative fetch on mount and at regular intervals. For pages that
- * own several state slices; when a single fetched value is enough, prefer
- * usePolling below, which also guards against post-unmount setState.
+ * For pages that own several state slices; when a single fetched value is
+ * enough, prefer usePolling below, which also guards against post-unmount setState.
  */
 export function usePollingEffect(fn: () => void, intervalMs: number) {
   useEffect(() => {
@@ -16,7 +15,6 @@ export function usePollingEffect(fn: () => void, intervalMs: number) {
   }, [fn, intervalMs]);
 }
 
-/** Polls a fetcher at regular intervals. */
 export function usePolling<T>(
   fetcher: () => Promise<T>,
   intervalMs: number,
@@ -57,7 +55,6 @@ export function usePolling<T>(
   return { data, error, loading, refresh };
 }
 
-/** Subscribe to SSE events and accumulate them in state. */
 export function useSSE(maxEvents = 100): {
   events: EventData[];
   connected: boolean;
@@ -83,7 +80,6 @@ export function useSSE(maxEvents = 100): {
   return { events, connected };
 }
 
-/** Format a timestamp to relative time. */
 export function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
   if (diff < 60_000) return "just now";

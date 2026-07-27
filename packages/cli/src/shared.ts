@@ -73,9 +73,7 @@ export function printBanner(): void {
     console.log(BANNER);
 }
 
-/**
- * Unwrap a clack prompt result: exit on cancel, return typed value.
- */
+// Exits the process on cancel; otherwise returns the typed value.
 export function unwrap<T>(value: T | symbol): T {
     if (p.isCancel(value)) {
         p.cancel('Operation cancelled.');
@@ -84,31 +82,20 @@ export function unwrap<T>(value: T | symbol): T {
     return value;
 }
 
-/**
- * Clean an ID string: lowercase, strip invalid chars.
- */
 export function cleanId(input: string): string {
     return input.toLowerCase().replace(/[^a-z0-9_-]/g, '');
 }
 
-/**
- * Validate that a string is a non-empty cleaned ID.
- */
 export function validateId(value: string | undefined): string | undefined {
     const cleaned = cleanId(value || '');
     if (!cleaned) return 'Invalid ID. Use lowercase letters, numbers, hyphens, or underscores.';
 }
 
-/**
- * Validate non-empty input.
- */
 export function required(value: string | undefined): string | undefined {
     if (!value?.trim()) return 'This field is required.';
 }
 
-/**
- * Read settings.json, returning empty object if missing.
- */
+// Returns {} if the file is missing or unreadable.
 export function readSettings(): Settings {
     try {
         return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
@@ -117,9 +104,7 @@ export function readSettings(): Settings {
     }
 }
 
-/**
- * Write settings.json atomically.
- */
+// Atomic write via tmp + rename.
 export function writeSettings(settings: Settings): void {
     fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
     const tmp = SETTINGS_FILE + '.tmp';
@@ -127,9 +112,7 @@ export function writeSettings(settings: Settings): void {
     fs.renameSync(tmp, SETTINGS_FILE);
 }
 
-/**
- * Ensure settings file exists, exit with error if not.
- */
+// Exits with an error if the settings file is missing.
 export function requireSettings(): Settings {
     if (!fs.existsSync(SETTINGS_FILE)) {
         p.log.error('No settings file found. Run setup first.');
@@ -179,16 +162,13 @@ export function openaiModelOptions(): ProviderOption[] {
 
 export function opencodeModelOptions(): ProviderOption[] {
     return [
-        // Anthropic
         { value: 'opencode/claude-sonnet-4-6', label: 'opencode/claude-sonnet-4-6', hint: 'recommended' },
         { value: 'opencode/claude-opus-4-6', label: 'opencode/claude-opus-4-6' },
         { value: 'anthropic/claude-sonnet-4-6', label: 'anthropic/claude-sonnet-4-6' },
         { value: 'anthropic/claude-opus-4-6', label: 'anthropic/claude-opus-4-6' },
-        // OpenAI
         { value: 'openai/gpt-5.4-codex', label: 'openai/gpt-5.4-codex' },
         { value: 'openai/gpt-5.3-codex', label: 'openai/gpt-5.3-codex' },
         { value: 'openai/gpt-5.3-codex-spark', label: 'openai/gpt-5.3-codex-spark' },
-        // Google
         { value: 'opencode/gemini-3-flash', label: 'opencode/gemini-3-flash' },
         { value: 'opencode/gemini-3-pro', label: 'opencode/gemini-3-pro' },
         // Chinese models
@@ -201,9 +181,6 @@ export function opencodeModelOptions(): ProviderOption[] {
     ];
 }
 
-/**
- * Prompt for model selection based on provider. Returns model string.
- */
 export async function promptModel(provider: string): Promise<string> {
     let options: ProviderOption[];
     let customHint = 'Enter model name';

@@ -23,8 +23,6 @@ interface WatchlistSettings {
   jackett_api_key?: string;
 }
 
-// ── Watchlist Settings Card ─────────────────────────────────────────────
-
 export function WatchlistSettingsCard({
   settings,
   onSave,

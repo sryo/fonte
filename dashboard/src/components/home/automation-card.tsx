@@ -7,8 +7,7 @@ import { CardAction } from "@/components/home/card-action";
 import { ProgressRing } from "@/components/home/progress-ring";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
-// Automation cards have no poster, so this hand-rolls the MediaCard look
-// (rounded-xl shadow-card bg-card, hover overlay, inset ring) on a text card.
+// Automation cards have no poster, so this hand-rolls the MediaCard look on a text card.
 export function AutomationCard({
   rule,
   running,

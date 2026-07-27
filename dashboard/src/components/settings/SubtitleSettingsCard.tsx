@@ -15,8 +15,6 @@ interface SubtitleSettings {
   tmdb_api_key?: string;
 }
 
-// ── Subtitle Settings Card ──────────────────────────────────────────────
-
 export function SubtitleSettingsCard({
   settings,
   onSave,

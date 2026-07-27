@@ -16,8 +16,6 @@ import { Input } from "@/components/ui/input";
 import { Section } from "@/components/ui/section";
 import { Spinner } from "@/components/ui/feedback";
 
-// ── WhatsApp Section ────────────────────────────────────────────────────
-
 export function WhatsAppSection() {
   const [status, setStatus] = useState<string>("disconnected");
   const [qr, setQr] = useState<string | null>(null);
@@ -216,8 +214,6 @@ export function WhatsAppSection() {
     </Section>
   );
 }
-
-// ── WhatsApp Chat Picker ────────────────────────────────────────────────
 
 function WhatsAppChatPicker() {
   const [chats, setChats] = useState<WhatsAppChat[]>([]);

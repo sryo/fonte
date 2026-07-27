@@ -58,7 +58,6 @@ export default function AgentConfigPage({
   const [hbSaving, setHbSaving] = useState(false);
   const [hbSaved, setHbSaved] = useState(false);
 
-  // Workspace data
   const [systemPromptContent, setSystemPromptContent] = useState<string>("");
   const [systemPromptPath, setSystemPromptPath] = useState<string>("");
   const [systemPromptLoaded, setSystemPromptLoaded] = useState(false);
@@ -66,7 +65,6 @@ export default function AgentConfigPage({
   const [heartbeatPath, setHeartbeatPath] = useState<string>("");
   const [heartbeatLoaded, setHeartbeatLoaded] = useState(false);
 
-  // Heartbeat UI state
   const [heartbeatInterval, setHeartbeatInterval] = useState("300");
   const [heartbeatEnabled, setHeartbeatEnabled] = useState(true);
 

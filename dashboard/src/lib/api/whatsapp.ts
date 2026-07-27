@@ -1,6 +1,5 @@
 import { apiFetch } from "./client";
 
-// ── WhatsApp ─────────────────────────────────────────────────────────
 export async function startWhatsApp(): Promise<{ ok: boolean; status: string }> {
   return apiFetch("/api/whatsapp/start", { method: "POST" });
 }

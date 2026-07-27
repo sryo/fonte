@@ -3,8 +3,6 @@ import type {
 } from "../api-types";
 import { apiFetch } from "./client";
 
-// ── Watchlist ────────────────────────────────────────────────────────────
-
 export async function getWatchlist(status?: WatchlistStatus): Promise<{ ok: boolean; entries: WatchlistRecord[] }> {
   const params = status ? `?status=${status}` : "";
   return apiFetch(`/api/watchlist${params}`);

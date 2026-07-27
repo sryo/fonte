@@ -20,8 +20,6 @@ import { TorrentSettingsCard } from "@/components/settings/TorrentSettingsCard";
 import { WatchlistSettingsCard } from "@/components/settings/WatchlistSettingsCard";
 import { WhatsAppSection } from "@/components/settings/WhatsAppSection";
 
-// ── Main Page ────────────────────────────────────────────────────────────
-
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [torrentConfig, setTorrentConfig] = useState<TorrentConfig | null>(null);
@@ -29,7 +27,6 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Section save states
   const [savingSection, setSavingSection] = useState<string | null>(null);
   const [savedSection, setSavedSection] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);

@@ -32,8 +32,6 @@ import {
   Pencil,
 } from "@phosphor-icons/react";
 
-// ── Page ──────────────────────────────────────────────────────────────────
-
 export default function ControlPlanePage() {
   const { data: status, loading, refresh } = usePolling(getSystemStatus, 5000);
   const disconnected = !loading && !status;
@@ -63,8 +61,6 @@ export default function ControlPlanePage() {
     </div>
   );
 }
-
-// ── Disconnected splash ───────────────────────────────────────────────────
 
 function DisconnectedSplash({ onReconnect }: { onReconnect: () => void }) {
   const [apiUrl, setApiUrl] = useState(getApiBase());
@@ -139,8 +135,6 @@ function DisconnectedSplash({ onReconnect }: { onReconnect: () => void }) {
   );
 }
 
-// ── Stats row ─────────────────────────────────────────────────────────────
-
 function StatsRow() {
   const { data: queue } = usePolling<QueueStatus>(getQueueStatus, 2000);
 
@@ -162,8 +156,6 @@ function MiniStat({ label, value, accent }: { label: string; value: number; acce
     </div>
   );
 }
-
-// ── Daemon ─────────────────────────────────────────────────────────────────
 
 function DaemonSection({ status, refresh }: { status: any; refresh: () => void }) {
   const [restarting, setRestarting] = useState(false);
@@ -210,8 +202,6 @@ function DaemonSection({ status, refresh }: { status: any; refresh: () => void }
     </Card>
   );
 }
-
-// ── API Connection ────────────────────────────────────────────────────────
 
 function ApiConnectionSection() {
   const [editingUrl, setEditingUrl] = useState(false);
@@ -278,8 +268,6 @@ function ApiConnectionSection() {
     </Card>
   );
 }
-
-// ── Agent Sessions ────────────────────────────────────────────────────────
 
 function AgentSessionsSection() {
   const { data: processing, refresh: refreshProcessing } =
@@ -353,8 +341,6 @@ function AgentSessionRow({ msg, onKill }: { msg: ProcessingMessage; onKill: () =
     </div>
   );
 }
-
-// ── Logs section ──────────────────────────────────────────────────────────
 
 function LogsSection() {
   const { data: logs, refresh: refreshLogs } = usePolling<{ lines: string[] }>(
@@ -438,8 +424,6 @@ function LogsSection() {
   );
 }
 
-// ── Shared helpers ────────────────────────────────────────────────────────
-
 function LogLine({ line }: { line: string }) {
   let levelClass = "text-muted-foreground";
   if (line.includes("[ERROR]")) levelClass = "text-destructive";
@@ -452,7 +436,6 @@ function LogLine({ line }: { line: string }) {
     </div>
   );
 }
-
 
 function EventDot({ type }: { type: string }) {
   const colors: Record<string, string> = {
