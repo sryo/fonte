@@ -9,13 +9,14 @@ const app = new Hono();
 app.post('/api/torrents', async (c) => {
     try {
         const body = await c.req.json() as { magnetUri?: string; infoHash?: string; filePath?: string; metainfo?: string };
-        const source = body.metainfo
+        const raw = body.metainfo
             ? Buffer.from(body.metainfo, 'base64')
             : (body.magnetUri || body.infoHash || body.filePath);
-        if (!source) {
+        if (!raw) {
             return fail(c, 'magnetUri, infoHash, filePath, or metainfo required');
         }
 
+        const source = typeof raw === 'string' ? await resolveReleaseSource(raw) : raw;
         const manager = getTorrentManager();
         const torrent = await manager.addTorrent(source);
         return ok(c, { torrent });

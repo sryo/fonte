@@ -77,6 +77,28 @@ describe('filterByTitle', () => {
         expect(filterByTitle(results, { title: 'Severance', seasonPattern: 'S03' })).toHaveLength(0);
     });
 
+    it('matches long-form "Season N" names for a season-only pattern', () => {
+        const longForm = [
+            { title: 'Placeholder Show (Season 5 - Subtitle) (2022) WEB-DL 1080p' },
+            { title: 'Placeholder Show Season 50 Bogus' },
+            { title: 'Placeholder Show S05E03 1080p' },
+        ];
+        const out = filterByTitle(longForm, { title: 'Placeholder Show', seasonPattern: 'S05' });
+        expect(out.map(r => r.title)).toEqual([
+            'Placeholder Show (Season 5 - Subtitle) (2022) WEB-DL 1080p',
+            'Placeholder Show S05E03 1080p',
+        ]);
+    });
+
+    it('keeps episode patterns exact', () => {
+        const eps = [
+            { title: 'Placeholder Show Season 5 Complete' },
+            { title: 'Placeholder Show S05E03 1080p' },
+        ];
+        expect(filterByTitle(eps, { title: 'Placeholder Show', seasonPattern: 'S05E03' })
+            .map(r => r.title)).toEqual(['Placeholder Show S05E03 1080p']);
+    });
+
     it('matches title words case-insensitively', () => {
         expect(filterByTitle(results, { title: 'the MATRIX reloaded' })).toHaveLength(1);
     });

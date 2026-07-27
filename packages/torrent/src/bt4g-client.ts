@@ -60,14 +60,28 @@ function extractTag(xml: string, tag: string): string {
     // For <link>, content is between </title> and <guid> (not wrapped in tags for RSS)
     if (tag === 'link') {
         const match = xml.match(/<link>(.*?)<\/link>/s);
-        if (match) return match[1].trim();
+        if (match) return decodeXmlEntities(match[1].trim());
         // Fallback: magnet link after </title>
         const magnetMatch = xml.match(/<\/title>\s*(magnet:[^<]+)/s);
-        if (magnetMatch) return magnetMatch[1].trim().replace(/&amp;/g, '&');
+        if (magnetMatch) return decodeXmlEntities(magnetMatch[1].trim());
         return '';
     }
     const match = xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
-    return match ? match[1].trim() : '';
+    return match ? decodeXmlEntities(match[1].trim()) : '';
+}
+
+// Single-pass so a literal "&amp;lt;" decodes to "&lt;", not "<".
+function decodeXmlEntities(text: string): string {
+    const named: Record<string, string> = {
+        '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': "'",
+    };
+    return text.replace(/&(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);/g, (ent) => {
+        if (ent in named) return named[ent];
+        const code = ent[2] === 'x' || ent[2] === 'X'
+            ? parseInt(ent.slice(3, -1), 16)
+            : parseInt(ent.slice(2, -1), 10);
+        return Number.isNaN(code) ? ent : String.fromCodePoint(code);
+    });
 }
 
 function extractCdata(xml: string, tag: string): string {

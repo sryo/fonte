@@ -23,49 +23,56 @@ export interface AggregateSearchOpts {
  */
 export async function aggregateSearch(queries: string[], opts: AggregateSearchOpts = {}): Promise<AggregatedResult[]> {
     const { categories = [], jackettUrl, apiKey } = opts;
+
+    // All query variations hit both sources concurrently; the merge below runs
+    // in query order so dedup priority (earlier variation, Jackett first) is
+    // deterministic regardless of arrival order.
+    const fetches = [...new Set(queries.filter(q => q))].map(async (query) => {
+        const jackettPromise: Promise<JackettResult[] | Error> = (jackettUrl && apiKey)
+            ? searchJackett({ query, categories, jackettUrl, apiKey }).catch((err: Error) => err)
+            : Promise.resolve([]);
+        const bt4gPromise = searchBt4g(query).catch((err: Error) => {
+            log('WARN', `[search] bt4g failed for "${query}": ${err.message}`);
+            return [];
+        });
+        return { query, jackett: await jackettPromise, bt4g: await bt4gPromise };
+    });
+
     const seenHashes = new Set<string>();
     const all: AggregatedResult[] = [];
 
-    for (const query of new Set(queries.filter(q => q))) {
-        if (jackettUrl && apiKey) {
-            try {
-                const results = await searchJackett({ query, categories, jackettUrl, apiKey });
-                for (const r of results) {
-                    const hash = extractInfoHash(r.magnetUri);
-                    if (hash && seenHashes.has(hash)) continue;
-                    if (hash) seenHashes.add(hash);
-                    all.push({ ...r, source: r.indexer || 'jackett' });
-                }
-            } catch (err) {
-                if (opts.jackettErrors === 'throw') throw err;
-                log('WARN', `[search] Jackett failed for "${query}": ${(err as Error).message}`);
+    for (const { query, jackett, bt4g } of await Promise.all(fetches)) {
+        if (jackett instanceof Error) {
+            if (opts.jackettErrors === 'throw') throw jackett;
+            log('WARN', `[search] Jackett failed for "${query}": ${jackett.message}`);
+        } else {
+            for (const r of jackett) {
+                const hash = extractInfoHash(r.magnetUri);
+                if (hash && seenHashes.has(hash)) continue;
+                if (hash) seenHashes.add(hash);
+                all.push({ ...r, source: r.indexer || 'jackett' });
             }
         }
 
-        try {
-            const bt4gResults = await searchBt4g(query);
-            for (const r of bt4gResults) {
-                if (!r.magnetUri) continue;
-                const cat = r.category?.toLowerCase();
-                if (cat === 'doc' || cat === 'audio') continue;
-                const hash = extractInfoHash(r.magnetUri) || (r.infoHash ? normalizeInfoHash(r.infoHash) : undefined);
-                if (hash && seenHashes.has(hash)) continue;
-                if (hash) seenHashes.add(hash);
-                all.push({
-                    title: r.title,
-                    magnetUri: r.magnetUri,
-                    seeders: 0, // bt4g RSS doesn't include seeder count
-                    leechers: 0,
-                    size: parseSizeString(r.size),
-                    sizeStr: r.size,
-                    publishDate: r.publishDate,
-                    indexer: 'bt4g-dht',
-                    category: [],
-                    source: 'bt4g-dht',
-                });
-            }
-        } catch (err) {
-            log('WARN', `[search] bt4g failed for "${query}": ${(err as Error).message}`);
+        for (const r of bt4g) {
+            if (!r.magnetUri) continue;
+            const cat = r.category?.toLowerCase();
+            if (cat === 'doc' || cat === 'audio') continue;
+            const hash = extractInfoHash(r.magnetUri) || (r.infoHash ? normalizeInfoHash(r.infoHash) : undefined);
+            if (hash && seenHashes.has(hash)) continue;
+            if (hash) seenHashes.add(hash);
+            all.push({
+                title: r.title,
+                magnetUri: r.magnetUri,
+                seeders: 0, // bt4g RSS doesn't include seeder count
+                leechers: 0,
+                size: parseSizeString(r.size),
+                sizeStr: r.size,
+                publishDate: r.publishDate,
+                indexer: 'bt4g-dht',
+                category: [],
+                source: 'bt4g-dht',
+            });
         }
     }
 
@@ -83,14 +90,22 @@ export async function searchReleases(opts: {
     year?: number;
     quality?: string;
     category?: number;
+    season?: number;
     seasonPattern?: string;
 }): Promise<AggregatedResult[]> {
-    const { title, year, quality, category, seasonPattern } = opts;
+    const { title, year, quality, category, season } = opts;
+    const seasonPattern = opts.seasonPattern
+        ?? (season != null ? `S${String(season).padStart(2, '0')}` : undefined);
     const settings = getSettings();
     const jackettUrl = settings.watchlist?.jackett_url;
     const apiKey = settings.watchlist?.jackett_api_key;
 
     const queries = new Set<string>();
+    if (season != null) {
+        queries.add(`${title} ${seasonPattern} ${quality || ''}`.trim());
+        queries.add(`${title} ${seasonPattern}`);
+        queries.add(`${title} Season ${season}`);
+    }
     queries.add(`${title} ${year || ''} ${quality || ''}`.trim());
     queries.add(`${title} ${year || ''}`.trim());
     queries.add(title);
@@ -121,9 +136,19 @@ export function filterByTitle<T extends { title: string }>(results: T[], opts: T
         const rt = r.title.toLowerCase();
         if (!titleWords.every(w => rt.includes(w))) return false;
         if (opts.year && !rt.includes(String(opts.year))) return false;
-        if (opts.seasonPattern && !rt.toUpperCase().includes(opts.seasonPattern.toUpperCase())) return false;
+        if (opts.seasonPattern && !matchesSeasonPattern(rt, opts.seasonPattern)) return false;
         return true;
     });
+}
+
+// A season-only pattern ("S05") should also match releases named the long way
+// ("Season 5 - Subtitle"); episode patterns ("S05E03") stay exact.
+function matchesSeasonPattern(lowerTitle: string, pattern: string): boolean {
+    if (lowerTitle.includes(pattern.toLowerCase())) return true;
+    const seasonOnly = pattern.match(/^s(\d{1,2})$/i);
+    if (!seasonOnly) return false;
+    const n = parseInt(seasonOnly[1], 10);
+    return new RegExp(`season\\s*0?${n}(?:\\D|$)`).test(lowerTitle);
 }
 
 export function sortBySeedersThenSize<T extends { seeders?: number; size?: number }>(results: T[]): T[] {

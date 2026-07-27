@@ -27,8 +27,8 @@ const CATEGORY_MAP: Record<string, number> = {
 
 const app = new Hono();
 
-async function multiSearch(title: string, year?: number, quality?: string, category?: number): Promise<any[]> {
-    return searchReleases({ title, year, quality, category });
+async function multiSearch(title: string, year?: number, quality?: string, category?: number, season?: number): Promise<any[]> {
+    return searchReleases({ title, year, quality, category, season });
 }
 
 // Accepts a title, IMDB URL/ID, magnet URI, or info hash and dispatches
@@ -40,6 +40,7 @@ app.post('/api/search', async (c) => {
             mediaType?: MediaType;
             year?: number;
             quality?: string;
+            season?: number;
         };
 
         let query = (body.query || '').trim();
@@ -89,15 +90,16 @@ app.post('/api/search', async (c) => {
         }
 
         const quality = body.quality || '1080p';
-        const mediaType = body.mediaType || 'movie';
+        const mediaType = body.mediaType || (body.season != null ? 'tv' : 'movie');
         const category = CATEGORY_MAP[mediaType] || 2000;
 
-        const results = await multiSearch(query, body.year, quality, category);
+        const results = await multiSearch(query, body.year, quality, category, body.season);
 
         return ok(c, {
             query,
             year: body.year,
             quality,
+            season: body.season,
             resultCount: results.length,
             results: results.slice(0, 20),
         });
