@@ -18,6 +18,8 @@ import {
 
 const AUTH_DIR = path.join(FONTE_HOME, 'whatsapp-auth');
 const LEGACY_SESSION_DIR = path.join(FONTE_HOME, 'whatsapp-session');
+const INITIAL_RECONNECT_MS = 5000;
+const MAX_RECONNECT_MS = 5 * 60_000;
 
 const MIME_EXT: Record<string, string> = {
     'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp',
@@ -65,6 +67,7 @@ export class WhatsAppService {
     // Messages timestamped before the daemon booted are stale history, not commands.
     private readonly bootTime = Date.now();
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    private reconnectDelay = INITIAL_RECONNECT_MS;
     private starting = false;
 
     get status(): WhatsAppStatus { return this._status; }
@@ -72,6 +75,13 @@ export class WhatsAppService {
 
     async start(): Promise<void> {
         if (this.sock || this.starting) return;
+        // A manual start supersedes any scheduled reconnect — letting the timer
+        // survive would open a second socket on the same credentials, and two
+        // live sessions on one key set is what gets the device revoked.
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
         this.starting = true;
         this._status = 'connecting';
         try {
@@ -82,6 +92,8 @@ export class WhatsAppService {
     }
 
     private async connectInternal(): Promise<void> {
+        if (this.sock) return; // one live socket per credential set, ever
+
         // Remove the legacy whatsapp-web.js Chrome profile if present.
         try {
             if (fs.existsSync(LEGACY_SESSION_DIR)) {
@@ -103,7 +115,7 @@ export class WhatsAppService {
         }
         const version = cachedWaVersion;
 
-        this.sock = makeWASocket({
+        const sock = makeWASocket({
             version,
             auth: {
                 creds: state.creds,
@@ -115,10 +127,12 @@ export class WhatsAppService {
             markOnlineOnConnect: false,
             syncFullHistory: false,
         });
+        this.sock = sock;
 
-        this.sock.ev.on('creds.update', saveCreds);
+        sock.ev.on('creds.update', saveCreds);
 
-        this.sock.ev.on('connection.update', (update) => {
+        sock.ev.on('connection.update', (update) => {
+            if (this.sock !== sock) return; // event from a superseded socket
             const { connection, lastDisconnect, qr } = update;
 
             if (qr) {
@@ -131,6 +145,7 @@ export class WhatsAppService {
             if (connection === 'open') {
                 this._qr = null;
                 this._status = 'connected';
+                this.reconnectDelay = INITIAL_RECONNECT_MS;
                 emitEvent('whatsapp:ready', {});
                 log('INFO', 'WhatsApp: connected');
                 this.startResponsePoller();
@@ -161,7 +176,8 @@ export class WhatsAppService {
             }
         });
 
-        this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
+        sock.ev.on('messages.upsert', async ({ messages, type }) => {
+            if (this.sock !== sock) return;
             if (type !== 'notify' && type !== 'append') return;
             for (const msg of messages) {
                 try { await this.handleIncoming(msg); }
@@ -172,14 +188,18 @@ export class WhatsAppService {
 
     private scheduleReconnect(): void {
         if (this.reconnectTimer) return;
+        // Exponential backoff: a flaky link (overnight sleep cycles) shouldn't
+        // hammer WhatsApp with reconnects every few seconds for hours.
+        const delay = this.reconnectDelay;
+        this.reconnectDelay = Math.min(this.reconnectDelay * 2, MAX_RECONNECT_MS);
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
-            log('INFO', 'WhatsApp: attempting reconnect');
+            log('INFO', `WhatsApp: attempting reconnect (next retry in ${Math.round(this.reconnectDelay / 1000)}s if this fails)`);
             this.connectInternal().catch(err => {
                 log('ERROR', `WhatsApp reconnect failed: ${(err as Error).message}`);
                 this.scheduleReconnect();
             });
-        }, 5000);
+        }, delay);
     }
 
     async requestPairingCode(phoneNumber: string): Promise<string> {
@@ -312,23 +332,32 @@ export class WhatsAppService {
         }
     }
 
-    async stop(): Promise<void> {
+    /**
+     * Close the socket. The linked session is kept unless `logout` is set —
+     * logout() is a server-side device unlink that revokes the saved
+     * credentials and forces a fresh QR scan, so it belongs only in the
+     * explicit "unpair" flow, never in routine shutdown.
+     */
+    async stop(opts: { logout?: boolean } = {}): Promise<void> {
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
         }
         this.stopResponsePoller();
-        if (this.sock) {
-            // best-effort teardown
-            try { await this.sock.logout(); } catch {}
-            try { this.sock.end(undefined); } catch {}
-            this.sock = null;
+        const sock = this.sock;
+        this.sock = null;
+        if (sock) {
+            if (opts.logout) {
+                try { await sock.logout(); } catch {}
+                try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch {}
+            }
+            try { sock.end(undefined); } catch {}
         }
         this._status = 'disconnected';
         this._qr = null;
         this.pending.clear();
         this.seenIds.clear();
-        log('INFO', 'WhatsApp: stopped');
+        log('INFO', opts.logout ? 'WhatsApp: unlinked and stopped' : 'WhatsApp: stopped (session kept)');
     }
 
     getStatusInfo(): { status: WhatsAppStatus; qr?: string } {

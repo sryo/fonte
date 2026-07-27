@@ -260,13 +260,24 @@ if (watchlistSettings?.enabled) {
 const automationEngine = createAutomationEngine();
 automationEngine.start();
 
-const waAuthDir = path.join(FONTE_HOME, 'whatsapp-auth');
-if (fs.existsSync(waAuthDir) && fs.readdirSync(waAuthDir).length > 0) {
-    log('INFO', 'WhatsApp: restoring previous session...');
-    getWhatsAppService().start().catch(err => {
-        log('ERROR', `WhatsApp auto-start failed: ${(err as Error).message}`);
-    });
-}
+// The port bind doubles as the single-instance lock: only start WhatsApp once
+// it succeeds. A second daemon opening a Baileys socket on the same saved
+// credentials makes WhatsApp revoke the device link.
+apiServer.on('error', (err: NodeJS.ErrnoException) => {
+    log('ERROR', err.code === 'EADDRINUSE'
+        ? 'API port already in use — another Fonte daemon is running. Exiting.'
+        : `API server error: ${err.message}`);
+    process.exit(1);
+});
+apiServer.on('listening', () => {
+    const waAuthDir = path.join(FONTE_HOME, 'whatsapp-auth');
+    if (fs.existsSync(waAuthDir) && fs.readdirSync(waAuthDir).length > 0) {
+        log('INFO', 'WhatsApp: restoring previous session...');
+        getWhatsAppService().start().catch(err => {
+            log('ERROR', `WhatsApp auto-start failed: ${(err as Error).message}`);
+        });
+    }
+});
 
 onEvent((type, data) => {
     if (type === 'torrent:completed' && data.id) {
@@ -281,22 +292,34 @@ logAgentConfig();
 log('INFO', `Agents: ${Object.keys(getAgents(getSettings())).join(', ')}`);
 
 // Graceful shutdown. Exit code 75 signals "restart" to the Docker entrypoint loop.
+// Async teardown (WhatsApp socket close, Transmission sync) must finish before
+// process.exit — killing the Baileys socket mid-creds-write leaves the saved
+// session inconsistent and WhatsApp answers the next restore with 401.
+let shuttingDown = false;
 function shutdown(exitCode = 0): void {
+    if (shuttingDown) return;
+    shuttingDown = true;
     log('INFO', exitCode === 75 ? 'Restarting queue processor...' : 'Shutting down queue processor...');
     stopScheduler();
     stopWatchlistRunner();
     automationEngine.stop();
-    getWhatsAppService().stop().catch(() => {});
-    torrentManager.stop().catch(() => {});
     clearInterval(pollInterval);
     clearInterval(maintenanceInterval);
     apiServer.close();
-    closeQueueDb();
-    // On restart the replacement process owns the PID file, so only remove it here.
-    if (exitCode !== 75) {
-        try { fs.unlinkSync(path.join(FONTE_HOME, 'fonte.pid')); } catch {}
-    }
-    process.exit(exitCode);
+
+    const teardown = Promise.allSettled([
+        getWhatsAppService().stop(),
+        torrentManager.stop(),
+    ]);
+    const deadline = new Promise<void>(resolve => setTimeout(resolve, 5000).unref());
+    Promise.race([teardown, deadline]).then(() => {
+        closeQueueDb();
+        // On restart the replacement process owns the PID file, so only remove it here.
+        if (exitCode !== 75) {
+            try { fs.unlinkSync(path.join(FONTE_HOME, 'fonte.pid')); } catch {}
+        }
+        process.exit(exitCode);
+    });
 }
 
 process.on('SIGINT', () => { shutdown(); });

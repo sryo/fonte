@@ -29,9 +29,12 @@ app.get('/api/whatsapp/qr', (c) => {
     return ok(c, { qr });
 });
 
+// Explicit unpair: revokes the linked device server-side and wipes local
+// credentials. Routine shutdowns must use stop() without logout so the
+// session survives daemon restarts.
 app.post('/api/whatsapp/disconnect', async (c) => {
     try {
-        await getWhatsAppService().stop();
+        await getWhatsAppService().stop({ logout: true });
         return ok(c);
     } catch (err) {
         return fail(c, (err as Error).message, 500);
