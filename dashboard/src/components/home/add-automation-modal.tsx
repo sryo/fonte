@@ -21,6 +21,7 @@ export const TRIGGER_TYPES: { value: string; label: string }[] = [
   { value: "torrent:added", label: "Torrent added" },
   { value: "torrent:error", label: "Torrent error" },
   { value: "torrent:stalled", label: "Torrent stalled" },
+  { value: "torrent:removed", label: "Torrent removed" },
   { value: "watchlist:match", label: "Watchlist match found" },
   { value: "schedule", label: "On a schedule" },
 ];

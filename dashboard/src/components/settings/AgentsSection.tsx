@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Section } from "@/components/ui/section";
 import { Spinner } from "@/components/ui/feedback";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CustomProviderForm } from "./custom-provider-form";
 
 // ── Agents Section ─────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ export function AgentsSection() {
   const [form, setForm] = useState({ id: "", name: "", provider: "anthropic", model: "sonnet" });
   const [saving, setSaving] = useState(false);
   const [showAddProvider, setShowAddProvider] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const fetchAll = async () => {
     try {
@@ -62,12 +64,10 @@ export function AgentsSection() {
     setSaving(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm(`Delete agent "${id}"? This cannot be undone.`)) return;
-    try {
-      await deleteAgent(id);
-      await fetchAll();
-    } catch {}
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    await deleteAgent(deleteTarget);
+    await fetchAll();
   };
 
   const handleReset = async (id: string) => {
@@ -115,7 +115,7 @@ export function AgentsSection() {
                   <Button
                     variant="ghost"
                     size="xs"
-                    onClick={() => handleDelete(id)}
+                    onClick={() => setDeleteTarget(id)}
                     className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                   >
                     Delete
@@ -220,6 +220,15 @@ export function AgentsSection() {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete agent"
+        message={<>Delete agent “{deleteTarget}”? This cannot be undone.</>}
+        confirmLabel="Delete"
+        destructive
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteTarget(null)}
+      />
     </Section>
   );
 }

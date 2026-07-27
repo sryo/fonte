@@ -21,6 +21,7 @@ import { DetailHero } from "@/components/shared/detail-hero";
 import { ReleaseList } from "@/components/shared/release-list";
 import { SortDropdown } from "@/components/shared/sort-dropdown";
 import { EditEntryModal, type EditEntryData } from "@/components/watchlist/edit-entry-modal";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
@@ -51,6 +52,7 @@ export default function WatchlistDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const mountedRef = useRef(true);
 
   const fetchData = useCallback(async () => {
@@ -134,12 +136,9 @@ export default function WatchlistDetailPage() {
       await fetchData();
     });
 
-  const handleDelete = () => {
-    if (!confirm("Remove this watchlist entry? This cannot be undone.")) return;
-    runAction(async () => {
-      await deleteWatchlistEntry(id);
-      router.push("/");
-    });
+  const confirmDelete = async () => {
+    await deleteWatchlistEntry(id);
+    router.push("/");
   };
 
   if (loading) {
@@ -195,7 +194,7 @@ export default function WatchlistDetailPage() {
                 <DropdownMenuItem onClick={() => setShowEdit(true)}>
                   <PencilSimple /> Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem variant="destructive" onClick={handleDelete}>
+                <DropdownMenuItem variant="destructive" onClick={() => setShowDelete(true)}>
                   <Trash /> Remove
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -288,6 +287,16 @@ export default function WatchlistDetailPage() {
       {showEdit && (
         <EditEntryModal entry={entry} saving={actionLoading} onClose={() => setShowEdit(false)} onSave={handleEditSave} />
       )}
+
+      <ConfirmDialog
+        open={showDelete}
+        title="Remove watchlist entry"
+        message="Remove this watchlist entry? This cannot be undone."
+        confirmLabel="Remove"
+        destructive
+        onConfirm={confirmDelete}
+        onClose={() => setShowDelete(false)}
+      />
     </div>
   );
 }

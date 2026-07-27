@@ -4,6 +4,7 @@ import { apiFetch } from "./client";
 
 export type TriggerType =
   | "torrent:completed" | "torrent:added" | "torrent:error" | "torrent:stalled"
+  | "torrent:removed"
   | "watchlist:match" | "watchlist:search"
   | "subtitle:downloaded" | "subtitle:translated"
   | "schedule";

@@ -55,6 +55,8 @@ import { IndexerBanner } from "@/components/home/indexer-banner";
 import { AddWatchlistModal } from "@/components/home/add-watchlist-modal";
 import { AddAutomationModal } from "@/components/home/add-automation-modal";
 import { EditAutomationModal } from "@/components/home/edit-automation-modal";
+import { RemoveTorrentDialog } from "@/components/torrent/remove-torrent-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // ── Main Page ────────────────────────────────────────────────────────────
 
@@ -79,6 +81,8 @@ export default function HomePage() {
   const [showAddWatchlist, setShowAddWatchlist] = useState(false);
   const [showAddAutomation, setShowAddAutomation] = useState(false);
   const [editAutoRule, setEditAutoRule] = useState<AutomationRule | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<TorrentRecord | null>(null);
+  const [clearOpen, setClearOpen] = useState(false);
   const [runningAutoId, setRunningAutoId] = useState<string | null>(null);
   const [searchingWlIds, setSearchingWlIds] = useState<Set<string>>(new Set());
 
@@ -107,11 +111,18 @@ export default function HomePage() {
 
   usePollingEffect(fetchAll, 3000);
 
-  // Indexer status is a real Jackett search on every call; check once on
-  // mount instead of every poll tick.
-  useEffect(() => {
+  // Indexer status is a real Jackett search, so it polls on a slow cadence
+  // (not the 3s torrent poll) — enough to self-heal the banner when Jackett
+  // comes back without a page reload. Exposed as a callback so the banner can
+  // also re-check immediately after restarting Jackett.
+  const refreshIndexerStatus = useCallback(() => {
     getIndexerStatus().then(setIndexerStatus).catch(() => {});
   }, []);
+  useEffect(() => {
+    refreshIndexerStatus();
+    const t = setInterval(refreshIndexerStatus, 30000);
+    return () => clearInterval(t);
+  }, [refreshIndexerStatus]);
 
   const searchWatchlistEntry = async (id: string) => {
     setSearchingWlIds((prev) => { const next = new Set(prev); next.add(id); return next; });
@@ -204,7 +215,7 @@ export default function HomePage() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-6 space-y-8 animate-card-enter">
-      <IndexerBanner status={indexerStatus} />
+      <IndexerBanner status={indexerStatus} onRestarted={refreshIndexerStatus} />
 
       {/* Filter pills — hidden on a fresh install where the add-card carries the page */}
       {showPillRow && (
@@ -229,10 +240,7 @@ export default function HomePage() {
             <div className="flex items-center gap-1">
               {finishedClearable.length > 0 && (
                 <button
-                  onClick={() => {
-                    if (!confirm(`Clear ${finishedClearable.length} finished torrent${finishedClearable.length === 1 ? "" : "s"}? Seeding stops; downloaded files stay on disk.`)) return;
-                    poofThenRemove(finishedClearable.map((t) => t.id), removeTorrent);
-                  }}
+                  onClick={() => setClearOpen(true)}
                   className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
                 >
                   <Trash className="h-3.5 w-3.5" />
@@ -257,7 +265,7 @@ export default function HomePage() {
                 exiting={exitingIds.has(torrent.id)}
                 exitDelay={exitingIds.get(torrent.id)}
                 onRefresh={fetchAll}
-                onPoofRemove={() => poofThenRemove([torrent.id], removeTorrent)}
+                onRemoveRequest={() => setRemoveTarget(torrent)}
               />
             ) : (
               <TorrentCard
@@ -267,7 +275,7 @@ export default function HomePage() {
                 exitDelay={exitingIds.get(torrent.id)}
                 stalled={!!torrent.stalledSince}
                 onRefresh={fetchAll}
-                onPoofRemove={() => poofThenRemove([torrent.id], removeTorrent)}
+                onRemoveRequest={() => setRemoveTarget(torrent)}
               />
             )
           )}
@@ -367,6 +375,26 @@ export default function HomePage() {
           onSaved={fetchAll}
         />
       )}
+
+      <RemoveTorrentDialog
+        open={removeTarget !== null}
+        torrentName={removeTarget?.name}
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={(deleteFiles) => {
+          const target = removeTarget;
+          if (target) poofThenRemove([target.id], (id) => removeTorrent(id, deleteFiles));
+        }}
+      />
+
+      <ConfirmDialog
+        open={clearOpen}
+        title="Clear finished"
+        message={<>Clear {finishedClearable.length} finished torrent{finishedClearable.length === 1 ? "" : "s"}? Seeding stops; downloaded files stay on disk.</>}
+        confirmLabel="Clear"
+        destructive
+        onConfirm={() => poofThenRemove(finishedClearable.map((t) => t.id), removeTorrent)}
+        onClose={() => setClearOpen(false)}
+      />
     </div>
   );
 }

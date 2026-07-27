@@ -14,13 +14,13 @@ export function CompletedCard({
   exiting,
   exitDelay,
   onRefresh,
-  onPoofRemove,
+  onRemoveRequest,
 }: {
   torrent: TorrentRecord;
   exiting: boolean;
   exitDelay?: number;
   onRefresh: () => void;
-  onPoofRemove: () => void;
+  onRemoveRequest: () => void;
 }) {
   const router = useRouter();
   return (
@@ -41,7 +41,7 @@ export function CompletedCard({
           <CardAction variant="primary" icon={Play} label="Seed" onClick={async () => { try { await resumeTorrent(torrent.id); } finally { onRefresh(); } }} />
         )
       }
-      secondaryAction={<CardAction icon={Trash} label="Remove" destructive onClick={onPoofRemove} />}
+      secondaryAction={<CardAction icon={Trash} label="Remove" destructive onClick={onRemoveRequest} />}
     >
       <p className="text-2xs text-muted-foreground">
         {torrent.status === "seeding" && torrent.uploadSpeed > 0 && (

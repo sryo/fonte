@@ -24,14 +24,14 @@ export function TorrentCard({
   exitDelay,
   stalled,
   onRefresh,
-  onPoofRemove,
+  onRemoveRequest,
 }: {
   torrent: TorrentRecord;
   exiting: boolean;
   exitDelay?: number;
   stalled: boolean;
   onRefresh: () => void;
-  onPoofRemove: () => void;
+  onRemoveRequest: () => void;
 }) {
   const router = useRouter();
   return (
@@ -58,9 +58,7 @@ export function TorrentCard({
         ) : undefined
       }
       secondaryAction={
-        <CardAction icon={Trash} label="Remove" destructive onClick={() => {
-          if (confirm(`Remove "${torrent.name}"?`)) onPoofRemove();
-        }} />
+        <CardAction icon={Trash} label="Remove" destructive onClick={onRemoveRequest} />
       }
     >
       {torrent.status === "error" ? (

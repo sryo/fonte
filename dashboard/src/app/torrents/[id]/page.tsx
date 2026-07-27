@@ -24,6 +24,8 @@ import { DetailHero } from "@/components/shared/detail-hero";
 import { FileList } from "@/components/torrent/file-list";
 import { SubtitleList } from "@/components/torrent/subtitle-list";
 import { AlternativesModal } from "@/components/torrent/alternatives-modal";
+import { RemoveTorrentDialog } from "@/components/torrent/remove-torrent-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleString();
@@ -41,6 +43,8 @@ export default function TorrentDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [showAlternatives, setShowAlternatives] = useState(false);
+  const [showRemove, setShowRemove] = useState(false);
+  const [swapTarget, setSwapTarget] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<AlternativeResult[]>([]);
   const [altSearching, setAltSearching] = useState(false);
   const [altError, setAltError] = useState<string | null>(null);
@@ -106,11 +110,10 @@ export default function TorrentDetailPage() {
   const handleVerify = useCallback(() => runAction(verifyTorrent), [runAction]);
   const handleReannounce = useCallback(() => runAction(reannounceTorrent), [runAction]);
 
-  const handleRemove = useCallback(async () => {
-    if (!confirm("Remove this torrent? Downloaded files will be kept.")) return;
+  const handleRemove = useCallback(async (deleteFiles: boolean) => {
     setActionLoading(true);
     try {
-      await removeTorrent(id);
+      await removeTorrent(id, deleteFiles);
       router.push("/");
     } catch (err) {
       setError((err as Error).message);
@@ -133,7 +136,13 @@ export default function TorrentDetailPage() {
   }, [id]);
 
   const handleSwap = useCallback(async (magnetUri: string) => {
-    if (!confirm("Swap in this release? The current torrent and its partial files will be removed.")) return;
+    setSwapTarget(magnetUri);
+  }, []);
+
+  const confirmSwap = useCallback(async () => {
+    const magnetUri = swapTarget;
+    if (!magnetUri) return;
+    setSwapTarget(null);
     setActionLoading(true);
     try {
       // Chosen release first, then the rest as auto-advance fallbacks.
@@ -144,7 +153,7 @@ export default function TorrentDetailPage() {
       setAltError((err as Error).message);
       setActionLoading(false);
     }
-  }, [id, router, alternatives]);
+  }, [id, router, alternatives, swapTarget]);
 
   const handleFetchSubtitles = useCallback(async () => {
     try {
@@ -183,7 +192,7 @@ export default function TorrentDetailPage() {
                 {torrent.status === "completed" ? "Seed" : isStopped ? "Resume" : "Pause"}
               </Button>
             )}
-            <Button variant="ghost" size="sm" className="text-destructive" onClick={handleRemove} disabled={actionLoading}>Remove</Button>
+            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setShowRemove(true)} disabled={actionLoading}>Remove</Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon-sm" aria-label="More actions"><DotsThree weight="bold" /></Button>
@@ -271,6 +280,24 @@ export default function TorrentDetailPage() {
         error={altError}
         results={alternatives}
         onSwap={handleSwap}
+      />
+
+      <RemoveTorrentDialog
+        open={showRemove}
+        torrentName={torrent.name}
+        onClose={() => setShowRemove(false)}
+        onConfirm={handleRemove}
+      />
+
+      <ConfirmDialog
+        open={swapTarget !== null}
+        title="Swap release"
+        message="Swap in this release? The current torrent and its partial files will be removed."
+        confirmLabel="Swap"
+        destructive
+        busyLabel="Swapping…"
+        onConfirm={confirmSwap}
+        onClose={() => setSwapTarget(null)}
       />
     </div>
   );

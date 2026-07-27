@@ -23,6 +23,10 @@ export async function getIndexerStatus(): Promise<IndexerStatus> {
   return apiFetch(`/api/indexers/status`);
 }
 
+export async function restartJackett(): Promise<{ ok: boolean; restarted?: boolean; error?: string }> {
+  return apiFetch(`/api/indexers/jackett/restart`, { method: "POST" });
+}
+
 export async function getTorrent(id: string): Promise<{ ok: boolean; torrent: TorrentRecord }> {
   return apiFetch(`/api/torrents/${encodeURIComponent(id)}`);
 }

@@ -4,6 +4,7 @@ import { Children, isValidElement, useEffect, useRef, useState, type ReactNode }
 import { CheckCircle, StackSimple, Trash } from "@phosphor-icons/react";
 import { CardStack } from "@/components/home/card-stack";
 import { CardAction } from "@/components/home/card-action";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { stackDepthForCount } from "@/lib/stack-visual";
 
 const ENTER_MS = 300;
@@ -31,6 +32,7 @@ export function FulfilledTray({
 }) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const closeTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(closeTimer.current), []);
 
@@ -49,10 +51,13 @@ export function FulfilledTray({
     }, EXIT_MS + staggerDelay(items.length - 1) + 30);
   };
 
-  const clear = (e: React.MouseEvent) => {
+  const requestClear = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (closing) return;
-    if (!confirm(`Remove ${count} fulfilled item${count === 1 ? "" : "s"} from the watchlist?`)) return;
+    setConfirmOpen(true);
+  };
+
+  const clear = () => {
     setOpen(true);
     onClear();
   };
@@ -86,7 +91,7 @@ export function FulfilledTray({
               <span className="text-2xl font-semibold tabular-nums">{showAsOpen ? "" : count}</span>
             </div>
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2">
-              <CardAction icon={Trash} label={`Clear all fulfilled\nRemoves ${count} item${count === 1 ? "" : "s"} from the watchlist`} destructive onClick={clear} />
+              <CardAction icon={Trash} label={`Clear all fulfilled\nRemoves ${count} item${count === 1 ? "" : "s"} from the watchlist`} destructive onClick={requestClear} />
             </div>
           </div>
           <div className="p-3 space-y-1">
@@ -118,6 +123,15 @@ export function FulfilledTray({
             </div>
           );
         })}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Clear fulfilled items"
+        message={<>Remove {count} fulfilled item{count === 1 ? "" : "s"} from the watchlist?</>}
+        confirmLabel="Remove"
+        destructive
+        onConfirm={clear}
+        onClose={() => setConfirmOpen(false)}
+      />
     </>
   );
 }

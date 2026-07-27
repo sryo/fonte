@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Play, Trash } from "@phosphor-icons/react";
 import type { AutomationRule } from "@/lib/api";
 import { CardAction } from "@/components/home/card-action";
 import { ProgressRing } from "@/components/home/progress-ring";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Automation cards have no poster, so this hand-rolls the MediaCard look
 // (rounded-xl shadow-card bg-card, hover overlay, inset ring) on a text card.
@@ -20,7 +22,9 @@ export function AutomationCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   return (
+    <>
     <div
       role="button"
       tabIndex={0}
@@ -54,13 +58,21 @@ export function AutomationCard({
             icon={Trash}
             label="Delete"
             destructive
-            onClick={() => {
-              if (confirm(`Delete "${rule.name}"?`)) onDelete();
-            }}
+            onClick={() => setConfirmOpen(true)}
           />
         </div>
       </div>
       <ProgressRing busy={running} color="automation" />
     </div>
+    <ConfirmDialog
+      open={confirmOpen}
+      title="Delete automation"
+      message={<>Delete “{rule.name}”?</>}
+      confirmLabel="Delete"
+      destructive
+      onConfirm={onDelete}
+      onClose={() => setConfirmOpen(false)}
+    />
+    </>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import type { WatchlistRecord } from "@/lib/api";
@@ -9,6 +10,7 @@ import { CardStack } from "@/components/home/card-stack";
 import { MediaCard } from "@/components/home/media-card";
 import { CardAction } from "@/components/home/card-action";
 import { PosterBadge } from "@/components/home/poster-badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Poster card for a watchlist entry; the watchlist-colored ring spins
 // (indeterminate) while a manual search is in flight.
@@ -28,6 +30,7 @@ export function WatchlistCard({
   onPoofRemove: () => void;
 }) {
   const router = useRouter();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   return (
     <CardStack depth={stackDepthForCount(entry.newResultsCount ?? 0)} seed={entry.id}>
     <MediaCard
@@ -58,15 +61,22 @@ export function WatchlistCard({
         />
       }
       secondaryAction={
-        <CardAction icon={Trash} label="Remove" destructive onClick={() => {
-          if (confirm(`Remove "${entry.title}" from watchlist?`)) onPoofRemove();
-        }} />
+        <CardAction icon={Trash} label="Remove" destructive onClick={() => setConfirmOpen(true)} />
       }
     >
       <p className="text-2xs text-muted-foreground">
         {entry.year && `${entry.year} · `}{entry.mediaType === "tv" ? "TV Show" : entry.mediaType.charAt(0).toUpperCase() + entry.mediaType.slice(1)}
       </p>
     </MediaCard>
+    <ConfirmDialog
+      open={confirmOpen}
+      title="Remove from watchlist"
+      message={<>Remove “{entry.title}” from the watchlist?</>}
+      confirmLabel="Remove"
+      destructive
+      onConfirm={onPoofRemove}
+      onClose={() => setConfirmOpen(false)}
+    />
     </CardStack>
   );
 }

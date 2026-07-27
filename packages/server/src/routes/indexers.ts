@@ -1,14 +1,22 @@
+import fs from 'fs';
+import { execFile } from 'child_process';
 import { Hono } from 'hono';
 import { getSettings, log } from '@fonte/core';
-import { ok } from '../http';
+import { ok, fail } from '../http';
 
 const app = new Hono();
 
-// GET /api/indexers/status — count of indexers configured in Jackett.
-// The dashboard uses this to nudge first-run users to Jackett's UI when
-// the count is 0. Fonte ships with no indexers configured by default.
-// A missing/unreachable Jackett is a reportable state, not an API error,
-// so every branch is ok() with a `reason`.
+// Last successfully-enumerated indexer count, kept so a slow/flaky count query
+// against a *reachable* Jackett doesn't make the dashboard banner flap.
+let lastIndexerCount: number | null = null;
+
+// GET /api/indexers/status — is Jackett up, and how many indexers are configured.
+// The dashboard uses this both to nudge first-run users (count 0) and to offer
+// a restart when Jackett is down. Reachability and counting are separate checks:
+// enumerating indexers runs a real multi-indexer search that can take 10s+ and
+// time out even on a healthy Jackett, so it must NOT decide "Jackett is down".
+// Every branch is ok() with a `reason` — an unreachable Jackett is a reportable
+// state, not an API error.
 app.get('/api/indexers/status', async (c) => {
     const settings = getSettings();
     const jackettUrl = settings.watchlist?.jackett_url;
@@ -18,25 +26,69 @@ app.get('/api/indexers/status', async (c) => {
         return ok(c, { count: 0, configured: false, reason: 'jackett-not-configured' });
     }
 
-    // Jackett's /api/v2.0/indexers admin list requires a session cookie;
-    // the API-key-friendly way to enumerate configured indexers is to hit
-    // the search endpoint and read the Indexers array from the response.
-    // We don't care about the actual search hits — the configured list comes
-    // back regardless.
+    // Reachability: any HTTP response (even a 302 to the login flow) means the
+    // process is up. Only a network error/timeout is a real outage. redirect
+    // 'manual' keeps a 3xx from counting as a failure.
+    try {
+        await fetch(new URL('/UI/Dashboard', jackettUrl).toString(), {
+            signal: AbortSignal.timeout(5000),
+            redirect: 'manual',
+        });
+    } catch (err) {
+        log('WARN', `Jackett unreachable: ${(err as Error).message}`);
+        return ok(c, { count: 0, configured: false, reason: 'jackett-error', jackettUrl });
+    }
+
+    // Reachable — count configured indexers via the API-key-friendly search
+    // endpoint (the admin list needs a session cookie). This is the slow part;
+    // if it fails, fall back to the last known count rather than reporting a
+    // false "not configured" against a Jackett that's actually up.
     try {
         const url = new URL('/api/v2.0/indexers/all/results', jackettUrl);
         url.searchParams.set('apikey', apiKey);
         url.searchParams.set('Query', '');
-        const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
-        if (!res.ok) {
-            return ok(c, { count: 0, configured: false, reason: 'jackett-unreachable', jackettUrl });
+        const res = await fetch(url.toString(), { signal: AbortSignal.timeout(20000) });
+        if (res.ok) {
+            const body = await res.json() as { Indexers?: unknown[] };
+            const count = Array.isArray(body.Indexers) ? body.Indexers.length : 0;
+            lastIndexerCount = count;
+            return ok(c, { count, configured: count > 0, jackettUrl });
         }
-        const body = await res.json() as { Indexers?: unknown[] };
-        const count = Array.isArray(body.Indexers) ? body.Indexers.length : 0;
-        return ok(c, { count, configured: count > 0, jackettUrl });
     } catch (err) {
-        log('WARN', `Indexer status check failed: ${(err as Error).message}`);
-        return ok(c, { count: 0, configured: false, reason: 'jackett-error', jackettUrl });
+        log('WARN', `Indexer count failed (Jackett is up): ${(err as Error).message}`);
+    }
+    // Up but couldn't enumerate: last known count, else assume configured so a
+    // transient count failure never flashes the first-run nudge.
+    const count = lastIndexerCount ?? 1;
+    return ok(c, { count, configured: count > 0, jackettUrl });
+});
+
+// POST /api/indexers/jackett/restart — restart the Homebrew-managed Jackett
+// service. macOS/Homebrew-specific and best-effort: the dashboard offers this
+// when Jackett is unreachable, the common cause being a stale process left
+// behind by a `brew upgrade`. Fixed argv (no shell, no interpolated input);
+// a non-brew install gets a clean failure the UI surfaces.
+app.post('/api/indexers/jackett/restart', async (c) => {
+    const brew = ['/opt/homebrew/bin/brew', '/usr/local/bin/brew'].find(p => fs.existsSync(p));
+    if (!brew) {
+        return fail(c, 'Homebrew not found — restart Jackett manually', 500);
+    }
+
+    try {
+        await new Promise<void>((resolve, reject) => {
+            execFile(brew, ['services', 'restart', 'jackett'], { timeout: 30000 }, (err) => {
+                // brew prints tap-deprecation warnings to stderr on success;
+                // trust the exit code (surfaced as err) rather than stderr.
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+        log('INFO', '[indexers] Restarted Jackett via brew services');
+        return ok(c, { restarted: true });
+    } catch (err) {
+        const msg = (err as Error).message;
+        log('ERROR', `[indexers] Jackett restart failed: ${msg}`);
+        return fail(c, `Restart failed: ${msg}`, 500);
     }
 });
 
