@@ -4,7 +4,7 @@ import { getDb } from './db-connection';
 
 export type TriggerType =
     | 'torrent:completed' | 'torrent:added' | 'torrent:error' | 'torrent:stalled'
-    | 'watchlist:match' | 'schedule';
+    | 'torrent:removed' | 'watchlist:match' | 'schedule';
 
 export interface AutomationRule {
     id: string;

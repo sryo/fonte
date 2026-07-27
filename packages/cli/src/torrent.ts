@@ -141,7 +141,7 @@ async function torrentRemove(id: string, deleteFiles: boolean) {
     const qs = deleteFiles ? '?deleteFiles=true' : '';
     const result = await apiRequest('DELETE', `/api/torrents/${id}${qs}`);
     if (result.ok) {
-        console.log(`Removed torrent: ${id}${deleteFiles ? ' (files deleted)' : ''}`);
+        console.log(`Removed torrent: ${id}${deleteFiles ? ' (files moved to Trash)' : ''}`);
     } else {
         p.log.error(result.error || 'Failed to remove torrent');
         process.exit(1);

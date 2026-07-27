@@ -13,6 +13,7 @@ vi.mock('./poster-manager', () => ({
 let tmpHome: string;
 let db: typeof import('./torrent-db');
 let conn: typeof import('./db-connection');
+let subs: typeof import('./subtitle-db');
 let TM: typeof import('./torrent-manager');
 let TORRENT_EVENTS: typeof import('./torrent-events').TORRENT_EVENTS;
 
@@ -25,6 +26,7 @@ beforeAll(async () => {
     fs.mkdirSync(path.join(tmpHome, 'logs'), { recursive: true }); // core's log() appends to logs/queue.log
     db = await import('./torrent-db');
     conn = await import('./db-connection');
+    subs = await import('./subtitle-db');
     TM = await import('./torrent-manager');
     TORRENT_EVENTS = (await import('./torrent-events')).TORRENT_EVENTS;
     const core = await import('@fonte/core');
@@ -277,6 +279,36 @@ describe('addTorrent duplicate handling', () => {
         expect(second.infoHash).toBe(hex);
         expect(db.getTorrent(first.id)).toBeUndefined();
         expect(db.getTorrents()).toHaveLength(1);
+    });
+
+    const hasTrash = fs.existsSync('/usr/bin/trash');
+
+    it.runIf(hasTrash)('moves sidecar subtitle files to the Trash when removing with deleteFiles', async () => {
+        const manager = managerWithAdd(hex);
+        const torrent = await manager.addTorrent(magnet, { savePath: tmpHome });
+        const srt = path.join(tmpHome, 'sidecar.en.srt');
+        fs.writeFileSync(srt, '1\n00:00:01,000 --> 00:00:02,000\nhi\n');
+        subs.insertSubtitle({ torrentId: torrent.id, filePath: srt, language: 'en', isOriginal: true });
+
+        await manager.removeTorrent(torrent.id, true);
+
+        // Trashed: gone from its source path, and the DB row is hard-deleted.
+        expect(fs.existsSync(srt)).toBe(false);
+        expect(db.getTorrent(torrent.id)).toBeUndefined();
+    });
+
+    it('keeps sidecar subtitle files when removing without deleteFiles', async () => {
+        const manager = managerWithAdd(hex);
+        const torrent = await manager.addTorrent(magnet, { savePath: '/downloads' });
+        const srt = path.join(tmpHome, 'sidecar-kept.en.srt');
+        fs.writeFileSync(srt, '1\n00:00:01,000 --> 00:00:02,000\nhi\n');
+        subs.insertSubtitle({ torrentId: torrent.id, filePath: srt, language: 'en', isOriginal: true });
+
+        await manager.removeTorrent(torrent.id, false);
+
+        expect(fs.existsSync(srt)).toBe(true);
+        expect(db.getTorrent(torrent.id)?.status).toBe('removed');
+        fs.unlinkSync(srt);
     });
 
     it('re-adds a magnet whose previous add failed, replacing the errored row', async () => {

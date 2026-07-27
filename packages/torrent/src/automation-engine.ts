@@ -93,6 +93,8 @@ export class AutomationEngine {
                 return `Torrent "${data.name}" failed with error: ${data.errorMessage || data.error}. Torrent ID: ${data.id}.`;
             case 'torrent:stalled':
                 return `Torrent "${data.name}" has been stalled for ${data.minutesStalled} minutes — downloading but receiving no data (${data.numPeers ?? 0} peers connected). Torrent ID: ${data.id}.`;
+            case 'torrent:removed':
+                return `Torrent "${data.name}" was removed (downloaded files ${data.filesDeleted ? 'moved to the Trash' : 'kept'}). Torrent ID: ${data.id}.`;
             case 'watchlist:match':
                 return `Watchlist match found for "${data.title}". Torrent "${data.torrentName}" was auto-added. Torrent ID: ${data.torrentId}.`;
             case 'schedule':

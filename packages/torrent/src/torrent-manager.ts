@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs';
-import { execFile } from 'child_process';
+import { execFile, execFileSync } from 'child_process';
 import { log, emitEvent } from '@fonte/core';
 import { genId } from '@fonte/core';
 import { TorrentConfig, TorrentRecord, TorrentFileRecord, TorrentStats, TorrentStatus } from './types';
@@ -16,6 +16,7 @@ import {
 import { fetchTorrentPoster } from './poster-manager';
 import { extractInfoHash } from './search-aggregator';
 import { resolveReleaseSource } from './release-source';
+import { getSubtitlesByTorrent } from './subtitle-db';
 
 // The single stall definition, shared by every surface: a downloading,
 // incomplete torrent that has received no payload data for this long is
@@ -41,6 +42,27 @@ const TRANSMISSION_CREATE_BINS = [
     '/opt/homebrew/bin/transmission-create',
     '/usr/local/bin/transmission-create',
 ];
+
+// macOS ships /usr/bin/trash (14+); it moves items to the user's Trash via the
+// system API — no Finder-automation prompt, works from the daemon.
+const TRASH_BIN = '/usr/bin/trash';
+
+// Best-effort move to the Trash. If the trash binary is unavailable we leave
+// the files in place rather than fall back to a permanent delete — a removal
+// must never destroy data the user expected to be recoverable.
+function moveToTrash(paths: string[]): void {
+    const existing = paths.filter(p => p && fs.existsSync(p));
+    if (existing.length === 0) return;
+    if (!fs.existsSync(TRASH_BIN)) {
+        log('WARN', `Trash unavailable (${TRASH_BIN} missing); left ${existing.length} path(s) on disk`);
+        return;
+    }
+    try {
+        execFileSync(TRASH_BIN, existing, { timeout: 60000, stdio: 'ignore' });
+    } catch (err) {
+        log('WARN', `Trash failed for ${existing.length} path(s): ${(err as Error).message}`);
+    }
+}
 
 function execTransmissionCreate(args: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -319,8 +341,22 @@ export class TorrentManager {
     async removeTorrent(id: string, deleteFiles = false): Promise<void> {
         const record = this.getRequiredTorrent(id);
         const tId = this.transmissionIds.get(id);
+
+        // When also removing files, move them to the Trash (recoverable) rather
+        // than letting Transmission's delete-local-data erase them permanently.
+        // Collect the on-disk targets first: the download itself (savePath/name
+        // for both single-file and folder torrents) plus fetched subtitle
+        // sidecars, whose torrent_subtitles rows are about to cascade away.
+        const trashTargets = deleteFiles
+            ? [
+                path.join(record.savePath, record.name),
+                ...getSubtitlesByTorrent(id).map(s => s.filePath).filter((p): p is string => !!p),
+            ]
+            : [];
+
+        // Always keep Transmission's copy on disk — we do the trashing.
         if (tId !== undefined && this.rpc) {
-            await this.rpc.call('torrent-remove', { ids: [tId], 'delete-local-data': deleteFiles });
+            await this.rpc.call('torrent-remove', { ids: [tId], 'delete-local-data': false });
         }
 
         this.transmissionIds.delete(id);
@@ -328,13 +364,14 @@ export class TorrentManager {
         this.stalledNotified.delete(record.infoHash);
 
         if (deleteFiles) {
+            moveToTrash(trashTargets);
             deleteTorrent(id);
         } else {
             updateTorrent(id, { status: 'removed', downloadSpeed: 0, uploadSpeed: 0, stalledSince: null });
         }
 
         emitEvent(TORRENT_EVENTS.REMOVED, { id, name: record.name, filesDeleted: deleteFiles });
-        log('INFO', `Removed torrent: ${record.name || id} (files ${deleteFiles ? 'deleted' : 'kept'})`);
+        log('INFO', `Removed torrent: ${record.name || id} (files ${deleteFiles ? 'moved to Trash' : 'kept'})`);
     }
 
     async verifyTorrent(id: string): Promise<void> {

@@ -220,7 +220,8 @@ curl http://localhost:3777/api/torrents
 **Get torrent details:** \`GET /api/torrents/{id}\`
 **Pause:** \`POST /api/torrents/{id}/pause\`
 **Resume:** \`POST /api/torrents/{id}/resume\`
-**Remove:** \`DELETE /api/torrents/{id}?deleteFiles=true\`
+**Remove (keeps downloaded files):** \`DELETE /api/torrents/{id}\`
+**Remove and trash files:** \`DELETE /api/torrents/{id}?deleteFiles=true\` — moves the downloaded data and fetched subtitles to the Trash (recoverable). Use only when the user asks to remove the files too.
 **List files:** \`GET /api/torrents/{id}/files\`
 **Global stats:** \`GET /api/torrents/stats\`
 **Config:** \`GET /api/torrents/config\` | \`PUT /api/torrents/config\`
@@ -233,7 +234,7 @@ When they ask about download status, query the torrent list and report progress.
 Automations are rules that trigger AI actions when something happens (a torrent finishes, a watchlist match, on a schedule, etc.). Each rule has a \`triggerType\`, a free-text \`prompt\` (what to do when fired), an optional \`triggerConfig\` object, and a human-readable \`name\`.
 
 **Valid triggerType values:**
-\`torrent:completed\` | \`torrent:added\` | \`torrent:error\` | \`torrent:stalled\` | \`watchlist:match\` | \`schedule\`
+\`torrent:completed\` | \`torrent:added\` | \`torrent:error\` | \`torrent:stalled\` | \`torrent:removed\` | \`watchlist:match\` | \`schedule\`
 
 **Create an automation:**
 \`\`\`
