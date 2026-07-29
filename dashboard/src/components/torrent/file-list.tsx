@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -54,6 +55,15 @@ interface MarqueeRect {
   height: number;
 }
 
+/** Reported to the page whenever 2+ files are selected, so the Section header
+    can host the bulk actions without pushing the list around. */
+export interface FileSelectionSummary {
+  count: number;
+  size: number;
+  indices: number[];
+  clear: () => void;
+}
+
 /** Finder-style file tree: collapsible folders with aggregate progress and
     tri-state checkboxes, plus click/⌘/⇧ and rubber-band selection whose sole
     action is bulk wanted-toggling via any selected row's checkbox. */
@@ -63,6 +73,7 @@ export function FileList({
   downloading,
   stalled,
   pollPausedRef,
+  onSelectionChange,
 }: {
   files: TorrentFileRecord[];
   /** Apply a wanted state to a batch of original file indices in one call. */
@@ -71,6 +82,8 @@ export function FileList({
   stalled: boolean;
   /** Page's poll gate — held true while a marquee drag is in flight. */
   pollPausedRef: { current: boolean };
+  /** Fires with a summary at 2+ selected files, null otherwise. */
+  onSelectionChange?: (selection: FileSelectionSummary | null) => void;
 }) {
   const tree = useMemo(() => buildFileTree(files), [files]);
   const fileByPath = useMemo(() => {
@@ -105,6 +118,31 @@ export function FileList({
   const suppressClickRef = useRef(false);
 
   const visible = useMemo(() => flattenVisible(tree, effectiveExpanded), [tree, effectiveExpanded]);
+  const selectedFiles = useMemo(
+    () =>
+      [...selectedPaths]
+        .map((p) => fileByPath.get(p))
+        .filter((f): f is FileNode => f !== undefined),
+    [selectedPaths, fileByPath]
+  );
+
+  useEffect(() => {
+    if (!onSelectionChange) return;
+    if (selectedFiles.length >= 2) {
+      onSelectionChange({
+        count: selectedFiles.length,
+        size: selectedFiles.reduce((s, f) => s + f.size, 0),
+        indices: selectedFiles.map((f) => f.index),
+        clear: () => {
+          setSelectedPaths(new Set());
+          anchorPathRef.current = null;
+        },
+      });
+    } else {
+      onSelectionChange(null);
+    }
+    return () => onSelectionChange(null);
+  }, [selectedFiles, onSelectionChange]);
 
   if (files.length === 0) {
     return <p className="text-sm text-muted-foreground">No file information available yet.</p>;
@@ -175,20 +213,21 @@ export function FileList({
     anchorPathRef.current = node.path;
   };
 
-  const handleContainerClick = (e: ReactMouseEvent) => {
-    if (suppressClickRef.current) return;
-    if ((e.target as HTMLElement).closest("[data-row]")) return;
+  const clearSelection = () => {
     setSelectedPaths(new Set());
     anchorPathRef.current = null;
   };
 
+  const handleContainerClick = (e: ReactMouseEvent) => {
+    if (suppressClickRef.current) return;
+    if ((e.target as HTMLElement).closest("[data-row]")) return;
+    clearSelection();
+  };
+
   const handleFileCheckbox = (file: FileNode) => {
     const target = !file.selected;
-    if (selectedPaths.has(file.path) && selectedPaths.size > 1) {
-      const indices = [...selectedPaths]
-        .map((p) => fileByPath.get(p)?.index)
-        .filter((i): i is number => i !== undefined);
-      onSetWanted(indices, target);
+    if (selectedPaths.has(file.path) && selectedFiles.length > 1) {
+      onSetWanted(selectedFiles.map((f) => f.index), target);
     } else {
       onSetWanted([file.index], target);
     }
@@ -399,13 +438,11 @@ function FileRow({
       ref={registerRef}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2 py-1.5 pr-3 text-sm transition-colors hover:bg-muted/50",
+        "flex items-center gap-2 py-1.5 pl-2 pr-3 text-sm transition-colors hover:bg-muted/50",
         !file.selected && "opacity-50",
         highlighted && "bg-primary/10 hover:bg-primary/10"
       )}
-      style={{ paddingLeft: 8 + file.depth * 20 }}
     >
-      <span className="w-6 shrink-0" />
       <span data-no-drag="" onClick={(e) => e.stopPropagation()} className="flex">
         <Checkbox
           checked={file.selected}
@@ -413,6 +450,7 @@ function FileRow({
           title={file.selected ? "Skip this file" : "Download this file"}
         />
       </span>
+      <span className="w-6 shrink-0" style={{ marginLeft: file.depth * 20 }} />
       <FileTypeIcon name={file.name} />
       <MiddleTruncate
         text={file.name}
@@ -461,12 +499,20 @@ function FolderRow({
       ref={registerRef}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2 py-1.5 pr-3 text-sm transition-colors hover:bg-muted/50",
+        "flex items-center gap-2 py-1.5 pl-2 pr-3 text-sm transition-colors hover:bg-muted/50",
         folder.wanted === "none" && "opacity-50",
         highlighted && "bg-primary/10 hover:bg-primary/10"
       )}
-      style={{ paddingLeft: 8 + folder.depth * 20 }}
     >
+      <span data-no-drag="" onClick={(e) => e.stopPropagation()} className="flex">
+        <Checkbox
+          checked={folder.wanted === "all"}
+          indeterminate={folder.wanted === "mixed"}
+          onChange={onCheckbox}
+          title={folder.wanted === "all" ? "Skip this folder" : "Download this folder"}
+          aria-label={`Toggle all files in ${folder.name}`}
+        />
+      </span>
       <button
         type="button"
         data-no-drag=""
@@ -477,21 +523,13 @@ function FolderRow({
         aria-expanded={isExpanded}
         aria-label={`${isExpanded ? "Collapse" : "Expand"} ${folder.name}`}
         className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+        style={{ marginLeft: folder.depth * 20 }}
       >
         <CaretRight
           className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-90")}
           weight="bold"
         />
       </button>
-      <span data-no-drag="" onClick={(e) => e.stopPropagation()} className="flex">
-        <Checkbox
-          checked={folder.wanted === "all"}
-          indeterminate={folder.wanted === "mixed"}
-          onChange={onCheckbox}
-          title={folder.wanted === "all" ? "Skip this folder" : "Download this folder"}
-          aria-label={`Toggle all files in ${folder.name}`}
-        />
-      </span>
       <FolderIcon className="h-4 w-4 text-muted-foreground shrink-0" weight="fill" />
       <p className="min-w-0 flex-1 truncate text-xs font-medium">
         {folder.name}

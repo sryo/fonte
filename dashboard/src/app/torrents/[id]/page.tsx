@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { DotsThree } from "@phosphor-icons/react";
+import { DotsThree, X } from "@phosphor-icons/react";
 import {
   getTorrent, getTorrentFiles, pauseTorrent, resumeTorrent, removeTorrent,
   verifyTorrent, reannounceTorrent, searchTorrentAlternatives, swapTorrent,
@@ -21,7 +21,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ProgressBar, toPct } from "@/components/ui/progress-bar";
 import { DetailHero } from "@/components/shared/detail-hero";
-import { FileList } from "@/components/torrent/file-list";
+import { FileList, type FileSelectionSummary } from "@/components/torrent/file-list";
 import { SubtitleList } from "@/components/torrent/subtitle-list";
 import { AlternativesModal } from "@/components/torrent/alternatives-modal";
 import { RemoveTorrentDialog } from "@/components/torrent/remove-torrent-dialog";
@@ -49,6 +49,7 @@ export default function TorrentDetailPage() {
   const [altSearching, setAltSearching] = useState(false);
   const [altError, setAltError] = useState<string | null>(null);
   const [subtitleError, setSubtitleError] = useState<string | null>(null);
+  const [fileSelection, setFileSelection] = useState<FileSelectionSummary | null>(null);
 
   // Wanted-toggles still in flight, by file index. Poll responses overlay
   // these so a fetch that started before the toggle can't bounce the checkbox
@@ -272,13 +273,37 @@ export default function TorrentDetailPage() {
         </p>
       </DetailHero>
 
-      <Section title="Files" count={files.length}>
+      <Section
+        title="Files"
+        count={files.length}
+        action={
+          fileSelection && (
+            // -my-1 keeps the h-6 buttons from growing the header row, so the
+            // list below never shifts when the selection actions appear.
+            <div className="-my-1 flex shrink-0 items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground tabular-nums">
+                {fileSelection.count} files · {formatBytes(fileSelection.size)}
+              </span>
+              <Button size="xs" variant="secondary" onClick={() => handleSetWanted(fileSelection.indices, true)}>
+                Download
+              </Button>
+              <Button size="xs" variant="ghost" onClick={() => handleSetWanted(fileSelection.indices, false)}>
+                Skip
+              </Button>
+              <Button size="icon-xs" variant="ghost" aria-label="Clear selection" onClick={fileSelection.clear}>
+                <X />
+              </Button>
+            </div>
+          )
+        }
+      >
         <FileList
           files={files}
           onSetWanted={handleSetWanted}
           downloading={torrent.status === "downloading"}
           stalled={isStalled}
           pollPausedRef={filePollPausedRef}
+          onSelectionChange={setFileSelection}
         />
       </Section>
 
