@@ -6,6 +6,7 @@ import { createTorrent } from "@/lib/api";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/feedback";
 
@@ -69,7 +70,7 @@ export function CreateTorrentModal({
   };
 
   return (
-    <Modal open={open} onClose={close} title={magnetUri ? "Seeding" : "Create Torrent"}>
+    <Modal open={open} onClose={close} title={magnetUri ? "Seeding" : "Create Torrent"} onSubmit={submit}>
       {magnetUri ? (
         <div className="space-y-3">
           <p className={warning ? "text-sm text-warning" : "text-sm text-muted-foreground"}>
@@ -77,12 +78,13 @@ export function CreateTorrentModal({
           </p>
           <div className="rounded-md bg-muted p-3 font-mono text-2xs break-all">{magnetUri}</div>
           <div className="flex gap-2 pt-1">
-            <Button size="sm" onClick={copyMagnet}>
+            <Button type="button" size="sm" onClick={copyMagnet}>
               {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
               {copied ? "Copied" : "Copy magnet"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={close}>
+            <Button type="button" size="sm" variant="ghost" onClick={close}>
               Done
+              <Kbd className="hidden sm:inline-flex">Esc</Kbd>
             </Button>
           </div>
         </div>
@@ -96,9 +98,6 @@ export function CreateTorrentModal({
               onChange={(e) => setPath(e.target.value)}
               placeholder="~/Downloads/fonte/…"
               autoFocus
-              onKeyDown={(e) => {
-                if (e.key === "Enter") submit();
-              }}
             />
           </div>
           <div className="space-y-1.5">
@@ -114,12 +113,14 @@ export function CreateTorrentModal({
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
           <div className="flex gap-2 pt-1">
-            <Button size="sm" onClick={submit} disabled={!path.trim() || busy}>
+            <Button type="submit" size="sm" disabled={!path.trim() || busy}>
               {busy && <Spinner size="xs" />}
               {busy ? "Creating…" : "Create & Seed"}
+              {!busy && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
             </Button>
-            <Button size="sm" variant="ghost" onClick={close} disabled={busy}>
+            <Button type="button" size="sm" variant="ghost" onClick={close} disabled={busy}>
               Cancel
+              <Kbd className="hidden sm:inline-flex">Esc</Kbd>
             </Button>
           </div>
         </div>

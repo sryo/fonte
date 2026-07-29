@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createAutomation } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import {
@@ -60,7 +61,7 @@ export function AddAutomationModal({ open, onClose, onCreated }: {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Create Automation">
+    <Modal open={open} onClose={onClose} title="Create Automation" onSubmit={handleCreate}>
       <div className="space-y-4">
         <Input
           placeholder="Rule name"
@@ -99,14 +100,16 @@ export function AddAutomationModal({ open, onClose, onCreated }: {
         {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="flex gap-2 pt-1">
           <Button
-            onClick={handleCreate}
+            type="submit"
             disabled={!autoForm.name.trim() || submitting}
             className="flex-1 bg-automation text-automation-foreground hover:bg-automation/90"
           >
             {submitting ? "Creating..." : "Create"}
+            {!submitting && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
           </Button>
-          <Button variant="ghost" onClick={onClose} className="text-muted-foreground">
+          <Button type="button" variant="ghost" onClick={onClose} className="text-muted-foreground">
             Cancel
+            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
           </Button>
         </div>
       </div>

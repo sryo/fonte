@@ -19,6 +19,7 @@ export function MediaCard({
   complete,
   exiting,
   exitDelay = 0,
+  hotkeys,
 }: {
   posterUrl?: string;
   title: string;
@@ -27,6 +28,8 @@ export function MediaCard({
   primaryAction?: React.ReactNode;
   secondaryAction?: React.ReactNode;
   onClick?: () => void;
+  /** Key → action while the card itself is focused, e.g. { p: pause, Delete: remove }. */
+  hotkeys?: Record<string, () => void>;
   children?: React.ReactNode;
   progress?: { value: number; stalled?: boolean };
   busy?: boolean;
@@ -59,8 +62,14 @@ export function MediaCard({
       onClick={exiting ? undefined : onClick}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter") onClick?.(); }}
-      className={`w-44 h-full rounded-xl shadow-card bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative${exiting ? " card-poof-dissolving" : ""}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onClick?.();
+        else if (hotkeys && e.target === e.currentTarget && hotkeys[e.key]) {
+          e.preventDefault();
+          hotkeys[e.key]();
+        }
+      }}
+      className={`w-44 h-full rounded-xl shadow-card bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50${exiting ? " card-poof-dissolving" : ""}`}
       style={delayStyle}
     >
       <div className="aspect-[2/3] w-full bg-muted relative overflow-hidden">
@@ -77,7 +86,7 @@ export function MediaCard({
           </div>
         )}
         {(primaryAction || secondaryAction) && (
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
             {primaryAction && (
               <div className="absolute inset-0 flex items-center justify-center">{primaryAction}</div>
             )}

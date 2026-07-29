@@ -227,21 +227,30 @@ body {
   from { opacity: 1; }
   to   { opacity: 0; }
 }
-.animate-chat-panel-in {
+/* @utility (not plain classes) so data-[state=…]: variants can be generated. */
+@utility animate-chat-panel-in {
   animation: chat-panel-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
-.animate-chat-panel-out {
+@utility animate-chat-panel-out {
   animation: chat-panel-out 0.18s cubic-bezier(0.5, 0, 0.75, 0) forwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
-.animate-chat-backdrop-in {
+@utility animate-chat-backdrop-in {
   animation: chat-backdrop-in 0.22s ease-out;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
-.animate-chat-backdrop-out {
+@utility animate-chat-backdrop-out {
   animation: chat-backdrop-out 0.18s ease-out forwards;
-}
-@media (prefers-reduced-motion: reduce) {
-  .animate-chat-panel-in, .animate-chat-panel-out,
-  .animate-chat-backdrop-in, .animate-chat-backdrop-out { animation: none; }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
 
 /* The per-card animation-delay must match the JS spawn delay in media-card.tsx. */

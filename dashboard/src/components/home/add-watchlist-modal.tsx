@@ -4,6 +4,7 @@ import { useState } from "react";
 import { addWatchlistEntry, type MediaType } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Modal } from "@/components/ui/modal";
 import {
   Select,
@@ -56,7 +57,7 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Add to Watchlist">
+    <Modal open={open} onClose={onClose} title="Add to Watchlist" onSubmit={handleAdd}>
       <div className="space-y-4">
         <Input
           placeholder="Title"
@@ -105,14 +106,16 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
         {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="flex gap-2 pt-1">
           <Button
-            onClick={handleAdd}
+            type="submit"
             disabled={!wlForm.title.trim() || submitting}
             className="flex-1 bg-watchlist text-watchlist-foreground hover:bg-watchlist/90"
           >
             {submitting ? "Adding..." : "Add"}
+            {!submitting && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
           </Button>
-          <Button variant="ghost" onClick={onClose} className="text-muted-foreground">
+          <Button type="button" variant="ghost" onClick={onClose} className="text-muted-foreground">
             Cancel
+            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
           </Button>
         </div>
       </div>

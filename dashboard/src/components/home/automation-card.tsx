@@ -28,8 +28,14 @@ export function AutomationCard({
       role="button"
       tabIndex={0}
       onClick={onEdit}
-      onKeyDown={(e) => { if (e.key === "Enter") onEdit(); }}
-      className="w-56 rounded-xl shadow-card bg-card p-4 flex flex-col text-left hover:bg-accent/50 transition-colors group cursor-pointer relative overflow-hidden"
+      onKeyDown={(e) => {
+        if (e.key === "Enter") onEdit();
+        else if ((e.key === "Delete" || e.key === "Backspace") && e.target === e.currentTarget) {
+          e.preventDefault();
+          setConfirmOpen(true);
+        }
+      }}
+      className="w-56 rounded-xl shadow-card bg-card p-4 flex flex-col text-left hover:bg-accent/50 transition-colors group cursor-pointer relative overflow-hidden focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       <p className="text-sm font-medium leading-tight line-clamp-1 group-hover:text-foreground" title={rule.name}>{rule.name}</p>
       <div className="mt-2">
@@ -43,7 +49,7 @@ export function AutomationCard({
       <p className="mt-2 text-2xs text-muted-foreground">
         Triggered {rule.triggerCount} time{rule.triggerCount !== 1 ? "s" : ""}
       </p>
-      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
         <div className="absolute inset-0 flex items-center justify-center">
           <CardAction
             variant="primary"
@@ -58,6 +64,7 @@ export function AutomationCard({
             label="Delete"
             destructive
             onClick={() => setConfirmOpen(true)}
+            hotkey="⌫"
           />
         </div>
       </div>

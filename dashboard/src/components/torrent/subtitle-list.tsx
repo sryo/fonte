@@ -4,6 +4,7 @@ import { useState } from "react";
 import { translateSubtitleApi, type SubtitleRecord } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -75,7 +76,12 @@ export function SubtitleList({
         </div>
       ))}
 
-      <Modal open={translateFor !== null} onClose={() => setTranslateFor(null)} title="Translate subtitles">
+      <Modal
+        open={translateFor !== null}
+        onClose={() => setTranslateFor(null)}
+        title="Translate subtitles"
+        onSubmit={submitTranslate}
+      >
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="translate-lang">Target language code</Label>
@@ -85,15 +91,16 @@ export function SubtitleList({
               placeholder="e.g. en, es, fr"
               value={lang}
               onChange={(e) => setLang(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") submitTranslate(); }}
             />
           </div>
           <div className="flex gap-2 pt-1">
-            <Button className="flex-1" disabled={!lang.trim() || translating} onClick={submitTranslate}>
+            <Button type="submit" className="flex-1" disabled={!lang.trim() || translating}>
               {translating ? "Translating…" : "Translate"}
+              {!translating && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
             </Button>
-            <Button variant="ghost" onClick={() => setTranslateFor(null)} disabled={translating} className="text-muted-foreground">
+            <Button type="button" variant="ghost" onClick={() => setTranslateFor(null)} disabled={translating} className="text-muted-foreground">
               Cancel
+              <Kbd className="hidden sm:inline-flex">Esc</Kbd>
             </Button>
           </div>
         </div>

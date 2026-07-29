@@ -57,11 +57,17 @@ export function WatchlistCard({
           icon={MagnifyingGlass}
           label={entry.lastCheckedAt ? `Search now\nLast searched: ${formatRelativeTime(entry.lastCheckedAt)}` : "Search now\nNever searched"}
           onClick={onSearch}
+          hotkey="S"
         />
       }
       secondaryAction={
-        <CardAction icon={Trash} label="Remove" destructive onClick={() => setConfirmOpen(true)} />
+        <CardAction icon={Trash} label="Remove" destructive onClick={() => setConfirmOpen(true)} hotkey="⌫" />
       }
+      hotkeys={{
+        s: onSearch,
+        Delete: () => setConfirmOpen(true),
+        Backspace: () => setConfirmOpen(true),
+      }}
     >
       <p className="text-2xs text-muted-foreground">
         {entry.year && `${entry.year} · `}{entry.mediaType === "tv" ? "TV Show" : entry.mediaType.charAt(0).toUpperCase() + entry.mediaType.slice(1)}

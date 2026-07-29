@@ -5,6 +5,7 @@ import { Pause, Play, Trash } from "@phosphor-icons/react";
 import { pauseTorrent, resumeTorrent, type TorrentRecord } from "@/lib/api";
 import { formatSpeed } from "@/lib/format";
 import { statusTone } from "@/lib/status";
+import { toPct } from "@/components/ui/progress-bar";
 import { MediaCard } from "@/components/home/media-card";
 import { CardAction } from "@/components/home/card-action";
 import { PosterBadge } from "@/components/home/poster-badge";
@@ -34,6 +35,12 @@ export function TorrentCard({
   onRemoveRequest: () => void;
 }) {
   const router = useRouter();
+  const pauseResume =
+    torrent.status === "downloading"
+      ? { icon: Pause, label: "Pause", run: async () => { try { await pauseTorrent(torrent.id); } finally { onRefresh(); } } }
+      : torrent.status === "paused"
+      ? { icon: Play, label: "Resume", run: async () => { try { await resumeTorrent(torrent.id); } finally { onRefresh(); } } }
+      : undefined;
   return (
     <MediaCard
       title={torrent.name}
@@ -47,19 +54,22 @@ export function TorrentCard({
       busy={torrent.status === "adding"}
       badges={
         <PosterBadge tone={stalled ? "warn" : statusTone(torrent.status)}>
-          {STATUS_LABEL[torrent.status] ?? `${Math.round(torrent.progress * 100)}%`}
+          {STATUS_LABEL[torrent.status] ?? `${toPct(torrent.progress)}%`}
         </PosterBadge>
       }
       primaryAction={
-        torrent.status === "downloading" ? (
-          <CardAction variant="primary" icon={Pause} label="Pause" onClick={async () => { try { await pauseTorrent(torrent.id); } finally { onRefresh(); } }} />
-        ) : torrent.status === "paused" ? (
-          <CardAction variant="primary" icon={Play} label="Resume" onClick={async () => { try { await resumeTorrent(torrent.id); } finally { onRefresh(); } }} />
-        ) : undefined
+        pauseResume && (
+          <CardAction variant="primary" icon={pauseResume.icon} label={pauseResume.label} onClick={pauseResume.run} hotkey="P" />
+        )
       }
       secondaryAction={
-        <CardAction icon={Trash} label="Remove" destructive onClick={onRemoveRequest} />
+        <CardAction icon={Trash} label="Remove" destructive onClick={onRemoveRequest} hotkey="⌫" />
       }
+      hotkeys={{
+        ...(pauseResume && { p: pauseResume.run }),
+        Delete: onRemoveRequest,
+        Backspace: onRemoveRequest,
+      }}
     >
       {torrent.status === "error" ? (
         <p className="text-2xs text-destructive truncate" title={torrent.errorMessage}>

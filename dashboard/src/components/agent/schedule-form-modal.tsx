@@ -4,6 +4,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Modal } from "@/components/ui/modal";
@@ -119,7 +120,7 @@ export function ScheduleFormModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="New Schedule" wide>
+    <Modal open={open} onClose={onClose} title="New Schedule" wide onSubmit={handleCreate}>
         <div className="space-y-5">
           <Input
             value={formLabel}
@@ -379,18 +380,21 @@ export function ScheduleFormModal({
           )}
           <div className="flex justify-end gap-2 pt-1">
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={onClose}
             >
               Cancel
+              <Kbd className="hidden sm:inline-flex">Esc</Kbd>
             </Button>
             <Button
+              type="submit"
               size="sm"
-              onClick={handleCreate}
               disabled={formSaving || !formMessage.trim() || (formRepeat === "custom" && !formCustomCron.trim()) || (formRepeat === "once" && !formRunAtDate)}
             >
               {formSaving ? <Spinner size="xs" /> : "Save"}
+              {!formSaving && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
             </Button>
           </div>
         </div>

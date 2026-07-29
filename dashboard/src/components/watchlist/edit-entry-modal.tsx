@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import {
@@ -72,7 +73,7 @@ export function EditEntryModal({
   };
 
   return (
-    <Modal open onClose={onClose} title="Edit Watchlist Entry">
+    <Modal open onClose={onClose} title="Edit Watchlist Entry" onSubmit={handleSave}>
       <div className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="edit-title">Title</Label>
@@ -141,15 +142,17 @@ export function EditEntryModal({
           />
         </div>
         <div className="flex gap-2 pt-1">
-          <Button variant="outline" className="flex-1" onClick={onClose}>
-            Cancel
-          </Button>
           <Button
+            type="submit"
             className="flex-1"
-            onClick={handleSave}
             disabled={saving || !form.title.trim()}
           >
             {saving ? "Saving…" : "Save"}
+            {!saving && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
+          </Button>
+          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+            Cancel
+            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
           </Button>
         </div>
       </div>

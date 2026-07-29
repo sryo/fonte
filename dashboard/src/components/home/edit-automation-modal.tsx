@@ -5,6 +5,7 @@ import { getAutomation, updateAutomation, type AutomationLog, type AutomationRul
 import { formatRelativeTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import {
@@ -74,7 +75,7 @@ export function EditAutomationModal({
   };
 
   return (
-    <Modal open onClose={onClose} title="Edit Automation">
+    <Modal open onClose={onClose} title="Edit Automation" onSubmit={onSave}>
       <div className="space-y-4">
         <Input
           placeholder="Rule name"
@@ -124,14 +125,16 @@ export function EditAutomationModal({
         {error && <p className="text-2xs text-destructive">{error}</p>}
         <div className="flex gap-2 pt-1">
           <Button
-            onClick={onSave}
+            type="submit"
             disabled={!form.name.trim() || saving}
             className="flex-1 bg-automation text-automation-foreground hover:bg-automation/90"
           >
             Save
+            {!saving && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
           </Button>
-          <Button variant="ghost" onClick={onClose} className="text-muted-foreground">
+          <Button type="button" variant="ghost" onClick={onClose} className="text-muted-foreground">
             Cancel
+            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
           </Button>
         </div>
 

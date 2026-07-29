@@ -20,7 +20,11 @@ import {
 } from "@phosphor-icons/react";
 import { addTorrent, sendMessage, getTorrents, getWatchlist } from "@/lib/api";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Kbd } from "@/components/ui/kbd";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatBytes } from "@/lib/format";
+import { useHotkey } from "@/components/hotkeys-provider";
+import { useIsMac, modKeyLabel } from "@/hooks/use-platform";
 
 interface SearchResult {
   title: string;
@@ -42,9 +46,9 @@ interface TopBarProps {
 }
 
 const NAV_ITEMS = [
-  { href: "/", label: "Home", icon: House, exact: true },
-  { href: "/control", label: "Control", icon: SlidersHorizontal, exact: false },
-  { href: "/settings", label: "Settings", icon: Gear, exact: false },
+  { href: "/", label: "Home", icon: House, exact: true, seq: "g h" },
+  { href: "/control", label: "Control", icon: SlidersHorizontal, exact: false, seq: "g c" },
+  { href: "/settings", label: "Settings", icon: Gear, exact: false, seq: "g s" },
 ] as const;
 
 export function TopBar({ onOpenChat }: TopBarProps) {
@@ -52,6 +56,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const isMac = useIsMac();
 
   // Smart-bar state
   const [input, setInput] = useState("");
@@ -70,16 +75,13 @@ export function TopBar({ onOpenChat }: TopBarProps) {
 
   useEffect(() => setMounted(true), []);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        inputRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
+  useHotkey({
+    id: "focus-search",
+    keys: "mod+k",
+    description: "Focus the search bar",
+    allowInInput: true,
+    handler: () => inputRef.current?.focus(),
+  });
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -212,28 +214,40 @@ export function TopBar({ onOpenChat }: TopBarProps) {
     <header className="border-b bg-card shrink-0">
       <div className="max-w-6xl mx-auto flex items-center gap-3 px-4 py-2">
       <nav className="flex items-center gap-1">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
-          const active = exact
-            ? pathname === href
-            : pathname === href || pathname.startsWith(href + "/");
+        <TooltipProvider>
+          {NAV_ITEMS.map(({ href, label, icon: Icon, exact, seq }) => {
+            const active = exact
+              ? pathname === href
+              : pathname === href || pathname.startsWith(href + "/");
 
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-label={label}
-              title={label}
-              className={cn(
-                "h-9 w-9 rounded-md flex items-center justify-center transition-colors",
-                active
-                  ? "bg-primary/10 text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}
-            >
-              <Icon className="h-[18px] w-[18px]" weight={active ? "fill" : "bold"} />
-            </Link>
-          );
-        })}
+            return (
+              <Tooltip key={href}>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={href}
+                    aria-label={label}
+                    className={cn(
+                      "h-9 w-9 rounded-md flex items-center justify-center transition-colors",
+                      active
+                        ? "bg-primary/10 text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
+                  >
+                    <Icon className="h-[18px] w-[18px]" weight={active ? "fill" : "bold"} />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent className="flex items-center gap-1.5">
+                  {label}
+                  {seq.split(" ").map((k) => (
+                    <Kbd key={k} className="bg-background/20 text-background">
+                      {k.toUpperCase()}
+                    </Kbd>
+                  ))}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </TooltipProvider>
       </nav>
 
       <div className="flex-1 relative" ref={searchWrapperRef}>
@@ -283,9 +297,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
 
           {/* Shortcut hint — swaps for the submit button once there's input */}
           {!input.trim() && (
-            <kbd className="hidden sm:inline-flex items-center rounded border bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground shrink-0">
-              ⌘K
-            </kbd>
+            <Kbd className="hidden sm:inline-flex">{modKeyLabel(isMac)}K</Kbd>
           )}
 
           {input.trim() && (
