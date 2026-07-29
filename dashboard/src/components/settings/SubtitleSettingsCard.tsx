@@ -13,6 +13,7 @@ interface SubtitleSettings {
   translate?: boolean;
   target_languages?: string[];
   tmdb_api_key?: string;
+  opensubtitles_api_key?: string;
 }
 
 export function SubtitleSettingsCard({
@@ -32,6 +33,7 @@ export function SubtitleSettingsCard({
   const [translate, setTranslate] = useState(raw?.translate ?? false);
   const [targetLanguages, setTargetLanguages] = useState((raw?.target_languages ?? []).join(", "));
   const [tmdbApiKey, setTmdbApiKey] = useState(raw?.tmdb_api_key ?? "");
+  const [opensubtitlesApiKey, setOpensubtitlesApiKey] = useState(raw?.opensubtitles_api_key ?? "");
 
   // Resync on refetch so saving this card doesn't write back a stale snapshot.
   useEffect(() => {
@@ -40,6 +42,7 @@ export function SubtitleSettingsCard({
     setTranslate(raw?.translate ?? false);
     setTargetLanguages((raw?.target_languages ?? []).join(", "));
     setTmdbApiKey(raw?.tmdb_api_key ?? "");
+    setOpensubtitlesApiKey(raw?.opensubtitles_api_key ?? "");
   }, [raw]);
 
   const handleSave = () => {
@@ -57,6 +60,7 @@ export function SubtitleSettingsCard({
         translate,
         target_languages: languages,
         tmdb_api_key: tmdbApiKey,
+        opensubtitles_api_key: opensubtitlesApiKey,
       },
     } as Partial<Settings>);
   };
@@ -100,6 +104,16 @@ export function SubtitleSettingsCard({
             type="password"
             value={tmdbApiKey}
             onChange={(e) => setTmdbApiKey(e.target.value)}
+            className="w-60 text-sm"
+            placeholder="Enter API key"
+          />
+        </SettingRow>
+
+        <SettingRow label="OpenSubtitles API key" description="Required for subtitle search and download">
+          <Input
+            type="password"
+            value={opensubtitlesApiKey}
+            onChange={(e) => setOpensubtitlesApiKey(e.target.value)}
             className="w-60 text-sm"
             placeholder="Enter API key"
           />

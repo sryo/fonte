@@ -17,7 +17,8 @@ app.get('/api/torrents/:id/subtitles', (c) => {
 app.post('/api/torrents/:id/subtitles/fetch', async (c) => {
     const torrentId = c.req.param('id');
     try {
-        await fetchSubtitlesForTorrent(torrentId);
+        const result = await fetchSubtitlesForTorrent(torrentId);
+        if (!result.ok) return fail(c, result.message);
         const subtitles = getSubtitlesByTorrent(torrentId);
         return ok(c, { subtitles });
     } catch (err) {

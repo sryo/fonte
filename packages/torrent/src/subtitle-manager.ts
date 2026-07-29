@@ -19,13 +19,21 @@ export async function handleTorrentCompleted(torrentId: string): Promise<void> {
     await fetchSubtitlesForTorrent(torrentId);
 }
 
-export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void> {
+export type SubtitleFetchResult =
+    | { ok: true }
+    | {
+        ok: false;
+        reason: 'no_name' | 'no_api_key' | 'no_video_files' | 'no_results' | 'fetch_failed';
+        message: string;
+    };
+
+export async function fetchSubtitlesForTorrent(torrentId: string): Promise<SubtitleFetchResult> {
     const torrent = getTorrent(torrentId);
     if (!torrent) throw new Error(`Torrent not found: ${torrentId}`);
 
     if (!torrent.name) {
         log('INFO', `Subtitles: torrent "${torrentId}" has no name yet, skipping`);
-        return;
+        return { ok: false, reason: 'no_name', message: 'The torrent has no name yet — metadata is still loading.' };
     }
 
     const settings = getSettings();
@@ -36,14 +44,14 @@ export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void>
 
     if (!opensubtitlesApiKey) {
         log('INFO', `Subtitles: no OpenSubtitles API key configured, skipping "${torrent.name}"`);
-        return;
+        return { ok: false, reason: 'no_api_key', message: 'No OpenSubtitles API key configured. Add one in Settings → Subtitles.' };
     }
 
     const files = getTorrentFiles(torrentId);
     const videoFiles = files.filter(f => VIDEO_EXTENSIONS.has(path.extname(f.name).toLowerCase()));
     if (videoFiles.length === 0) {
         log('INFO', `Subtitles: no video files in torrent "${torrent.name}"`);
-        return;
+        return { ok: false, reason: 'no_video_files', message: 'No video files found in this torrent.' };
     }
 
     const parsed = parseTorrentName(torrent.name);
@@ -82,13 +90,13 @@ export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void>
 
         if (results.length === 0) {
             log('INFO', `Subtitles: no results found for "${parsed.title}"`);
-            return;
+            return { ok: false, reason: 'no_results', message: `No subtitles found for "${parsed.title}".` };
         }
 
         const originalSub = results.find(r => r.language.toLowerCase().startsWith(originalLanguage))
             || results[0];
 
-        const mainVideoFile = videoFiles[0];
+        const mainVideoFile = videoFiles.reduce((a, b) => (b.size > a.size ? b : a));
         const videoDir = path.dirname(path.join(torrent.savePath, mainVideoFile.path));
         const videoBase = path.basename(mainVideoFile.name, path.extname(mainVideoFile.name));
         const subPath = path.join(videoDir, `${videoBase}.${originalSub.language}.srt`);
@@ -126,8 +134,10 @@ export async function fetchSubtitlesForTorrent(torrentId: string): Promise<void>
                 }
             }
         }
+        return { ok: true };
     } catch (err) {
         log('ERROR', `Subtitles: fetch failed for "${parsed.title}": ${(err as Error).message}`);
+        return { ok: false, reason: 'fetch_failed', message: `Subtitle fetch failed: ${(err as Error).message}` };
     }
 }
 
