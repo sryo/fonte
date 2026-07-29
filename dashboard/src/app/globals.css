@@ -313,6 +313,9 @@ body {
   --ring-thickness: 4px;
   --ring-inset: 3px;
   --ring-color: var(--torrent);
+  /* Faint track for the remaining arc — over posters and cards alike, and
+     it flips with the theme via muted-foreground. */
+  --ring-track: color-mix(in oklab, var(--muted-foreground) 25%, transparent);
   position: absolute;
   inset: var(--ring-inset);
   border-radius: calc(var(--radius-xl) - var(--ring-inset));
@@ -328,7 +331,7 @@ body {
     conic-gradient(
       var(--ring-color) 0,
       var(--ring-color) calc(var(--progress) * 1turn),
-      transparent calc(var(--progress) * 1turn)
+      var(--ring-track) calc(var(--progress) * 1turn)
     );
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
@@ -342,7 +345,7 @@ body {
   background: conic-gradient(
     var(--ring-color) 0,
     var(--ring-color) calc(var(--progress) * 1turn),
-    transparent calc(var(--progress) * 1turn)
+    var(--ring-track) calc(var(--progress) * 1turn)
   );
   animation: none;
 }
