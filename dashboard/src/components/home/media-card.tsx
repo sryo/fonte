@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import { FilmStrip } from "@phosphor-icons/react";
 import { poofBurst } from "@/lib/poof-burst";
+import { MiddleTruncate } from "@/components/ui/middle-truncate";
 import { ProgressRing, type RingColor } from "./progress-ring";
 
 export function MediaCard({
@@ -97,7 +98,7 @@ export function MediaCard({
         )}
       </div>
       <div className="p-3 space-y-1">
-        <p className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-foreground" title={title}>{title}</p>
+        <MiddleTruncate text={title} lines={2} className="text-sm font-medium leading-tight group-hover:text-foreground" />
         {children}
       </div>
       <ProgressRing progress={progress} busy={busy} color={ringColor} complete={complete} />

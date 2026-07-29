@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Play, Trash } from "@phosphor-icons/react";
 import type { AutomationRule } from "@/lib/api";
 import { CardAction } from "@/components/home/card-action";
+import { MiddleTruncate } from "@/components/ui/middle-truncate";
 import { ProgressRing } from "@/components/home/progress-ring";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -37,7 +38,7 @@ export function AutomationCard({
       }}
       className="w-56 rounded-xl shadow-card bg-card p-4 flex flex-col text-left hover:bg-accent/50 transition-colors group cursor-pointer relative overflow-hidden focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
-      <p className="text-sm font-medium leading-tight line-clamp-1 group-hover:text-foreground" title={rule.name}>{rule.name}</p>
+      <MiddleTruncate text={rule.name} className="text-sm font-medium leading-tight group-hover:text-foreground" />
       <div className="mt-2">
         <span className="text-2xs bg-automation/15 text-automation px-1.5 py-0.5 rounded-full">
           {rule.triggerType.replace(":", " ")}
