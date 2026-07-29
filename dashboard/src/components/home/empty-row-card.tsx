@@ -26,7 +26,7 @@ export function EmptyRowCard({
       tabIndex={interactive ? 0 : undefined}
       onKeyDown={interactive ? (e) => { if (e.key === "Enter") onClick?.(); } : undefined}
       className={cn(
-        "w-44 rounded-xl border border-dashed bg-card/30 overflow-hidden text-left transition-colors",
+        "w-(--card-w) rounded-xl border border-dashed bg-card/30 overflow-hidden text-left transition-colors",
         interactive &&
           "hover:bg-accent/50 hover:border-foreground/30 cursor-pointer focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
         active && "bg-accent/50 border-foreground/30"

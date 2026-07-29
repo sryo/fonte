@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from "react";
 import { FilmStrip } from "@phosphor-icons/react";
 import { poofBurst } from "@/lib/poof-burst";
 import { MiddleTruncate } from "@/components/ui/middle-truncate";
+import { CardResizeHandle } from "./card-resize";
 import { ProgressRing, type RingColor } from "./progress-ring";
 
 export function MediaCard({
@@ -70,7 +71,7 @@ export function MediaCard({
           hotkeys[e.key]();
         }
       }}
-      className={`w-44 h-full rounded-xl shadow-card bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50${exiting ? " card-poof-dissolving" : ""}`}
+      className={`w-(--card-w) h-full rounded-xl shadow-card bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50${exiting ? " card-poof-dissolving" : ""}`}
       style={delayStyle}
     >
       <div className="aspect-[2/3] w-full bg-muted relative overflow-hidden">
@@ -82,7 +83,7 @@ export function MediaCard({
           </div>
         )}
         {badges && (
-          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1">
+          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 group-data-[cards=compact]/cards:hidden">
             {badges}
           </div>
         )}
@@ -99,9 +100,10 @@ export function MediaCard({
       </div>
       <div className="p-3 space-y-1">
         <MiddleTruncate text={title} lines={2} className="text-sm font-medium leading-tight group-hover:text-foreground" />
-        {children}
+        <div className="group-data-[cards=compact]/cards:hidden">{children}</div>
       </div>
       <ProgressRing progress={progress} busy={busy} color={ringColor} complete={complete} />
+      <CardResizeHandle />
     </div>
     </div>
   );

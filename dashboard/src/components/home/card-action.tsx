@@ -26,13 +26,20 @@ export function CardAction({ icon: Icon, label, onClick, destructive, variant = 
             className={cn(
               "flex items-center justify-center backdrop-blur-sm transition-colors",
               variant === "primary"
-                ? "h-12 w-12 rounded-full bg-white/25 hover:bg-white/40 text-white"
+                ? "h-12 w-12 rounded-full bg-white/25 hover:bg-white/40 text-white group-data-[cards=compact]/cards:h-9 group-data-[cards=compact]/cards:w-9"
                 : destructive
-                  ? "h-7 w-7 rounded-md bg-black/40 text-white/75 hover:bg-red-500/90 hover:text-white"
-                  : "h-7 w-7 rounded-md bg-white/20 hover:bg-white/30 text-white",
+                  ? "h-7 w-7 rounded-md bg-black/40 text-white/75 hover:bg-red-500/90 hover:text-white group-data-[cards=compact]/cards:hidden"
+                  : "h-7 w-7 rounded-md bg-white/20 hover:bg-white/30 text-white group-data-[cards=compact]/cards:hidden",
             )}
           >
-            <Icon className={variant === "primary" ? "h-6 w-6" : "h-4 w-4"} weight="bold" />
+            <Icon
+              className={
+                variant === "primary"
+                  ? "h-6 w-6 group-data-[cards=compact]/cards:h-4 group-data-[cards=compact]/cards:w-4"
+                  : "h-4 w-4"
+              }
+              weight="bold"
+            />
           </button>
         </TooltipTrigger>
         <TooltipContent className="flex items-center gap-1.5">

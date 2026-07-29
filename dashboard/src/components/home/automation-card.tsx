@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Play, Trash } from "@phosphor-icons/react";
 import type { AutomationRule } from "@/lib/api";
 import { CardAction } from "@/components/home/card-action";
+import { CardResizeHandle } from "@/components/home/card-resize";
 import { MiddleTruncate } from "@/components/ui/middle-truncate";
 import { ProgressRing } from "@/components/home/progress-ring";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -36,7 +37,7 @@ export function AutomationCard({
           setConfirmOpen(true);
         }
       }}
-      className="w-56 rounded-xl shadow-card bg-card p-4 flex flex-col text-left hover:bg-accent/50 transition-colors group cursor-pointer relative overflow-hidden focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      className="w-[calc(var(--card-w)*1.27)] rounded-xl shadow-card bg-card p-4 flex flex-col text-left hover:bg-accent/50 transition-colors group cursor-pointer relative overflow-hidden focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       <MiddleTruncate text={rule.name} className="text-sm font-medium leading-tight group-hover:text-foreground" />
       <div className="mt-2">
@@ -70,6 +71,7 @@ export function AutomationCard({
         </div>
       </div>
       <ProgressRing busy={running} color="automation" />
+      <CardResizeHandle />
     </div>
     <ConfirmDialog
       open={confirmOpen}

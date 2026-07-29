@@ -74,7 +74,7 @@ export function FulfilledTray({
           aria-label={showAsOpen ? "Stack fulfilled items away" : `Show ${count} fulfilled item${count === 1 ? "" : "s"}`}
           onClick={toggle}
           onKeyDown={(e) => { if (e.key === "Enter") toggle(); }}
-          className="w-44 h-full rounded-xl shadow-card bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative"
+          className="w-(--card-w) h-full rounded-xl shadow-card bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative"
         >
           <div className="aspect-[2/3] w-full bg-muted relative overflow-hidden">
             {!showAsOpen && posterUrl ? (

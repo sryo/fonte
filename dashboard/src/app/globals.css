@@ -52,6 +52,8 @@
 }
 
 :root {
+  /* Home grid card width; the size slider overrides it per-page. */
+  --card-w: 11rem;
   --background: #fafaf9;
   --foreground: #0a0a0a;
   --card: #ffffff;
@@ -290,8 +292,8 @@ body {
 }
 
 @keyframes card-poof-collapse {
-  0%, 45% { width: 11rem; margin-right: 0; }
-  100%    { width: 0;     margin-right: -0.75rem; }
+  0%, 45% { width: var(--card-w, 11rem); margin-right: 0; }
+  100%    { width: 0;                    margin-right: -0.75rem; }
 }
 .card-poof-collapsing {
   animation: card-poof-collapse 520ms ease-in forwards;
@@ -310,12 +312,14 @@ body {
 }
 .progress-ring {
   --progress: 0;
-  --ring-thickness: 4px;
-  --ring-inset: 3px;
+  /* Slim + tucked to the edge: the visible track reads as a border, not a
+     frame eating the card's p-3 breathing room. */
+  --ring-thickness: 3px;
+  --ring-inset: 2px;
   --ring-color: var(--torrent);
   /* Faint track for the remaining arc — over posters and cards alike, and
      it flips with the theme via muted-foreground. */
-  --ring-track: color-mix(in oklab, var(--muted-foreground) 25%, transparent);
+  --ring-track: color-mix(in oklab, var(--muted-foreground) 15%, transparent);
   position: absolute;
   inset: var(--ring-inset);
   border-radius: calc(var(--radius-xl) - var(--ring-inset));

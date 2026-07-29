@@ -2,7 +2,7 @@
 
 // Dashboard home page: filterable rows of torrents, watchlist, and automations.
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
 import {
   getTorrents,
   getWatchlist,
@@ -57,6 +57,7 @@ import { AddAutomationModal } from "@/components/home/add-automation-modal";
 import { EditAutomationModal } from "@/components/home/edit-automation-modal";
 import { RemoveTorrentDialog } from "@/components/torrent/remove-torrent-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { CardSizeProvider, CARD_SIZE_COMPACT_BELOW, CARD_SIZE_MIN, CARD_SIZE_MAX } from "@/components/home/card-resize";
 
 export default function HomePage() {
   const [pill, setPill] = useState<PillKey>("all");
@@ -69,6 +70,11 @@ export default function HomePage() {
     "fonte.home-filter-pills",
     DEFAULT_VISIBLE_PILLS,
     (v): v is PillKey[] => Array.isArray(v) && v.every((k) => typeof k === "string")
+  );
+  const [cardSize, setCardSize] = usePersistedState<number>(
+    "fonte.card-size",
+    176,
+    (v): v is number => typeof v === "number" && v >= CARD_SIZE_MIN && v <= CARD_SIZE_MAX
   );
 
   const [torrents, setTorrents] = useState<TorrentRecord[]>([]);
@@ -206,7 +212,13 @@ export default function HomePage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-6 space-y-8 animate-card-enter">
+    <CardSizeProvider size={cardSize} setSize={setCardSize}>
+    <div
+      className="max-w-6xl mx-auto px-6 py-6 space-y-8 animate-card-enter group/cards"
+      style={{ "--card-w": `${cardSize}px` } as CSSProperties}
+      data-cards-root=""
+      data-cards={cardSize < CARD_SIZE_COMPACT_BELOW ? "compact" : undefined}
+    >
       <IndexerBanner status={indexerStatus} onRestarted={refreshIndexerStatus} />
 
       {/* Filter pills — hidden on a fresh install where the add-card carries the page */}
@@ -387,5 +399,6 @@ export default function HomePage() {
         onClose={() => setClearOpen(false)}
       />
     </div>
+    </CardSizeProvider>
   );
 }
