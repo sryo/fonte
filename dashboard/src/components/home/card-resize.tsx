@@ -10,7 +10,6 @@ import {
 import { Notches } from "@phosphor-icons/react";
 
 export const CARD_SIZE_MIN = 120;
-/* 360 = three full columns inside the home page's 1104px content width. */
 export const CARD_SIZE_MAX = 360;
 export const CARD_SIZE_COMPACT_BELOW = 140;
 
