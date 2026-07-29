@@ -69,6 +69,12 @@ Note the torrent bar keys off **status**, not fullness — a torrent marked
 complete with some files deselected sits below 100% but is still done, and should
 be green. `done` also suppresses the shine (a finished bar isn't transferring).
 
+One exception for dense **list rows** (the file tree): once a row is done its
+bar disappears entirely, replaced by a small green `Check` — a finished file is
+a fact, not a process, and a wall of full green bars buries the rows that are
+still moving. Persistent surfaces (hero, status strip) keep the green bar; they
+must hold their place either way.
+
 The `color` prop stays on the primitive for reuse — but don't pass a non-`torrent`
 domain color to a bar unless it genuinely represents that domain's activity. None
 do now.

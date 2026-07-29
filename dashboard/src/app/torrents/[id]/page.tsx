@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { DotsThree } from "@phosphor-icons/react";
@@ -48,6 +48,7 @@ export default function TorrentDetailPage() {
   const [alternatives, setAlternatives] = useState<AlternativeResult[]>([]);
   const [altSearching, setAltSearching] = useState(false);
   const [altError, setAltError] = useState<string | null>(null);
+  const [subtitleError, setSubtitleError] = useState<string | null>(null);
 
   // Wanted-toggles still in flight, by file index. Poll responses overlay
   // these so a fetch that started before the toggle can't bounce the checkbox
@@ -59,6 +60,14 @@ export default function TorrentDetailPage() {
     return serverFiles.map((f, i) => (pending.has(i) ? { ...f, selected: pending.get(i)! } : f));
   }, []);
 
+  const filesRef = useRef<TorrentFileRecord[]>([]);
+  useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+  // Held true by FileList during a rubber-band drag so a poll can't reshuffle
+  // row geometry mid-selection.
+  const filePollPausedRef = useRef(false);
+
   const fetchData = useCallback(async () => {
     try {
       const [torrentRes, filesRes, subsRes] = await Promise.all([
@@ -67,7 +76,7 @@ export default function TorrentDetailPage() {
         getTorrentSubtitles(id).catch(() => ({ ok: false, subtitles: [] })),
       ]);
       setTorrent(torrentRes.torrent);
-      setFiles(overlayPendingToggles(filesRes.files));
+      if (!filePollPausedRef.current) setFiles(overlayPendingToggles(filesRes.files));
       setSubtitles(subsRes.subtitles || []);
       setError(null);
     } catch (err) {
@@ -79,17 +88,20 @@ export default function TorrentDetailPage() {
 
   usePollingEffect(fetchData, 2000);
 
-  const handleFileToggle = useCallback(async (idx: number, selected: boolean) => {
-    const target = !selected;
-    pendingFileToggles.current.set(idx, target);
-    setFiles((prev) => prev.map((f, i) => (i === idx ? { ...f, selected: target } : f)));
+  const handleSetWanted = useCallback(async (indices: number[], wanted: boolean) => {
+    if (indices.length === 0) return;
+    const idxSet = new Set(indices);
+    // Exact per-index prior states, so a mixed batch reverts correctly.
+    const prior = new Map(indices.map((i) => [i, filesRef.current[i]?.selected ?? true]));
+    for (const i of indices) pendingFileToggles.current.set(i, wanted);
+    setFiles((prev) => prev.map((f, i) => (idxSet.has(i) ? { ...f, selected: wanted } : f)));
     try {
-      const res = await setTorrentFilesWanted(id, target ? [idx] : [], target ? [] : [idx]);
-      pendingFileToggles.current.delete(idx);
+      const res = await setTorrentFilesWanted(id, wanted ? indices : [], wanted ? [] : indices);
+      for (const i of indices) pendingFileToggles.current.delete(i);
       if (res.ok && res.files) setFiles(overlayPendingToggles(res.files));
     } catch {
-      pendingFileToggles.current.delete(idx);
-      setFiles((prev) => prev.map((f, i) => (i === idx ? { ...f, selected } : f)));
+      for (const i of indices) pendingFileToggles.current.delete(i);
+      setFiles((prev) => prev.map((f, i) => (idxSet.has(i) ? { ...f, selected: prior.get(i)! } : f)));
     }
   }, [id, overlayPendingToggles]);
 
@@ -156,10 +168,13 @@ export default function TorrentDetailPage() {
   }, [id, router, alternatives, swapTarget]);
 
   const handleFetchSubtitles = useCallback(async () => {
+    setSubtitleError(null);
     try {
       await fetchTorrentSubtitles(id);
       fetchData();
-    } catch {}
+    } catch (err) {
+      setSubtitleError((err as Error).message);
+    }
   }, [id, fetchData]);
 
   if (loading) return <LoadingState label="Loading torrent…" />;
@@ -258,7 +273,13 @@ export default function TorrentDetailPage() {
       </DetailHero>
 
       <Section title="Files" count={files.length}>
-        <FileList files={files} onToggle={handleFileToggle} downloading={torrent.status === "downloading"} stalled={isStalled} />
+        <FileList
+          files={files}
+          onSetWanted={handleSetWanted}
+          downloading={torrent.status === "downloading"}
+          stalled={isStalled}
+          pollPausedRef={filePollPausedRef}
+        />
       </Section>
 
       <Section
@@ -270,6 +291,7 @@ export default function TorrentDetailPage() {
           </Button>
         }
       >
+        {subtitleError && <Callout tone="error" className="mb-3">{subtitleError}</Callout>}
         <SubtitleList subtitles={subtitles} onChanged={fetchData} />
       </Section>
 

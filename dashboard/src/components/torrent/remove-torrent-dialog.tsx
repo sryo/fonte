@@ -2,7 +2,10 @@
 
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Kbd } from "@/components/ui/kbd";
 import { usePersistedState } from "@/hooks/use-persisted-state";
+import { useIsMac, modKeyLabel } from "@/hooks/use-platform";
 
 export function RemoveTorrentDialog({
   open,
@@ -20,6 +23,12 @@ export function RemoveTorrentDialog({
     false,
     (v): v is boolean => typeof v === "boolean",
   );
+  const mod = modKeyLabel(useIsMac());
+
+  const confirm = () => {
+    onConfirm(deleteFiles);
+    onClose();
+  };
 
   // The title carries the name and the question in one line — no separate
   // "Remove X?" body sentence repeating the verb.
@@ -27,13 +36,20 @@ export function RemoveTorrentDialog({
 
   return (
     <Modal open={open} onClose={onClose} title={title}>
-      <div className="space-y-4">
+      <div
+        className="space-y-4"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            confirm();
+          }
+        }}
+      >
         <label className="flex items-start gap-2 cursor-pointer">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={deleteFiles}
             onChange={(e) => setDeleteFiles(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-primary"
+            className="mt-0.5"
           />
           <span className="text-sm">
             Also move files to Trash
@@ -44,17 +60,25 @@ export function RemoveTorrentDialog({
         </label>
         <div className="flex gap-2 pt-1">
           <Button
+            type="button"
             variant="destructive"
             className="flex-1"
-            onClick={() => {
-              onConfirm(deleteFiles);
-              onClose();
-            }}
+            onClick={confirm}
           >
             {deleteFiles ? "Remove and move to Trash" : "Remove"}
+            <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">
+              {mod}↵
+            </Kbd>
           </Button>
-          <Button variant="ghost" onClick={onClose} className="text-muted-foreground">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            data-autofocus=""
+            className="text-muted-foreground"
+          >
             Cancel
+            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
           </Button>
         </div>
       </div>
