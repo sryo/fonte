@@ -208,7 +208,7 @@ export function updateTorrent(id: string, fields: Partial<{
     uploaded: number;
     size: number;
     numPeers: number;
-    completedAt: number;
+    completedAt: number | null;
     stalledSince: number | null;
     errorMessage: string;
     tags: string[];

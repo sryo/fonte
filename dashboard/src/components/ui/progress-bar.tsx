@@ -28,7 +28,9 @@ const FILL_SHEEN: Record<ProgressVariant, string> = {
 // Clamp a 0–1 fraction to a whole-percent 0–100. Shared so the bar width and
 // any adjacent "42%" label always agree.
 export function toPct(value: number): number {
-  return Math.round(Math.min(1, Math.max(0, value)) * 100);
+  const clamped = Math.min(1, Math.max(0, value));
+  // 100 is reserved for actually-done; 0.9999 reads as 99, not a false finish.
+  return clamped >= 1 ? 100 : Math.min(99, Math.round(clamped * 100));
 }
 
 export function ProgressBar({

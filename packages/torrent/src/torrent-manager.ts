@@ -522,7 +522,11 @@ export class TorrentManager {
                 const stats = fileStats[i];
                 const progress = f.length > 0 ? (f.bytesCompleted || 0) / f.length : 0;
                 const prev = byPath.get(f.name);
-                if (!prev || Math.abs(prev.progress - progress) > 0.0001) {
+                // The epsilon must not swallow the done edge: a large file's last
+                // block moves progress by less than 1e-4, but 0.9999 → 1 changes
+                // what the UI reports.
+                const crossedDone = prev !== undefined && progress >= 1 && prev.progress < 1;
+                if (!prev || crossedDone || Math.abs(prev.progress - progress) > 0.0001) {
                     updateTorrentFileProgress(recordId, f.name, progress);
                 }
                 if (stats && typeof stats.wanted === 'boolean' && (!prev || prev.selected !== stats.wanted)) {
@@ -614,6 +618,13 @@ export class TorrentManager {
                 size: t.totalSize || record.size,
                 status: newStatus,
                 stalledSince,
+                // percentDone covers wanted files only, so re-wanting a file can
+                // regress a "completed" torrent; drop the stale stamp and let the
+                // completion event re-fire when it truly finishes. 'checking' is
+                // excluded — verify passes regress progress transiently.
+                ...(record.completedAt && !isDone && newStatus === 'downloading'
+                    ? { completedAt: null }
+                    : {}),
             };
 
             const decodedName = t.name ? decodeTorrentName(t.name) : '';
@@ -657,10 +668,13 @@ export class TorrentManager {
             }
 
             // Insert files once, then keep per-file progress fresh while
-            // downloading, plus a final sync on completion so files reach 100%.
+            // downloading, plus a final sync on the done transition so files
+            // reach 100%. The stale-row clause backfills wanted files a past
+            // completion left short (it disarms itself after one clean sync).
             const files = getTorrentFiles(record.id);
-            const justCompleted = isDone && wasPending && !record.completedAt;
-            if (files.length === 0 || newStatus === 'downloading' || justCompleted) {
+            const justCompleted = isDone && wasPending;
+            const staleDoneFiles = isDone && files.some(f => f.selected && f.progress < 1);
+            if (files.length === 0 || newStatus === 'downloading' || justCompleted || staleDoneFiles) {
                 await this.syncTorrentFiles(record.id, t.id);
             }
         }
