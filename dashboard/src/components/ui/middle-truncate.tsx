@@ -3,6 +3,34 @@
 import { useLayoutEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
+const TOKEN_START = /[\s([]/;
+const BOUNDARY = /[\s.\[\]()_-]/;
+
+function nearestMatch(text: string, nominal: number, from: number, to: number, re: RegExp): number {
+  let best = -1;
+  for (let i = from; i <= to; i++) {
+    if (re.test(text[i]) && (best === -1 || Math.abs(i - nominal) < Math.abs(best - nominal))) {
+      best = i;
+    }
+  }
+  return best;
+}
+
+/** Split so the tail starts at a token boundary near the requested length —
+    "…[YTS.BZ]" instead of "…1] [YTS.BZ]". Token starters (space, brackets)
+    beat mid-token separators like the dot in "[5.1]"; raw cut as last resort. */
+function splitTail(text: string, tailChars: number): { head: string; tail: string } {
+  const nominal = text.length - tailChars;
+  const from = Math.max(1, nominal - 8);
+  const to = Math.min(text.length - 4, nominal + 8);
+  const starter = nearestMatch(text, nominal, from, to, TOKEN_START);
+  const at = starter !== -1 ? starter : (() => {
+    const any = nearestMatch(text, nominal, from, to, BOUNDARY);
+    return any !== -1 ? any : nominal;
+  })();
+  return { head: text.slice(0, at), tail: text.slice(at) };
+}
+
 /** Finder-style middle truncation: the head takes the ellipsis, the tail —
     extension included — always stays visible. Single-line is pure CSS (the
     two-span flex technique); multi-line needs measurement, since CSS has no
@@ -30,8 +58,7 @@ export function MiddleTruncate({
       </span>
     );
   }
-  const head = text.slice(0, -tailChars);
-  const tail = text.slice(-tailChars);
+  const { head, tail } = splitTail(text, tailChars);
   return (
     <span className={cn("flex min-w-0", className)} title={text}>
       <span className="truncate">{head}</span>
@@ -69,8 +96,7 @@ function MeasuredClamp({
       el.textContent = text;
       if (el.scrollHeight <= maxH) return;
 
-      const tail = text.slice(-tailChars);
-      const headFull = text.slice(0, -tailChars);
+      const { head: headFull, tail } = splitTail(text, tailChars);
       let lo = 0;
       let hi = headFull.length;
       let best = 0;
@@ -84,7 +110,8 @@ function MeasuredClamp({
           hi = mid - 1;
         }
       }
-      el.textContent = `${headFull.slice(0, best)}…${tail}`;
+      // A head ending in " [" would put a dangling opener before the ellipsis.
+      el.textContent = `${headFull.slice(0, best).replace(/[\s([]+$/, "")}…${tail}`;
     };
 
     measure();
