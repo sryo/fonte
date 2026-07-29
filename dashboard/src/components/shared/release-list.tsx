@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Check } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/feedback";
+import { MiddleTruncate } from "@/components/ui/middle-truncate";
 import { formatBytes, formatShortRelativeTime } from "@/lib/format";
 import { qualityTone, TONE_TEXT } from "@/lib/status";
 import { cn } from "@/lib/utils";
@@ -55,7 +56,7 @@ export function ReleaseList<T extends ReleaseItem>({
         return (
           <div key={key} className="flex items-center gap-3 rounded-md border px-3 py-2">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium" title={r.title}>{r.title}</p>
+              <MiddleTruncate text={r.title} className="text-sm font-medium" />
               <p className="text-xs text-muted-foreground tabular-nums">
                 ↑ {r.seeders} / {r.leechers} · {formatBytes(r.size)} ·{" "}
                 <span className={cn(TONE_TEXT[qualityTone(r.qualityMatch)])}>

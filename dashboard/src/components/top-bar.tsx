@@ -21,6 +21,7 @@ import {
 import { addTorrent, sendMessage, getTorrents, getWatchlist } from "@/lib/api";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Kbd } from "@/components/ui/kbd";
+import { MiddleTruncate } from "@/components/ui/middle-truncate";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatBytes } from "@/lib/format";
 import { useHotkey } from "@/components/hotkeys-provider";
@@ -343,7 +344,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
                       idx === selIdx && "bg-muted/50"
                     )}
                   >
-                    <p className="min-w-0 flex-1 truncate text-sm font-medium">{item.title}</p>
+                    <MiddleTruncate text={item.title} className="min-w-0 flex-1 text-sm font-medium" />
                     <StatusBadge status={item.status} />
                   </button>
                 ))}
@@ -355,12 +356,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
                 className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b last:border-b-0"
               >
                 <div className="flex-1 min-w-0">
-                  <p
-                    className="text-sm font-medium truncate"
-                    title={result.title}
-                  >
-                    {result.title}
-                  </p>
+                  <MiddleTruncate text={result.title} className="text-sm font-medium" />
                   <div className="flex items-center gap-2 mt-0.5">
                     {result.seeders !== undefined && (
                       <span className="inline-flex items-center rounded-full bg-done/10 px-2 py-0.5 text-xs font-medium text-done">
