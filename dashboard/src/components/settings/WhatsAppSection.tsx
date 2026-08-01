@@ -12,9 +12,18 @@ import {
   requestWhatsAppPairingCode,
   type WhatsAppChat,
 } from "@/lib/api";
+import { WhatsappLogo } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Section } from "@/components/ui/section";
 import { Spinner } from "@/components/ui/feedback";
 
@@ -111,7 +120,15 @@ export function WhatsAppSection() {
   };
 
   return (
-    <Section title="WhatsApp" description="Control Fonte from your phone">
+    <Section
+      title={
+        <span className="flex items-center gap-2">
+          <WhatsappLogo className="h-4 w-4 text-done" weight="bold" />
+          WhatsApp
+        </span>
+      }
+      description="Control Fonte from your phone"
+    >
       <div className="space-y-4">
         {status === "disconnected" && (
           <div className="space-y-3">
@@ -123,9 +140,8 @@ export function WhatsAppSection() {
               <Button
                 onClick={handleConnect}
                 disabled={connectLoading}
-                className="bg-done text-white hover:bg-done/90"
               >
-                {connectLoading ? "Connecting..." : "Connect with QR"}
+                {connectLoading ? "Connecting…" : "Connect with QR"}
               </Button>
               <Button
                 variant="outline"
@@ -306,7 +322,7 @@ function WhatsAppChatPicker() {
   return (
     <div className="space-y-2 pt-3 border-t">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium">Monitored chat</label>
+        <Label className="text-sm font-medium">Monitored chat</Label>
         {saving && <span className="text-xs text-muted-foreground">Saving…</span>}
       </div>
       <p className="text-xs text-muted-foreground">
@@ -316,18 +332,21 @@ function WhatsAppChatPicker() {
       {loading ? (
         <div className="h-9 rounded-md border bg-muted/30 animate-pulse" />
       ) : (
-        <select
-          value={selected ?? ""}
-          onChange={(e) => handleChange(e.target.value)}
-          className="w-full h-9 px-3 text-sm rounded-md border bg-background"
-        >
-          <option value="">— Ignore everything —</option>
-          {chats.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.isGroup ? "👥 " : ""}{c.name}{c.unread > 0 ? ` (${c.unread})` : ""}
-            </option>
-          ))}
-        </select>
+        <Select value={selected ?? "__none__"} onValueChange={(v) => handleChange(v === "__none__" ? "" : v)}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">Ignore everything</SelectItem>
+            {chats.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+                {c.isGroup ? " · group" : ""}
+                {c.unread > 0 ? ` (${c.unread})` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
     </div>
   );

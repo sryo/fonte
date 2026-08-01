@@ -11,6 +11,7 @@ import {
   type AgentConfig,
   type CustomProvider,
 } from "@/lib/api";
+import { Robot } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,7 +93,13 @@ export function AgentsSection() {
 
   return (
     <Section
-      title="Agents"
+      title={
+        <span className="flex items-center gap-2">
+          <Robot className="h-4 w-4 text-agent" weight="bold" />
+          Agents
+        </span>
+      }
+      count={Object.keys(agents).length}
       description="Manage AI agents and their configurations"
       action={
         !showAdd ? (

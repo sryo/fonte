@@ -7,6 +7,7 @@ import {
   BUILTIN_PROVIDERS,
   type CustomProvider,
 } from "@/lib/api";
+import { Plug } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Section } from "@/components/ui/section";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -40,14 +41,18 @@ export function ProvidersSection() {
     await fetchProviders();
   };
 
-  if (loading) return null;
-
   const entries = Object.entries(providers);
 
   return (
     <Section
-      title="Providers"
-      description="Built-in providers are always available. Add custom ones for OpenAI-compatible endpoints."
+      title={
+        <span className="flex items-center gap-2">
+          <Plug className="h-4 w-4 text-agent" weight="bold" />
+          Providers
+        </span>
+      }
+      count={entries.length}
+      description="Built-in providers are always available; add custom ones for OpenAI-compatible endpoints"
       action={
         !showAdd ? (
           <Button size="sm" onClick={() => setShowAdd(true)} className="text-xs">

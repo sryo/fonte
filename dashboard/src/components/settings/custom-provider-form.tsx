@@ -60,7 +60,7 @@ export function CustomProviderForm({
     <div className="border rounded-xl p-4 space-y-3 bg-muted/30">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label className="text-xs">Provider ID</Label>
+          <Label className="text-xs">Provider id</Label>
           <Input
             value={form.id}
             onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))}
@@ -69,7 +69,7 @@ export function CustomProviderForm({
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Display Name</Label>
+          <Label className="text-xs">Display name</Label>
           <Input
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -112,7 +112,7 @@ export function CustomProviderForm({
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">API Key</Label>
+        <Label className="text-xs">API key</Label>
         <Input
           type="password"
           value={form.api_key}
