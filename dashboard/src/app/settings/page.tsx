@@ -10,8 +10,10 @@ import {
   type TorrentConfig,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/feedback";
+import { restartService } from "@/lib/api";
 import { AgentPersonalitySection } from "@/components/settings/AgentPersonalitySection";
 import { AgentsSection } from "@/components/settings/AgentsSection";
 import { ProvidersSection } from "@/components/settings/ProvidersSection";
@@ -20,6 +22,37 @@ import { NotificationSettingsCard } from "@/components/settings/NotificationSett
 import { TorrentSettingsCard } from "@/components/settings/TorrentSettingsCard";
 import { WatchlistSettingsCard } from "@/components/settings/WatchlistSettingsCard";
 import { WhatsAppSection } from "@/components/settings/WhatsAppSection";
+
+const SECRET_KEY_RE = /(api_key|oauth_token|token)$/i;
+const REDACTED = "__REDACTED__";
+
+/** Replace secret-shaped string leaves so the Advanced editor never renders
+    keys in plaintext. */
+function redactSecrets(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(redactSecrets);
+  if (typeof node !== "object" || node === null) return node;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    out[key] =
+      SECRET_KEY_RE.test(key) && typeof value === "string" && value !== ""
+        ? REDACTED
+        : redactSecrets(value);
+  }
+  return out;
+}
+
+/** Restore untouched redaction sentinels from the live settings at the same
+    path, so a round-trip through the editor never persists the placeholder. */
+function restoreSecrets(node: unknown, source: unknown): unknown {
+  if (Array.isArray(node)) return node.map((v, i) => restoreSecrets(v, Array.isArray(source) ? source[i] : undefined));
+  if (typeof node !== "object" || node === null) return node;
+  const src = (typeof source === "object" && source !== null ? source : {}) as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    out[key] = value === REDACTED ? src[key] : restoreSecrets(value, src[key]);
+  }
+  return out;
+}
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -36,6 +69,9 @@ export default function SettingsPage() {
   // While the Advanced textarea holds unsaved edits, sibling saves must not
   // overwrite it.
   const rawJsonDirtyRef = useRef(false);
+  const [torrentLoadFailed, setTorrentLoadFailed] = useState(false);
+  const [restartOpen, setRestartOpen] = useState(false);
+  const [restarting, setRestarting] = useState(false);
 
   const errorFor = (section: string) =>
     sectionError?.section === section ? sectionError.message : undefined;
@@ -45,9 +81,10 @@ export default function SettingsPage() {
     return Promise.all([getSettings(), getTorrentConfig().catch(() => null)])
       .then(([s, tc]) => {
         setSettings(s);
-        setRawJson(JSON.stringify(s, null, 2));
+        setRawJson(JSON.stringify(redactSecrets(s), null, 2));
         rawJsonDirtyRef.current = false;
-        if (tc) setTorrentConfig(tc.config);
+        setTorrentConfig(tc ? tc.config : null);
+        setTorrentLoadFailed(!tc);
       })
       .catch((err) => setErrorMsg((err as Error).message))
       .finally(() => setLoading(false));
@@ -80,7 +117,7 @@ export default function SettingsPage() {
       const result = await updateSettings(updates);
       setSettings(result.settings);
       if (!rawJsonDirtyRef.current) {
-        setRawJson(JSON.stringify(result.settings, null, 2));
+        setRawJson(JSON.stringify(redactSecrets(result.settings), null, 2));
       }
       setSavedSection(section);
       setTimeout(() => setSavedSection(null), 2000);
@@ -96,9 +133,10 @@ export default function SettingsPage() {
     setSectionError(null);
     try {
       const parsed = JSON.parse(rawJson);
-      const result = await updateSettings(parsed);
+      const restored = restoreSecrets(parsed, settings) as Partial<Settings>;
+      const result = await updateSettings(restored);
       setSettings(result.settings);
-      setRawJson(JSON.stringify(result.settings, null, 2));
+      setRawJson(JSON.stringify(redactSecrets(result.settings), null, 2));
       rawJsonDirtyRef.current = false;
       setSavedSection("advanced");
       setTimeout(() => setSavedSection(null), 2000);
@@ -107,7 +145,7 @@ export default function SettingsPage() {
     } finally {
       setSavingSection(null);
     }
-  }, [rawJson]);
+  }, [rawJson, settings]);
 
   if (loading) {
     return (
@@ -123,14 +161,25 @@ export default function SettingsPage() {
   if (!settings && errorMsg) {
     return (
       <div className="p-6 md:p-8">
-        <div className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground space-y-2">
+        <div className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground space-y-3">
           <p>Could not load settings. The API server may not be reachable.</p>
           <p>
             <a href="/control" className="text-primary underline underline-offset-2">
-              Go to Control Plane
+              Go to Control
             </a>
             {" "}to check the connection or change the API address.
           </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setErrorMsg(null);
+              setLoading(true);
+              void loadAll();
+            }}
+          >
+            Retry
+          </Button>
         </div>
       </div>
     );
@@ -151,11 +200,18 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      <div className="flex justify-end -mt-12">
+        <Button variant="ghost" size="sm" onClick={() => setRestartOpen(true)} disabled={restarting} className="text-xs text-muted-foreground">
+          {restarting ? "Restarting…" : "Restart daemon"}
+        </Button>
+      </div>
+
       {errorMsg && (
         <div className="flex items-center justify-between px-4 py-3 text-sm rounded-xl border border-destructive/30 bg-destructive/5 text-destructive">
           <span>{errorMsg}</span>
           <button
             onClick={() => setErrorMsg(null)}
+            aria-label="Dismiss error"
             className="text-destructive/60 hover:text-destructive transition-colors ml-3 shrink-0"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -166,6 +222,22 @@ export default function SettingsPage() {
       )}
 
       <AgentPersonalitySection />
+
+      {!torrentConfig && torrentLoadFailed && (
+        <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
+          Could not load torrent settings — the torrent manager may be starting up.{" "}
+          <button
+            type="button"
+            onClick={() => {
+              setLoading(true);
+              void loadAll();
+            }}
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {torrentConfig && (
         <TorrentSettingsCard
@@ -216,6 +288,8 @@ export default function SettingsPage() {
       <div className="rounded-xl bg-card shadow-card overflow-hidden">
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
+          aria-expanded={showAdvanced}
+          aria-controls="advanced-json-panel"
           className="w-full flex items-center justify-between p-4 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <span className="flex items-center gap-2">
@@ -224,15 +298,17 @@ export default function SettingsPage() {
             </svg>
             Advanced (Raw JSON)
           </span>
-          <svg className={`h-4 w-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <svg aria-hidden="true" className={`h-4 w-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
           </svg>
         </button>
 
         {showAdvanced && (
-          <div className="px-4 pb-4 space-y-3 border-t pt-4">
+          <div id="advanced-json-panel" className="px-4 pb-4 space-y-3 border-t pt-4">
             <p className="text-xs text-muted-foreground">
-              Edit the raw configuration JSON. Changes take effect on next processing cycle.
+              Edit the raw configuration JSON. Most changes apply immediately; watchlist
+              scheduling applies after a daemon restart. API keys render as {"\u0022__REDACTED__\u0022"} and
+              keep their saved values unless you type a new one.
             </p>
             <Textarea
               value={rawJson}
@@ -265,6 +341,26 @@ export default function SettingsPage() {
         )}
       </div>
 
+      <ConfirmDialog
+        open={restartOpen}
+        title="Restart the daemon?"
+        message="Active transfers continue in Transmission; the API and agents are briefly unavailable while Fonte restarts."
+        confirmLabel="Restart"
+        busyLabel="Restarting…"
+        onConfirm={async () => {
+          setRestarting(true);
+          try {
+            await restartService();
+          } finally {
+            setTimeout(() => {
+              setRestarting(false);
+              setLoading(true);
+              void loadAll();
+            }, 4000);
+          }
+        }}
+        onClose={() => setRestartOpen(false)}
+      />
     </div>
   );
 }

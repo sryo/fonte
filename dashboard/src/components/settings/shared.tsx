@@ -1,8 +1,12 @@
 "use client";
 
+import { cloneElement, isValidElement, useId, useState } from "react";
+import { Eye, EyeSlash } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/feedback";
+import { cn } from "@/lib/utils";
 
 export function SettingRow({
   label,
@@ -10,19 +14,113 @@ export function SettingRow({
   children,
 }: {
   label: string;
-  description?: string;
+  description?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const id = useId();
+  // Wire the label to a single control child so clicking it focuses the
+  // field and screen readers announce the pair. Multi-element children
+  // (button groups etc.) render as-is.
+  const child =
+    isValidElement<{ id?: string }>(children) && children.props.id === undefined
+      ? cloneElement(children, { id })
+      : children;
+  const labeled = child !== children;
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div className="min-w-0">
-        <Label className="text-sm font-medium">{label}</Label>
+        <Label htmlFor={labeled ? id : undefined} className="text-sm font-medium">
+          {label}
+        </Label>
         {description && (
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
         )}
       </div>
-      <div className="shrink-0">{children}</div>
+      <div className="shrink-0">{child}</div>
     </div>
+  );
+}
+
+/** Masked input with a reveal toggle, for API keys and tokens. */
+export function SecretInput({
+  value,
+  onChange,
+  placeholder,
+  id,
+  className,
+}: {
+  value: string;
+  onChange: React.ChangeEventHandler<HTMLInputElement>;
+  placeholder?: string;
+  id?: string;
+  className?: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className={cn("relative", className)}>
+      <Input
+        id={id}
+        type={show ? "text" : "password"}
+        autoComplete="off"
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="pr-8 text-sm"
+      />
+      <button
+        type="button"
+        aria-label={show ? "Hide value" : "Show value"}
+        onClick={() => setShow((s) => !s)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+      >
+        {show ? <EyeSlash className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+      </button>
+    </div>
+  );
+}
+
+/** Numeric input holding a local string draft: it can be cleared while
+    typing, commits only valid values (clamped to min), and snaps back to
+    the committed value on blur. */
+export function NumberInput({
+  value,
+  onCommit,
+  min,
+  step,
+  id,
+  className,
+  placeholder,
+}: {
+  value: number;
+  onCommit: (n: number) => void;
+  min?: number;
+  step?: number;
+  id?: string;
+  className?: string;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const [prev, setPrev] = useState(value);
+  if (prev !== value) {
+    setPrev(value);
+    setDraft(String(value));
+  }
+  return (
+    <Input
+      id={id}
+      type="number"
+      value={draft}
+      min={min}
+      step={step}
+      placeholder={placeholder}
+      className={className}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const n = step && step < 1 ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+        if (!Number.isNaN(n)) onCommit(min !== undefined ? Math.max(min, n) : n);
+      }}
+      onBlur={() => setDraft(String(value))}
+    />
   );
 }
 

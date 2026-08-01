@@ -34,16 +34,25 @@ export function AgentsSection() {
   const [saving, setSaving] = useState(false);
   const [showAddProvider, setShowAddProvider] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [resetTarget, setResetTarget] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState<string | null>(null);
 
-  const fetchAll = async () => {
-    try {
-      const [a, p] = await Promise.all([getAgents(), getCustomProviders()]);
-      setAgents(a);
-      setProviders(p);
-    } catch {}
-  };
+  const fetchAll = () =>
+    Promise.all([getAgents(), getCustomProviders()])
+      .then(([a, p]) => {
+        setAgents(a);
+        setProviders(p);
+        setLoadError(null);
+      })
+      // A failed fetch must not masquerade as "no agents configured".
+      .catch((err) => setLoadError((err as Error).message));
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    void fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSave = async () => {
     if (!form.id || !form.name || !form.model) return;
@@ -57,8 +66,11 @@ export function AgentsSection() {
       });
       setForm({ id: "", name: "", provider: "anthropic", model: "sonnet" });
       setShowAdd(false);
+      setSaveError(null);
       await fetchAll();
-    } catch {}
+    } catch (err) {
+      setSaveError((err as Error).message);
+    }
     setSaving(false);
   };
 
@@ -68,10 +80,14 @@ export function AgentsSection() {
     await fetchAll();
   };
 
-  const handleReset = async (id: string) => {
-    try {
-      await sendMessage({ message: `@${id} /reset`, agent: id, channel: "web", sender: "Web" });
-    } catch {}
+  // Clears the agent's conversation state; confirmed via dialog since it
+  // can't be undone.
+  const confirmReset = async () => {
+    const id = resetTarget;
+    if (!id) return;
+    await sendMessage({ message: `@${id} /reset`, agent: id, channel: "web", sender: "Web" });
+    setResetSent(id);
+    setTimeout(() => setResetSent(null), 2000);
   };
 
   return (
@@ -105,10 +121,10 @@ export function AgentsSection() {
                   <Button
                     variant="ghost"
                     size="xs"
-                    onClick={() => handleReset(id)}
+                    onClick={() => setResetTarget(id)}
                     className="text-muted-foreground"
                   >
-                    Reset
+                    {resetSent === id ? "Reset sent" : "Reset"}
                   </Button>
                   <Button
                     variant="ghost"
@@ -124,7 +140,16 @@ export function AgentsSection() {
           </div>
         )}
 
-        {Object.keys(agents).length === 0 && !showAdd && (
+        {loadError && (
+          <p className="text-sm text-destructive">
+            Could not load agents: {loadError}{" "}
+            <button type="button" onClick={() => void fetchAll()} className="underline underline-offset-2">
+              Retry
+            </button>
+          </p>
+        )}
+
+        {!loadError && Object.keys(agents).length === 0 && !showAdd && (
           <p className="text-sm text-muted-foreground">No agents configured yet.</p>
         )}
 
@@ -199,6 +224,7 @@ export function AgentsSection() {
               />
             )}
 
+            {saveError && <p className="text-xs text-destructive">{saveError}</p>}
             <div className="flex items-center gap-2 pt-1">
               <Button
                 onClick={handleSave}
@@ -218,6 +244,15 @@ export function AgentsSection() {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={resetTarget !== null}
+        title="Reset agent"
+        message={<>Reset “{resetTarget}”? Its conversation state is cleared and cannot be recovered.</>}
+        confirmLabel="Reset"
+        destructive
+        onConfirm={confirmReset}
+        onClose={() => setResetTarget(null)}
+      />
       <ConfirmDialog
         open={deleteTarget !== null}
         title="Delete agent"

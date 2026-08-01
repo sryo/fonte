@@ -12,7 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Section } from "@/components/ui/section";
-import { SettingRow, SectionSaveButton } from "@/components/settings/shared";
+import { Button } from "@/components/ui/button";
+import { getIndexerStatus } from "@/lib/api";
+import { SettingRow, SectionSaveButton, SecretInput, NumberInput } from "@/components/settings/shared";
 
 interface WatchlistSettings {
   enabled?: boolean;
@@ -82,6 +84,25 @@ export function WatchlistSettingsCard({
 
   const dirty = !eq(current, seeded);
 
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await getIndexerStatus();
+      setTestResult(
+        res.ok
+          ? `Connected — ${res.count} indexer${res.count === 1 ? "" : "s"}`
+          : res.reason || "Jackett unreachable"
+      );
+    } catch (err) {
+      setTestResult((err as Error).message);
+    } finally {
+      setTesting(false);
+    }
+  };
+
   const handleSave = () => {
     // Send only this section; spreading the whole settings object would
     // overwrite keys edited elsewhere with this card's stale copy.
@@ -112,16 +133,15 @@ export function WatchlistSettingsCard({
       description="Automatic media tracking and search"
     >
       <div className="divide-y divide-border/50">
-        <SettingRow label="Enabled" description="Enable watchlist monitoring">
+        <SettingRow label="Enabled" description="Enable watchlist monitoring · applies after daemon restart">
           <Switch checked={enabled} onCheckedChange={setEnabled} />
         </SettingRow>
 
-        <SettingRow label="Check interval" description="Minutes between automatic checks">
-          <Input
-            type="number"
+        <SettingRow label="Check interval" description="Minutes between automatic checks · applies after daemon restart">
+          <NumberInput
             value={checkInterval}
-            onChange={(e) => setCheckInterval(parseInt(e.target.value) || 0)}
-            className="w-24 text-sm text-right"
+            onCommit={setCheckInterval}
+            className="w-28 text-sm text-right"
             min={1}
           />
         </SettingRow>
@@ -152,14 +172,37 @@ export function WatchlistSettingsCard({
           />
         </SettingRow>
 
-        <SettingRow label="Jackett API key" description="Authentication key for Jackett">
-          <Input
-            type="password"
+        <SettingRow
+          label="Jackett API key"
+          description={
+            <>
+              Shown in the top bar of the{" "}
+              <a
+                href={jackettUrl || "http://localhost:9117"}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                Jackett dashboard ↗
+              </a>
+            </>
+          }
+        >
+          <SecretInput
             value={jackettApiKey}
             onChange={(e) => setJackettApiKey(e.target.value)}
-            className="w-60 text-sm"
+            className="w-60"
             placeholder="Enter API key"
           />
+        </SettingRow>
+
+        <SettingRow label="Test connection" description="Checks Jackett with the saved URL and key">
+          <div className="flex items-center gap-2">
+            {testResult && <span className="text-xs text-muted-foreground">{testResult}</span>}
+            <Button type="button" variant="outline" size="sm" onClick={handleTest} disabled={testing}>
+              {testing ? "Testing…" : "Test"}
+            </Button>
+          </div>
         </SettingRow>
 
         <SectionSaveButton

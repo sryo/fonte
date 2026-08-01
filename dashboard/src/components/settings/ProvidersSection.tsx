@@ -17,17 +17,21 @@ export function ProvidersSection() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const fetchProviders = async () => {
-    try {
-      const data = await getCustomProviders();
-      setProviders(data);
-    } catch {}
-    setLoading(false);
-  };
+  const fetchProviders = () =>
+    getCustomProviders()
+      .then((data) => {
+        setProviders(data);
+        setLoadError(null);
+      })
+      // A failed fetch must not masquerade as "no custom providers".
+      .catch((err) => setLoadError((err as Error).message))
+      .finally(() => setLoading(false));
 
   useEffect(() => {
-    fetchProviders();
+    void fetchProviders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const confirmDelete = async () => {
@@ -102,7 +106,16 @@ export function ProvidersSection() {
           </div>
         )}
 
-        {entries.length === 0 && !showAdd && (
+        {loadError && (
+          <p className="text-sm text-destructive">
+            Could not load providers: {loadError}{" "}
+            <button type="button" onClick={() => void fetchProviders()} className="underline underline-offset-2">
+              Retry
+            </button>
+          </p>
+        )}
+
+        {!loadError && entries.length === 0 && !showAdd && (
           <p className="text-sm text-muted-foreground">No custom providers configured yet.</p>
         )}
 

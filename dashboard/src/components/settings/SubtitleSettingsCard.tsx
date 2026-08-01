@@ -5,7 +5,7 @@ import { type Settings } from "@/lib/api";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Section } from "@/components/ui/section";
-import { SettingRow, SectionSaveButton } from "@/components/settings/shared";
+import { SettingRow, SectionSaveButton, SecretInput } from "@/components/settings/shared";
 
 interface SubtitleSettings {
   enabled?: boolean;
@@ -75,6 +75,11 @@ export function SubtitleSettingsCard({
 
   const dirty = !eq(current, seeded);
 
+  const parsedLanguages = targetLanguages
+    .split(",")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
   const handleSave = () => {
     const languages = targetLanguages
       .split(",")
@@ -121,30 +126,72 @@ export function SubtitleSettingsCard({
         </SettingRow>
 
         <SettingRow label="Target languages" description="Comma-separated language codes (e.g. es, fr, de)">
-          <Input
-            value={targetLanguages}
-            onChange={(e) => setTargetLanguages(e.target.value)}
-            className="w-48 text-sm"
-            placeholder="es, fr, de"
-          />
+          <div className="flex flex-col items-end gap-1.5">
+            <Input
+              value={targetLanguages}
+              onChange={(e) => setTargetLanguages(e.target.value)}
+              className="w-60 text-sm"
+              placeholder="es, fr, de"
+            />
+            {parsedLanguages.length > 0 && (
+              <div className="flex flex-wrap justify-end gap-1">
+                {parsedLanguages.map((code) => (
+                  <span
+                    key={code}
+                    className="rounded bg-muted px-1.5 py-0.5 font-mono text-2xs text-muted-foreground"
+                  >
+                    {code}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </SettingRow>
 
-        <SettingRow label="TMDB API key" description="The Movie Database API key for metadata">
-          <Input
-            type="password"
+        <SettingRow
+          label="TMDB API key"
+          description={
+            <>
+              Used for metadata ·{" "}
+              <a
+                href="https://www.themoviedb.org/settings/api"
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                Get a key ↗
+              </a>
+            </>
+          }
+        >
+          <SecretInput
             value={tmdbApiKey}
             onChange={(e) => setTmdbApiKey(e.target.value)}
-            className="w-60 text-sm"
+            className="w-60"
             placeholder="Enter API key"
           />
         </SettingRow>
 
-        <SettingRow label="OpenSubtitles API key" description="Required for subtitle search and download">
-          <Input
-            type="password"
+        <SettingRow
+          label="OpenSubtitles API key"
+          description={
+            <>
+              Required for subtitle search ·{" "}
+              <a
+                href="https://www.opensubtitles.com/consumers"
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                Get a key ↗
+              </a>
+            </>
+          }
+        >
+          <SecretInput
             value={opensubtitlesApiKey}
             onChange={(e) => setOpensubtitlesApiKey(e.target.value)}
-            className="w-60 text-sm"
+            className="w-60"
             placeholder="Enter API key"
           />
         </SettingRow>

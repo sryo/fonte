@@ -284,11 +284,22 @@ function WhatsAppChatPicker() {
     return () => { mounted = false; };
   }, []);
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const handleChange = async (value: string) => {
     const next = value === "" ? null : value;
+    const prev = selected;
     setSelected(next);
     setSaving(true);
-    try { await setAllowedChat(next); } catch {}
+    setSaveError(null);
+    try {
+      await setAllowedChat(next);
+    } catch (err) {
+      // Roll back — showing an unpersisted chat as monitored would be a lie
+      // about what the daemon listens to.
+      setSelected(prev);
+      setSaveError((err as Error).message);
+    }
     setSaving(false);
   };
 
@@ -301,6 +312,7 @@ function WhatsAppChatPicker() {
       <p className="text-xs text-muted-foreground">
         Only messages from this chat will be sent to the agent. Defaults to none — pick a chat to enable.
       </p>
+      {saveError && <p className="text-xs text-destructive">{saveError}</p>}
       {loading ? (
         <div className="h-9 rounded-md border bg-muted/30 animate-pulse" />
       ) : (
