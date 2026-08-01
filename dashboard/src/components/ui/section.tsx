@@ -21,10 +21,10 @@ export function Section({
     <section className={cn("rounded-xl shadow-card bg-card p-4", className)}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">
+          <h2 className="flex items-center gap-1.5 text-sm font-semibold">
             {title}
             {count !== undefined && (
-              <span className="ml-1.5 font-normal text-muted-foreground">({count})</span>
+              <span className="font-normal text-muted-foreground">({count})</span>
             )}
           </h2>
           {description && (
