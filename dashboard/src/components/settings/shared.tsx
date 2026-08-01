@@ -18,9 +18,8 @@ export function SettingRow({
   children: React.ReactNode;
 }) {
   const id = useId();
-  // Wire the label to a single control child so clicking it focuses the
-  // field and screen readers announce the pair. Multi-element children
-  // (button groups etc.) render as-is.
+  // Single control children get the generated id for label association;
+  // multi-element children render as-is.
   const child =
     isValidElement<{ id?: string }>(children) && children.props.id === undefined
       ? cloneElement(children, { id })
@@ -142,7 +141,7 @@ export function SectionSaveButton({
   accentClass?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 pt-2 mt-2 border-t border-border/50">
+    <div className="flex items-center gap-3 pt-3">
       <Button onClick={onClick} disabled={saving || disabled} className={accentClass}>
         {saving && <Spinner size="xs" />}
         Save

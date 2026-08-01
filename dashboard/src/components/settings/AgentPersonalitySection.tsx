@@ -15,8 +15,7 @@ export function AgentPersonalitySection() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // A failed load must never leave an empty editor over a real file —
-  // saving that would wipe SOUL.md.
+  // A failed load must not render an empty editor over a real SOUL.md.
   const fetchSoul = () =>
     getSoul()
       .then((data) => {
@@ -28,7 +27,6 @@ export function AgentPersonalitySection() {
 
   useEffect(() => {
     void fetchSoul();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const retry = () => {
@@ -78,12 +76,14 @@ export function AgentPersonalitySection() {
             placeholder={"# Soul\n\nYou are..."}
           />
           {saveError && <p className="text-xs text-destructive">{saveError}</p>}
-          <SectionSaveButton
-            onClick={handleSave}
-            saving={saving}
-            saved={saved}
-            accentClass="bg-agent text-agent-foreground hover:bg-agent/90"
-          />
+          <div className="border-t border-border/50">
+            <SectionSaveButton
+              onClick={handleSave}
+              saving={saving}
+              saved={saved}
+              accentClass="bg-agent text-agent-foreground hover:bg-agent/90"
+            />
+          </div>
         </div>
       )}
     </Section>
