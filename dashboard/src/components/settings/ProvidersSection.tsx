@@ -26,13 +26,11 @@ export function ProvidersSection() {
         setProviders(data);
         setLoadError(null);
       })
-      // A failed fetch must not masquerade as "no custom providers".
       .catch((err) => setLoadError((err as Error).message))
       .finally(() => setLoading(false));
 
   useEffect(() => {
     void fetchProviders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const confirmDelete = async () => {
@@ -120,7 +118,7 @@ export function ProvidersSection() {
           </p>
         )}
 
-        {!loadError && entries.length === 0 && !showAdd && (
+        {!loadError && !loading && entries.length === 0 && !showAdd && (
           <p className="text-sm text-muted-foreground">No custom providers configured yet.</p>
         )}
 
