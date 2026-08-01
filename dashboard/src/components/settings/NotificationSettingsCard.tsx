@@ -49,8 +49,8 @@ export function NotificationSettingsCard({
     watchlist_match: watchlistMatch,
   };
 
-  // Resync on refetch — but only when this card is pristine (or the refetch
-  // echoes its own save), so a sibling's save can't wipe in-progress edits.
+  // Adopt refetched values only while pristine (or when they echo this
+  // card's own save) so sibling saves can't wipe in-progress edits.
   const [prevRaw, setPrevRaw] = useState(raw);
   if (prevRaw !== raw) {
     setPrevRaw(raw);

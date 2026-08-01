@@ -108,9 +108,7 @@ let warnedSettingsOnce = false;
 let settingsWriteChain: Promise<unknown> = Promise.resolve();
 
 /**
- * Serialized, atomic read-modify-write of settings.json. The mutator receives
- * freshly-read settings and returns what to persist; the write goes to a temp
- * file and renames into place, so a crash mid-write can't truncate the file.
+ * Serialized, atomic read-modify-write of settings.json (temp file + rename).
  * Every writer must funnel through here.
  */
 export function updateSettingsFile(mutate: (current: Settings) => Settings): Promise<Settings> {

@@ -76,8 +76,7 @@ app.get('/api/torrents/config', (c) => {
 app.put('/api/torrents/config', async (c) => {
     try {
         const body = await c.req.json();
-        // Same strictness as PUT /api/settings — this endpoint previously
-        // accepted anything and persisted nothing.
+        // Same strictness as PUT /api/settings.
         const { typeErrors, warnings } = validateSettings({ torrent: body });
         if (typeErrors.length || warnings.length) {
             return fail(c, [...typeErrors, ...warnings].join('; '));

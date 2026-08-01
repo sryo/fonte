@@ -37,8 +37,7 @@ app.get('/api/settings', (c) => {
 
 app.put('/api/settings', async (c) => {
     const body = await c.req.json();
-    // Strict on writes: unknown keys are rejected too — a typo'd key would
-    // otherwise persist forever while the daemon reads its sibling.
+    // Unknown keys are rejected on writes; reads stay lenient.
     const { typeErrors, warnings } = validateSettings(body);
     if (typeErrors.length || warnings.length) {
         return fail(c, [...typeErrors, ...warnings].join('; '));

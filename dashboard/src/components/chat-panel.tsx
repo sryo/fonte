@@ -84,7 +84,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
 
   return (
     // Radix Presence keeps the portal mounted until the data-state=closed
-    // animation finishes, so the exit slide plays without manual timers.
+    // animation finishes.
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay

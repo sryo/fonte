@@ -452,8 +452,7 @@ export class TorrentManager {
 
     private async applyConfig(): Promise<void> {
         if (!this.rpc) return;
-        // Speeds are KB/s end to end — Transmission's own unit — so no
-        // conversion happens here.
+        // Speeds are KB/s — Transmission's own unit.
         const args: Record<string, any> = {
             'download-dir': this.config.download_dir,
             'speed-limit-down-enabled': this.config.max_download_speed > 0,
@@ -527,9 +526,8 @@ export class TorrentManager {
                 const stats = fileStats[i];
                 const progress = f.length > 0 ? (f.bytesCompleted || 0) / f.length : 0;
                 const prev = byPath.get(f.name);
-                // The epsilon must not swallow the done edge: a large file's last
-                // block moves progress by less than 1e-4, but 0.9999 → 1 changes
-                // what the UI reports.
+                // The done edge always writes — a big file's final block moves
+                // progress by less than the epsilon.
                 const crossedDone = prev !== undefined && progress >= 1 && prev.progress < 1;
                 if (!prev || crossedDone || Math.abs(prev.progress - progress) > 0.0001) {
                     updateTorrentFileProgress(recordId, f.name, progress);
@@ -624,9 +622,8 @@ export class TorrentManager {
                 status: newStatus,
                 stalledSince,
                 // percentDone covers wanted files only, so re-wanting a file can
-                // regress a "completed" torrent; drop the stale stamp and let the
-                // completion event re-fire when it truly finishes. 'checking' is
-                // excluded — verify passes regress progress transiently.
+                // regress a "completed" torrent. 'checking' is excluded — verify
+                // passes regress progress transiently.
                 ...(record.completedAt && !isDone && newStatus === 'downloading'
                     ? { completedAt: null }
                     : {}),
@@ -672,10 +669,9 @@ export class TorrentManager {
                 this.stalledNotified.delete(hash);
             }
 
-            // Insert files once, then keep per-file progress fresh while
-            // downloading, plus a final sync on the done transition so files
-            // reach 100%. The stale-row clause backfills wanted files a past
-            // completion left short (it disarms itself after one clean sync).
+            // Insert files once, keep progress fresh while downloading, and
+            // final-sync on the done transition; staleDoneFiles backfills rows
+            // a past completion left short.
             const files = getTorrentFiles(record.id);
             const justCompleted = isDone && wasPending;
             const staleDoneFiles = isDone && files.some(f => f.selected && f.progress < 1);

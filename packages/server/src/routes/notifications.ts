@@ -4,8 +4,7 @@ import { ok, fail } from '../http';
 
 const app = new Hono();
 
-// Fires regardless of the enabled flags — its purpose is verifying the macOS
-// permission/banner path before the user opts in.
+// Bypasses the enabled flags so the macOS permission path can be verified.
 app.post('/api/notifications/test', (c) => {
     if (process.platform !== 'darwin') {
         return fail(c, 'Native notifications are only supported on macOS');

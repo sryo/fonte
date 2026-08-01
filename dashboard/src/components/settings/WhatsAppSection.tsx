@@ -81,8 +81,7 @@ export function WhatsAppSection() {
     setConnectLoading(false);
   };
 
-  // Routine stop — the paired session survives; unlinking is a separate,
-  // confirmed action.
+  // Routine stop — the paired session survives.
   const handleDisconnect = async () => {
     setConnectLoading(true);
     setConnectError(null);
@@ -311,8 +310,6 @@ function WhatsAppChatPicker() {
     try {
       await setAllowedChat(next);
     } catch (err) {
-      // Roll back — showing an unpersisted chat as monitored would be a lie
-      // about what the daemon listens to.
       setSelected(prev);
       setSaveError((err as Error).message);
     }

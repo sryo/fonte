@@ -98,8 +98,7 @@ export function FileList({
     return map;
   }, [tree]);
 
-  // null until the user's first toggle; before that the derived default applies,
-  // so expansion needs no init effect and survives the files arriving async.
+  // null until the user's first toggle; the derived default applies before that.
   const [expanded, setExpanded] = useState<Set<string> | null>(null);
   const defaultExpanded = useMemo(() => {
     const folderPaths = collectFolderPaths(tree);
@@ -267,9 +266,8 @@ export function FileList({
     const right = Math.max(drag.originX, x);
     const bottom = Math.max(drag.originY, y);
 
-    // Re-measure every move: page coords + fresh rects make mid-drag scrolling
-    // and re-renders correct by construction. Folders are skipped — the band
-    // selects files; a folder's visible children get hit individually.
+    // Page coords + per-move rects keep mid-drag scrolling correct.
+    // Folders are skipped — the band selects files.
     const hits = new Set<string>();
     for (const [path, el] of rowRefs.current) {
       if (!fileByPath.has(path)) continue;

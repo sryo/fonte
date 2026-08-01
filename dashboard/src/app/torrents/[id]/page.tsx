@@ -65,8 +65,7 @@ export default function TorrentDetailPage() {
   useEffect(() => {
     filesRef.current = files;
   }, [files]);
-  // Held true by FileList during a rubber-band drag so a poll can't reshuffle
-  // row geometry mid-selection.
+  // Held true by FileList during a rubber-band drag.
   const filePollPausedRef = useRef(false);
 
   const fetchData = useCallback(async () => {
@@ -92,7 +91,6 @@ export default function TorrentDetailPage() {
   const handleSetWanted = useCallback(async (indices: number[], wanted: boolean) => {
     if (indices.length === 0) return;
     const idxSet = new Set(indices);
-    // Exact per-index prior states, so a mixed batch reverts correctly.
     const prior = new Map(indices.map((i) => [i, filesRef.current[i]?.selected ?? true]));
     for (const i of indices) pendingFileToggles.current.set(i, wanted);
     setFiles((prev) => prev.map((f, i) => (idxSet.has(i) ? { ...f, selected: wanted } : f)));
@@ -278,8 +276,6 @@ export default function TorrentDetailPage() {
         count={files.length}
         action={
           fileSelection && (
-            // -my-1 keeps the h-6 buttons from growing the header row, so the
-            // list below never shifts when the selection actions appear.
             <div className="-my-1 flex shrink-0 items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground tabular-nums">
                 {fileSelection.count} files · {formatBytes(fileSelection.size)}

@@ -312,13 +312,10 @@ body {
 }
 .progress-ring {
   --progress: 0;
-  /* Slim + tucked to the edge: the visible track reads as a border, not a
-     frame eating the card's p-3 breathing room. */
   --ring-thickness: 3px;
   --ring-inset: 2px;
   --ring-color: var(--torrent);
-  /* Faint track for the remaining arc — over posters and cards alike, and
-     it flips with the theme via muted-foreground. */
+  /* Track for the remaining arc; flips with the theme via muted-foreground. */
   --ring-track: color-mix(in oklab, var(--muted-foreground) 15%, transparent);
   position: absolute;
   inset: var(--ring-inset);

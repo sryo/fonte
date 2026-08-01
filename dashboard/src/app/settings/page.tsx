@@ -64,10 +64,7 @@ export default function SettingsPage() {
   const [savingSection, setSavingSection] = useState<string | null>(null);
   const [savedSection, setSavedSection] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // Save failures render at the card that caused them, not the page banner.
   const [sectionError, setSectionError] = useState<{ section: string; message: string } | null>(null);
-  // While the Advanced textarea holds unsaved edits, sibling saves must not
-  // overwrite it.
   const rawJsonDirtyRef = useRef(false);
   const [torrentLoadFailed, setTorrentLoadFailed] = useState(false);
   const [restartOpen, setRestartOpen] = useState(false);
@@ -76,7 +73,6 @@ export default function SettingsPage() {
   const errorFor = (section: string) =>
     sectionError?.section === section ? sectionError.message : undefined;
 
-  // `loading` starts true, so the mount call needs no synchronous set.
   function loadAll() {
     return Promise.all([getSettings(), getTorrentConfig().catch(() => null)])
       .then(([s, tc]) => {
@@ -92,7 +88,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     void loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const saveTorrentSettings = useCallback(async (updates: Partial<TorrentConfig>) => {

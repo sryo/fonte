@@ -92,7 +92,6 @@ export function HotkeysProvider({ children }: { children: ReactNode }) {
         const hk = ref.current;
         const seq = hk.keys.split(" ");
         if (seq.length === 2) {
-          // A bare prefix key arms the sequence; nothing fires yet.
           if (!guarded && !e.metaKey && !e.ctrlKey && !e.altKey && matchesCombo(e, seq[0])) {
             pendingPrefix.current = { key: seq[0], at: Date.now() };
           }

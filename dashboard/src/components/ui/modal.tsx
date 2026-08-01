@@ -30,10 +30,8 @@ export function Modal({
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
         <Dialog.Content
           onOpenAutoFocus={(e) => {
-            // React's autoFocus prop never survives Radix's first-tabbable
-            // default, so initial focus is steered with [data-autofocus].
-            // currentTarget is the live content node — refs can go stale
-            // across StrictMode's double-fired mount effects.
+            // React's autoFocus never survives Radix's first-tabbable default,
+            // so initial focus is steered with [data-autofocus].
             const target = (e.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>("[data-autofocus]");
             if (target) {
               e.preventDefault();

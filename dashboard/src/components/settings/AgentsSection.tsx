@@ -47,12 +47,10 @@ export function AgentsSection() {
         setProviders(p);
         setLoadError(null);
       })
-      // A failed fetch must not masquerade as "no agents configured".
       .catch((err) => setLoadError((err as Error).message));
 
   useEffect(() => {
     void fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSave = async () => {
@@ -81,8 +79,6 @@ export function AgentsSection() {
     await fetchAll();
   };
 
-  // Clears the agent's conversation state; confirmed via dialog since it
-  // can't be undone.
   const confirmReset = async () => {
     const id = resetTarget;
     if (!id) return;
