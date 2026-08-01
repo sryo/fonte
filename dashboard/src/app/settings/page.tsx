@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   getSettings,
   updateSettings,
@@ -16,6 +16,7 @@ import { AgentPersonalitySection } from "@/components/settings/AgentPersonalityS
 import { AgentsSection } from "@/components/settings/AgentsSection";
 import { ProvidersSection } from "@/components/settings/ProvidersSection";
 import { SubtitleSettingsCard } from "@/components/settings/SubtitleSettingsCard";
+import { NotificationSettingsCard } from "@/components/settings/NotificationSettingsCard";
 import { TorrentSettingsCard } from "@/components/settings/TorrentSettingsCard";
 import { WatchlistSettingsCard } from "@/components/settings/WatchlistSettingsCard";
 import { WhatsAppSection } from "@/components/settings/WhatsAppSection";
@@ -30,38 +31,43 @@ export default function SettingsPage() {
   const [savingSection, setSavingSection] = useState<string | null>(null);
   const [savedSection, setSavedSection] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Save failures render at the card that caused them, not the page banner.
+  const [sectionError, setSectionError] = useState<{ section: string; message: string } | null>(null);
+  // While the Advanced textarea holds unsaved edits, sibling saves must not
+  // overwrite it.
+  const rawJsonDirtyRef = useRef(false);
+
+  const errorFor = (section: string) =>
+    sectionError?.section === section ? sectionError.message : undefined;
+
+  // `loading` starts true, so the mount call needs no synchronous set.
+  function loadAll() {
+    return Promise.all([getSettings(), getTorrentConfig().catch(() => null)])
+      .then(([s, tc]) => {
+        setSettings(s);
+        setRawJson(JSON.stringify(s, null, 2));
+        rawJsonDirtyRef.current = false;
+        if (tc) setTorrentConfig(tc.config);
+      })
+      .catch((err) => setErrorMsg((err as Error).message))
+      .finally(() => setLoading(false));
+  }
 
   useEffect(() => {
-    loadAll();
+    void loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  async function loadAll() {
-    setLoading(true);
-    try {
-      const [s, tc] = await Promise.all([
-        getSettings(),
-        getTorrentConfig().catch(() => null),
-      ]);
-      setSettings(s);
-      setRawJson(JSON.stringify(s, null, 2));
-      if (tc) setTorrentConfig(tc.config);
-    } catch (err) {
-      setErrorMsg((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   const saveTorrentSettings = useCallback(async (updates: Partial<TorrentConfig>) => {
     setSavingSection("torrent");
-    setErrorMsg(null);
+    setSectionError(null);
     try {
       const result = await updateTorrentConfig(updates);
       setTorrentConfig(result.config);
       setSavedSection("torrent");
       setTimeout(() => setSavedSection(null), 2000);
     } catch (err) {
-      setErrorMsg((err as Error).message);
+      setSectionError({ section: "torrent", message: (err as Error).message });
     } finally {
       setSavingSection(null);
     }
@@ -69,15 +75,17 @@ export default function SettingsPage() {
 
   const saveGeneralSettings = useCallback(async (updates: Partial<Settings>, section: string) => {
     setSavingSection(section);
-    setErrorMsg(null);
+    setSectionError(null);
     try {
       const result = await updateSettings(updates);
       setSettings(result.settings);
-      setRawJson(JSON.stringify(result.settings, null, 2));
+      if (!rawJsonDirtyRef.current) {
+        setRawJson(JSON.stringify(result.settings, null, 2));
+      }
       setSavedSection(section);
       setTimeout(() => setSavedSection(null), 2000);
     } catch (err) {
-      setErrorMsg((err as Error).message);
+      setSectionError({ section, message: (err as Error).message });
     } finally {
       setSavingSection(null);
     }
@@ -85,16 +93,17 @@ export default function SettingsPage() {
 
   const saveRawJson = useCallback(async () => {
     setSavingSection("advanced");
-    setErrorMsg(null);
+    setSectionError(null);
     try {
       const parsed = JSON.parse(rawJson);
       const result = await updateSettings(parsed);
       setSettings(result.settings);
       setRawJson(JSON.stringify(result.settings, null, 2));
+      rawJsonDirtyRef.current = false;
       setSavedSection("advanced");
       setTimeout(() => setSavedSection(null), 2000);
     } catch (err) {
-      setErrorMsg((err as Error).message);
+      setSectionError({ section: "advanced", message: (err as Error).message });
     } finally {
       setSavingSection(null);
     }
@@ -164,6 +173,7 @@ export default function SettingsPage() {
           onSave={saveTorrentSettings}
           saving={savingSection === "torrent"}
           saved={savedSection === "torrent"}
+          error={errorFor("torrent")}
         />
       )}
 
@@ -173,6 +183,7 @@ export default function SettingsPage() {
           onSave={(updates) => saveGeneralSettings(updates, "watchlist")}
           saving={savingSection === "watchlist"}
           saved={savedSection === "watchlist"}
+          error={errorFor("watchlist")}
         />
       )}
 
@@ -182,6 +193,17 @@ export default function SettingsPage() {
           onSave={(updates) => saveGeneralSettings(updates, "subtitles")}
           saving={savingSection === "subtitles"}
           saved={savedSection === "subtitles"}
+          error={errorFor("subtitles")}
+        />
+      )}
+
+      {settings && (
+        <NotificationSettingsCard
+          settings={settings}
+          onSave={(updates) => saveGeneralSettings(updates, "notifications")}
+          saving={savingSection === "notifications"}
+          saved={savedSection === "notifications"}
+          error={errorFor("notifications")}
         />
       )}
 
@@ -214,7 +236,10 @@ export default function SettingsPage() {
             </p>
             <Textarea
               value={rawJson}
-              onChange={(e) => setRawJson(e.target.value)}
+              onChange={(e) => {
+                setRawJson(e.target.value);
+                rawJsonDirtyRef.current = true;
+              }}
               rows={20}
               className="font-mono text-xs leading-relaxed"
               spellCheck={false}
@@ -224,6 +249,9 @@ export default function SettingsPage() {
                 {savingSection === "advanced" && <Spinner size="xs" />}
                 Save JSON
               </Button>
+              {errorFor("advanced") && (
+                <span className="text-xs text-destructive">{errorFor("advanced")}</span>
+              )}
               {savedSection === "advanced" && (
                 <span className="text-sm text-done flex items-center gap-1">
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">

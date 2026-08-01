@@ -2,16 +2,16 @@ import fs from 'fs';
 import path from 'path';
 import { Hono } from 'hono';
 import { Settings } from '@fonte/core';
-import { SETTINGS_FILE, FONTE_HOME, getSettings, validateSettings, expandHomePath, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@fonte/core';
+import { FONTE_HOME, getSettings, validateSettings, updateSettingsFile, expandHomePath, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@fonte/core';
 import { log } from '@fonte/core';
 import { ok, fail } from '../http';
 
-/** Read, mutate, and persist settings.json atomically. */
-export function mutateSettings(fn: (settings: Settings) => void): Settings {
-    const settings = getSettings();
-    fn(settings);
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2) + '\n');
-    return settings;
+/** Read, mutate, and persist settings.json (serialized + atomic in core). */
+export function mutateSettings(fn: (settings: Settings) => void): Promise<Settings> {
+    return updateSettingsFile((settings) => {
+        fn(settings);
+        return settings;
+    });
 }
 
 // Expand ~/$HOME in every path-valued leaf, so a value entered on any
@@ -43,10 +43,11 @@ app.put('/api/settings', async (c) => {
     if (typeErrors.length || warnings.length) {
         return fail(c, [...typeErrors, ...warnings].join('; '));
     }
-    const current = getSettings();
-    const merged = { ...current, ...body } as Settings;
-    expandSettingsPaths(merged);
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2) + '\n');
+    const merged = await updateSettingsFile((current) => {
+        const next = { ...current, ...body } as Settings;
+        expandSettingsPaths(next);
+        return next;
+    });
     log('INFO', '[API] Settings updated');
     return ok(c, { settings: merged });
 });
@@ -56,8 +57,7 @@ app.post('/api/setup', async (c) => {
 
     expandSettingsPaths(settings);
 
-    fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
-    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2) + '\n');
+    await updateSettingsFile(() => settings);
     log('INFO', '[API] Setup: settings.json written');
 
     fs.mkdirSync(path.join(FONTE_HOME, 'logs'), { recursive: true });

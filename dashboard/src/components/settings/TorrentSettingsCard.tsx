@@ -1,28 +1,40 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { type TorrentConfig } from "@/lib/api";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Section } from "@/components/ui/section";
 import { SettingRow, SectionSaveButton } from "@/components/settings/shared";
 
+const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
 export function TorrentSettingsCard({
   config,
   onSave,
   saving,
   saved,
+  error,
 }: {
   config: TorrentConfig;
   onSave: (updates: Partial<TorrentConfig>) => void;
   saving: boolean;
   saved: boolean;
+  error?: string | null;
 }) {
   const [local, setLocal] = useState<TorrentConfig>(config);
 
-  useEffect(() => {
-    setLocal(config);
-  }, [config]);
+  // Resync on refetch — but only when this card is pristine (or the refetch
+  // echoes its own save), so a sibling's save can't wipe in-progress edits.
+  const [prevConfig, setPrevConfig] = useState(config);
+  if (prevConfig !== config) {
+    setPrevConfig(config);
+    if (eq(local, prevConfig) || eq(local, config)) {
+      setLocal(config);
+    }
+  }
+
+  const dirty = !eq(local, config);
 
   const update = <K extends keyof TorrentConfig>(key: K, value: TorrentConfig[K]) => {
     setLocal((prev) => ({ ...prev, [key]: value }));
@@ -104,6 +116,8 @@ export function TorrentSettingsCard({
           onClick={() => onSave(local)}
           saving={saving}
           saved={saved}
+          disabled={!dirty}
+          error={error}
           accentClass="bg-torrent text-torrent-foreground hover:bg-torrent/90"
         />
       </div>

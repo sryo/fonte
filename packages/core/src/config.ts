@@ -105,6 +105,27 @@ export function validateSettings(raw: unknown): { settings: Settings; warnings: 
 
 let warnedSettingsOnce = false;
 
+let settingsWriteChain: Promise<unknown> = Promise.resolve();
+
+/**
+ * Serialized, atomic read-modify-write of settings.json. The mutator receives
+ * freshly-read settings and returns what to persist; the write goes to a temp
+ * file and renames into place, so a crash mid-write can't truncate the file.
+ * Every writer must funnel through here.
+ */
+export function updateSettingsFile(mutate: (current: Settings) => Settings): Promise<Settings> {
+    const run = settingsWriteChain.then(() => {
+        const next = mutate(getSettings());
+        fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
+        const tmp = SETTINGS_FILE + '.tmp';
+        fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + '\n');
+        fs.renameSync(tmp, SETTINGS_FILE);
+        return next;
+    });
+    settingsWriteChain = run.then(() => undefined, () => undefined);
+    return run;
+}
+
 /** Fold renamed legacy keys into their current names (in-memory; the next
     save persists the migrated shape). */
 function migrateLegacyKeys(parsed: Record<string, unknown>): void {

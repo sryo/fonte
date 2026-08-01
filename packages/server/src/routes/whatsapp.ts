@@ -1,8 +1,6 @@
-import fs from 'fs';
 import { Hono } from 'hono';
 import { getWhatsAppService } from '@fonte/torrent';
-import { getSettings, SETTINGS_FILE, log } from '@fonte/core';
-import type { Settings } from '@fonte/core';
+import { getSettings, updateSettingsFile, log } from '@fonte/core';
 import { ok, fail } from '../http';
 
 const app = new Hono();
@@ -81,12 +79,10 @@ app.get('/api/whatsapp/allowed-chat', (c) => {
 app.post('/api/whatsapp/allowed-chat', async (c) => {
     try {
         const body = await c.req.json() as { allowed_chat: string | null };
-        const settings = getSettings();
-        const next: Settings = {
+        const next = await updateSettingsFile((settings) => ({
             ...settings,
             whatsapp: { ...(settings.whatsapp || {}), allowed_chat: body.allowed_chat || null },
-        };
-        fs.writeFileSync(SETTINGS_FILE, JSON.stringify(next, null, 2) + '\n');
+        }));
         log('INFO', `[API] WhatsApp allowed_chat set to ${body.allowed_chat || '(none)'}`);
         return ok(c, { allowed_chat: next.whatsapp?.allowed_chat ?? null });
     } catch (err) {

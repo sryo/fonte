@@ -55,7 +55,7 @@ app.put('/api/agents/:id', async (c) => {
     // identically no matter which screen wrote it.
     const workingDir = expandHomePath(body.working_directory) || path.join(workspacePath, agentId);
 
-    const settings = mutateSettings(s => {
+    const settings = await mutateSettings(s => {
         if (!s.agents) s.agents = {};
         s.agents[agentId] = {
             name: body.name!,
@@ -86,9 +86,9 @@ app.put('/api/agents/:id', async (c) => {
     });
 });
 
-app.delete('/api/agents/:id', requireAgent, (c) => {
+app.delete('/api/agents/:id', requireAgent, async (c) => {
     const agentId = c.req.param('id');
-    mutateSettings(s => { delete s.agents![agentId]; });
+    await mutateSettings(s => { delete s.agents![agentId]; });
     log('INFO', `[API] Agent '${agentId}' deleted`);
     return ok(c);
 });
@@ -265,7 +265,7 @@ app.put('/api/agents/:id/heartbeat', requireAgent, async (c) => {
     }
 
     if (body.enabled != null || body.interval != null) {
-        mutateSettings(s => {
+        await mutateSettings(s => {
             if (!s.agents?.[agentId]) return;
             if (!s.agents[agentId].heartbeat) s.agents[agentId].heartbeat = {};
             if (body.enabled != null) s.agents[agentId].heartbeat!.enabled = body.enabled;
@@ -293,7 +293,7 @@ app.put('/api/custom-providers/:id', async (c) => {
         return fail(c, 'harness must be "claude" or "codex"');
     }
 
-    const settings = mutateSettings(s => {
+    const settings = await mutateSettings(s => {
         if (!s.custom_providers) s.custom_providers = {};
         s.custom_providers[providerId] = {
             name: body.name!,
@@ -308,13 +308,13 @@ app.put('/api/custom-providers/:id', async (c) => {
     return ok(c, { provider: settings.custom_providers![providerId] });
 });
 
-app.delete('/api/custom-providers/:id', (c) => {
+app.delete('/api/custom-providers/:id', async (c) => {
     const providerId = c.req.param('id');
     const settings = getSettings();
     if (!settings.custom_providers?.[providerId]) {
         return fail(c, `custom provider '${providerId}' not found`, 404);
     }
-    mutateSettings(s => { delete s.custom_providers![providerId]; });
+    await mutateSettings(s => { delete s.custom_providers![providerId]; });
     log('INFO', `[API] Custom provider '${providerId}' deleted`);
     return ok(c);
 });

@@ -30,16 +30,22 @@ export function SectionSaveButton({
   onClick,
   saving,
   saved,
+  disabled = false,
+  error,
   accentClass = "bg-primary text-primary-foreground hover:bg-primary/90",
 }: {
   onClick: () => void;
   saving: boolean;
   saved: boolean;
+  /** Pristine cards disable Save — it doubles as the unsaved-changes signal. */
+  disabled?: boolean;
+  /** Save failure for THIS section, rendered next to the button that caused it. */
+  error?: string | null;
   accentClass?: string;
 }) {
   return (
     <div className="flex items-center gap-3 pt-2 mt-2 border-t border-border/50">
-      <Button onClick={onClick} disabled={saving} className={accentClass}>
+      <Button onClick={onClick} disabled={saving || disabled} className={accentClass}>
         {saving && <Spinner size="xs" />}
         Save
       </Button>
@@ -51,6 +57,7 @@ export function SectionSaveButton({
           Saved
         </span>
       )}
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </div>
   );
 }

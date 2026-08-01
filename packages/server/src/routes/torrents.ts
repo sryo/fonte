@@ -84,7 +84,7 @@ app.put('/api/torrents/config', async (c) => {
         }
         const manager = getTorrentManager();
         await manager.updateConfig(body);
-        mutateSettings((s) => {
+        await mutateSettings((s) => {
             s.torrent = { ...s.torrent, ...body };
         });
         return ok(c, { config: manager.getConfig() });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { type Settings } from "@/lib/api";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -23,34 +23,64 @@ interface WatchlistSettings {
   jackett_api_key?: string;
 }
 
+const fromRaw = (r?: WatchlistSettings) => ({
+  enabled: r?.enabled ?? false,
+  check_interval_minutes: r?.check_interval_minutes ?? 30,
+  auto_add: r?.auto_add ?? true,
+  preferred_quality: r?.preferred_quality ?? "1080p",
+  jackett_url: r?.jackett_url ?? "",
+  jackett_api_key: r?.jackett_api_key ?? "",
+});
+
+const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
 export function WatchlistSettingsCard({
   settings,
   onSave,
   saving,
   saved,
+  error,
 }: {
   settings: Settings;
   onSave: (updates: Partial<Settings>) => void;
   saving: boolean;
   saved: boolean;
+  error?: string | null;
 }) {
   const raw = (settings as Record<string, unknown>).watchlist as WatchlistSettings | undefined;
-  const [enabled, setEnabled] = useState(raw?.enabled ?? false);
-  const [checkInterval, setCheckInterval] = useState(raw?.check_interval_minutes ?? 30);
-  const [autoAdd, setAutoAdd] = useState(raw?.auto_add ?? true);
-  const [preferredQuality, setPreferredQuality] = useState(raw?.preferred_quality ?? "1080p");
-  const [jackettUrl, setJackettUrl] = useState(raw?.jackett_url ?? "");
-  const [jackettApiKey, setJackettApiKey] = useState(raw?.jackett_api_key ?? "");
+  const seeded = fromRaw(raw);
+  const [enabled, setEnabled] = useState(seeded.enabled);
+  const [checkInterval, setCheckInterval] = useState(seeded.check_interval_minutes);
+  const [autoAdd, setAutoAdd] = useState(seeded.auto_add);
+  const [preferredQuality, setPreferredQuality] = useState(seeded.preferred_quality);
+  const [jackettUrl, setJackettUrl] = useState(seeded.jackett_url);
+  const [jackettApiKey, setJackettApiKey] = useState(seeded.jackett_api_key);
 
-  // Resync on refetch so saving this card doesn't write back a stale snapshot.
-  useEffect(() => {
-    setEnabled(raw?.enabled ?? false);
-    setCheckInterval(raw?.check_interval_minutes ?? 30);
-    setAutoAdd(raw?.auto_add ?? true);
-    setPreferredQuality(raw?.preferred_quality ?? "1080p");
-    setJackettUrl(raw?.jackett_url ?? "");
-    setJackettApiKey(raw?.jackett_api_key ?? "");
-  }, [raw]);
+  const current = {
+    enabled,
+    check_interval_minutes: checkInterval,
+    auto_add: autoAdd,
+    preferred_quality: preferredQuality,
+    jackett_url: jackettUrl,
+    jackett_api_key: jackettApiKey,
+  };
+
+  // Resync on refetch — but only when this card is pristine (or the refetch
+  // echoes its own save), so a sibling's save can't wipe in-progress edits.
+  const [prevRaw, setPrevRaw] = useState(raw);
+  if (prevRaw !== raw) {
+    setPrevRaw(raw);
+    if (eq(current, fromRaw(prevRaw)) || eq(current, seeded)) {
+      setEnabled(seeded.enabled);
+      setCheckInterval(seeded.check_interval_minutes);
+      setAutoAdd(seeded.auto_add);
+      setPreferredQuality(seeded.preferred_quality);
+      setJackettUrl(seeded.jackett_url);
+      setJackettApiKey(seeded.jackett_api_key);
+    }
+  }
+
+  const dirty = !eq(current, seeded);
 
   const handleSave = () => {
     // Send only this section; spreading the whole settings object would
@@ -136,6 +166,8 @@ export function WatchlistSettingsCard({
           onClick={handleSave}
           saving={saving}
           saved={saved}
+          disabled={!dirty}
+          error={error}
           accentClass="bg-watchlist text-watchlist-foreground hover:bg-watchlist/90"
         />
       </div>

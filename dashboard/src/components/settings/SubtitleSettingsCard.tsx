@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { type Settings } from "@/lib/api";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -16,34 +16,64 @@ interface SubtitleSettings {
   opensubtitles_api_key?: string;
 }
 
+const fromRaw = (r?: SubtitleSettings) => ({
+  enabled: r?.enabled ?? false,
+  auto_download: r?.auto_download ?? false,
+  translate: r?.translate ?? false,
+  target_languages: (r?.target_languages ?? []).join(", "),
+  tmdb_api_key: r?.tmdb_api_key ?? "",
+  opensubtitles_api_key: r?.opensubtitles_api_key ?? "",
+});
+
+const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
 export function SubtitleSettingsCard({
   settings,
   onSave,
   saving,
   saved,
+  error,
 }: {
   settings: Settings;
   onSave: (updates: Partial<Settings>) => void;
   saving: boolean;
   saved: boolean;
+  error?: string | null;
 }) {
   const raw = (settings as Record<string, unknown>).subtitles as SubtitleSettings | undefined;
-  const [enabled, setEnabled] = useState(raw?.enabled ?? false);
-  const [autoDownload, setAutoDownload] = useState(raw?.auto_download ?? false);
-  const [translate, setTranslate] = useState(raw?.translate ?? false);
-  const [targetLanguages, setTargetLanguages] = useState((raw?.target_languages ?? []).join(", "));
-  const [tmdbApiKey, setTmdbApiKey] = useState(raw?.tmdb_api_key ?? "");
-  const [opensubtitlesApiKey, setOpensubtitlesApiKey] = useState(raw?.opensubtitles_api_key ?? "");
+  const seeded = fromRaw(raw);
+  const [enabled, setEnabled] = useState(seeded.enabled);
+  const [autoDownload, setAutoDownload] = useState(seeded.auto_download);
+  const [translate, setTranslate] = useState(seeded.translate);
+  const [targetLanguages, setTargetLanguages] = useState(seeded.target_languages);
+  const [tmdbApiKey, setTmdbApiKey] = useState(seeded.tmdb_api_key);
+  const [opensubtitlesApiKey, setOpensubtitlesApiKey] = useState(seeded.opensubtitles_api_key);
 
-  // Resync on refetch so saving this card doesn't write back a stale snapshot.
-  useEffect(() => {
-    setEnabled(raw?.enabled ?? false);
-    setAutoDownload(raw?.auto_download ?? false);
-    setTranslate(raw?.translate ?? false);
-    setTargetLanguages((raw?.target_languages ?? []).join(", "));
-    setTmdbApiKey(raw?.tmdb_api_key ?? "");
-    setOpensubtitlesApiKey(raw?.opensubtitles_api_key ?? "");
-  }, [raw]);
+  const current = {
+    enabled,
+    auto_download: autoDownload,
+    translate,
+    target_languages: targetLanguages,
+    tmdb_api_key: tmdbApiKey,
+    opensubtitles_api_key: opensubtitlesApiKey,
+  };
+
+  // Resync on refetch — but only when this card is pristine (or the refetch
+  // echoes its own save), so a sibling's save can't wipe in-progress edits.
+  const [prevRaw, setPrevRaw] = useState(raw);
+  if (prevRaw !== raw) {
+    setPrevRaw(raw);
+    if (eq(current, fromRaw(prevRaw)) || eq(current, seeded)) {
+      setEnabled(seeded.enabled);
+      setAutoDownload(seeded.auto_download);
+      setTranslate(seeded.translate);
+      setTargetLanguages(seeded.target_languages);
+      setTmdbApiKey(seeded.tmdb_api_key);
+      setOpensubtitlesApiKey(seeded.opensubtitles_api_key);
+    }
+  }
+
+  const dirty = !eq(current, seeded);
 
   const handleSave = () => {
     const languages = targetLanguages
@@ -123,6 +153,8 @@ export function SubtitleSettingsCard({
           onClick={handleSave}
           saving={saving}
           saved={saved}
+          disabled={!dirty}
+          error={error}
           accentClass="bg-subtitle text-subtitle-foreground hover:bg-subtitle/90"
         />
       </div>
