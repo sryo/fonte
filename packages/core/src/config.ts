@@ -42,6 +42,9 @@ const SETTINGS_SHAPE: Shape = {
         enabled: 'boolean', auto_download: 'boolean', translate: 'boolean',
         target_languages: 'string[]', tmdb_api_key: 'string', opensubtitles_api_key: 'string',
     },
+    notifications: {
+        enabled: 'boolean', torrent_completed: 'boolean', watchlist_match: 'boolean',
+    },
     libraries: 'record',
     whatsapp: { allowed_chat: 'string', allowed_participants: 'string[]' },
 };
@@ -102,6 +105,18 @@ export function validateSettings(raw: unknown): { settings: Settings; warnings: 
 
 let warnedSettingsOnce = false;
 
+/** Fold renamed legacy keys into their current names (in-memory; the next
+    save persists the migrated shape). */
+function migrateLegacyKeys(parsed: Record<string, unknown>): void {
+    const watchlist = parsed.watchlist as Record<string, unknown> | undefined;
+    if (watchlist && 'check_interval' in watchlist) {
+        if (watchlist.check_interval_minutes === undefined) {
+            watchlist.check_interval_minutes = watchlist.check_interval;
+        }
+        delete watchlist.check_interval;
+    }
+}
+
 /** Expand ~ and $HOME prefixes in a user-supplied path. */
 export function expandHomePath(input?: string): string | undefined {
     if (!input) return input;
@@ -145,6 +160,9 @@ export function getSettings(): Settings {
             }
         }
 
+        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+            migrateLegacyKeys(parsed as Record<string, unknown>);
+        }
         const { settings, warnings, typeErrors } = validateSettings(parsed);
         if ((warnings.length || typeErrors.length) && !warnedSettingsOnce) {
             // getSettings runs on every poll — report shape problems once per process

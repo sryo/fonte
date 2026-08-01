@@ -37,9 +37,11 @@ app.get('/api/settings', (c) => {
 
 app.put('/api/settings', async (c) => {
     const body = await c.req.json();
-    const { typeErrors } = validateSettings(body);
-    if (typeErrors.length) {
-        return fail(c, typeErrors.join('; '));
+    // Strict on writes: unknown keys are rejected too — a typo'd key would
+    // otherwise persist forever while the daemon reads its sibling.
+    const { typeErrors, warnings } = validateSettings(body);
+    if (typeErrors.length || warnings.length) {
+        return fail(c, [...typeErrors, ...warnings].join('; '));
     }
     const current = getSettings();
     const merged = { ...current, ...body } as Settings;

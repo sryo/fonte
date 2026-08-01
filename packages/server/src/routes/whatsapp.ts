@@ -29,9 +29,19 @@ app.get('/api/whatsapp/qr', (c) => {
     return ok(c, { qr });
 });
 
+// Routine stop: the session survives daemon restarts and reconnects.
+app.post('/api/whatsapp/stop', async (c) => {
+    try {
+        await getWhatsAppService().stop({ logout: false });
+        return ok(c);
+    } catch (err) {
+        return fail(c, (err as Error).message, 500);
+    }
+});
+
 // Explicit unpair: revokes the linked device server-side and wipes local
-// credentials. Routine shutdowns must use stop() without logout so the
-// session survives daemon restarts.
+// credentials. Routine shutdowns must use /stop so the session survives
+// daemon restarts.
 app.post('/api/whatsapp/disconnect', async (c) => {
     try {
         await getWhatsAppService().stop({ logout: true });

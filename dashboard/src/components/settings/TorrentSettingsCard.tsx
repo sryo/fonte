@@ -93,13 +93,6 @@ export function TorrentSettingsCard({
           />
         </SettingRow>
 
-        <SettingRow label="Auto start" description="Automatically start new torrents">
-          <Switch
-            checked={local.auto_start}
-            onCheckedChange={(v) => update("auto_start", v)}
-          />
-        </SettingRow>
-
         <SettingRow label="DHT enabled" description="Distributed hash table for peer discovery">
           <Switch
             checked={local.dht}

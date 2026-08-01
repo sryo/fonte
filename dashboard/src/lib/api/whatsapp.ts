@@ -8,7 +8,13 @@ export async function getWhatsAppStatus(): Promise<{ ok: boolean; status: string
   return apiFetch("/api/whatsapp/status");
 }
 
+/** Routine stop — the paired session survives and reconnects on next start. */
 export async function stopWhatsApp(): Promise<{ ok: boolean }> {
+  return apiFetch("/api/whatsapp/stop", { method: "POST" });
+}
+
+/** Destructive unpair — revokes the linked device and wipes credentials. */
+export async function unlinkWhatsApp(): Promise<{ ok: boolean }> {
   return apiFetch("/api/whatsapp/disconnect", { method: "POST" });
 }
 

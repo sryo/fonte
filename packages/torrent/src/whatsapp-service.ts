@@ -86,6 +86,11 @@ export class WhatsAppService {
         this._status = 'connecting';
         try {
             await this.connectInternal();
+        } catch (err) {
+            // Without this reset a failed start leaves the service pinned in
+            // 'connecting' — a state the UI has no exit from.
+            this._status = 'disconnected';
+            throw err;
         } finally {
             this.starting = false;
         }

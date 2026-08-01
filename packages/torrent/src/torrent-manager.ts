@@ -112,7 +112,11 @@ export class TorrentManager {
         if (!available) {
             log('WARN', 'Transmission daemon not available at localhost:9091. Torrents will queue until it starts.');
         } else {
-            await this.applyConfig();
+            try {
+                await this.applyConfig();
+            } catch (err) {
+                log('WARN', `Failed to apply config to Transmission: ${(err as Error).message}`);
+            }
             await this.buildTransmissionIdMap();
         }
 
@@ -448,23 +452,24 @@ export class TorrentManager {
 
     private async applyConfig(): Promise<void> {
         if (!this.rpc) return;
-        try {
-            const args: Record<string, any> = {
-                'download-dir': this.config.download_dir,
-                'speed-limit-down-enabled': this.config.max_download_speed > 0,
-                'speed-limit-down': Math.round(this.config.max_download_speed / 1024), // Transmission uses KB/s
-                'speed-limit-up-enabled': this.config.max_upload_speed > 0,
-                'speed-limit-up': Math.round(this.config.max_upload_speed / 1024),
-                'seedRatioLimit': this.config.seed_ratio_limit,
-                'seedRatioLimited': this.config.seed_ratio_limit > 0,
-                'dht-enabled': this.config.dht,
-                'download-queue-size': this.config.max_concurrent,
-                'download-queue-enabled': true,
-            };
-            await this.rpc.call('session-set', args);
-        } catch (err) {
-            log('WARN', `Failed to apply config to Transmission: ${(err as Error).message}`);
+        // Speeds are KB/s end to end — Transmission's own unit — so no
+        // conversion happens here.
+        const args: Record<string, any> = {
+            'download-dir': this.config.download_dir,
+            'speed-limit-down-enabled': this.config.max_download_speed > 0,
+            'speed-limit-down': Math.round(this.config.max_download_speed),
+            'speed-limit-up-enabled': this.config.max_upload_speed > 0,
+            'speed-limit-up': Math.round(this.config.max_upload_speed),
+            'seedRatioLimit': this.config.seed_ratio_limit,
+            'seedRatioLimited': this.config.seed_ratio_limit > 0,
+            'dht-enabled': this.config.dht,
+            'download-queue-size': this.config.max_concurrent,
+            'download-queue-enabled': true,
+        };
+        if (this.config.port > 0) {
+            args['peer-port'] = this.config.port;
         }
+        await this.rpc.call('session-set', args);
     }
 
     private async buildTransmissionIdMap(): Promise<void> {

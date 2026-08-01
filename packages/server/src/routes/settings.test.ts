@@ -82,13 +82,53 @@ describe('PUT /api/settings', () => {
     });
 
     it('creates settings.json when none exists', async () => {
-        const res = await putSettings({ torrents: { download_dir: '/downloads' } });
+        const res = await putSettings({ torrent: { download_dir: '/downloads' } });
 
         expect(await res.json()).toEqual({
             ok: true,
-            settings: { torrents: { download_dir: '/downloads' } },
+            settings: { torrent: { download_dir: '/downloads' } },
         });
         expect(JSON.parse(fs.readFileSync(settingsPath(), 'utf8')))
-            .toEqual({ torrents: { download_dir: '/downloads' } });
+            .toEqual({ torrent: { download_dir: '/downloads' } });
+    });
+
+    it('rejects unknown keys instead of persisting them', async () => {
+        // A typo'd key would otherwise sit in settings.json forever while the
+        // daemon reads its correctly-named sibling.
+        const res = await putSettings({ torrents: { download_dir: '/downloads' } });
+
+        expect(res.status).toBe(400);
+        expect(await res.json()).toEqual({ ok: false, error: 'unknown setting "torrents"' });
+        expect(fs.existsSync(settingsPath())).toBe(false);
+    });
+
+    it('rejects wrong-typed known keys', async () => {
+        const res = await putSettings({ subtitles: { enabled: 'yes' } });
+
+        expect(res.status).toBe(400);
+        expect((await res.json()).ok).toBe(false);
+    });
+});
+
+describe('legacy key migration', () => {
+    it('folds watchlist.check_interval into check_interval_minutes on read', async () => {
+        fs.writeFileSync(settingsPath(), JSON.stringify({
+            watchlist: { enabled: true, check_interval: 45 },
+        }));
+
+        const res = await app.request('/api/settings');
+        expect(await res.json()).toEqual({
+            ok: true,
+            settings: { watchlist: { enabled: true, check_interval_minutes: 45 } },
+        });
+    });
+
+    it('prefers an existing check_interval_minutes over the legacy key', async () => {
+        fs.writeFileSync(settingsPath(), JSON.stringify({
+            watchlist: { check_interval: 45, check_interval_minutes: 15 },
+        }));
+
+        const res = await app.request('/api/settings');
+        expect((await res.json()).settings.watchlist).toEqual({ check_interval_minutes: 15 });
     });
 });

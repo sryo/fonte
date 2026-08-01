@@ -16,7 +16,7 @@ import { SettingRow, SectionSaveButton } from "@/components/settings/shared";
 
 interface WatchlistSettings {
   enabled?: boolean;
-  check_interval?: number;
+  check_interval_minutes?: number;
   auto_add?: boolean;
   preferred_quality?: string;
   jackett_url?: string;
@@ -36,7 +36,7 @@ export function WatchlistSettingsCard({
 }) {
   const raw = (settings as Record<string, unknown>).watchlist as WatchlistSettings | undefined;
   const [enabled, setEnabled] = useState(raw?.enabled ?? false);
-  const [checkInterval, setCheckInterval] = useState(raw?.check_interval ?? 30);
+  const [checkInterval, setCheckInterval] = useState(raw?.check_interval_minutes ?? 30);
   const [autoAdd, setAutoAdd] = useState(raw?.auto_add ?? true);
   const [preferredQuality, setPreferredQuality] = useState(raw?.preferred_quality ?? "1080p");
   const [jackettUrl, setJackettUrl] = useState(raw?.jackett_url ?? "");
@@ -45,7 +45,7 @@ export function WatchlistSettingsCard({
   // Resync on refetch so saving this card doesn't write back a stale snapshot.
   useEffect(() => {
     setEnabled(raw?.enabled ?? false);
-    setCheckInterval(raw?.check_interval ?? 30);
+    setCheckInterval(raw?.check_interval_minutes ?? 30);
     setAutoAdd(raw?.auto_add ?? true);
     setPreferredQuality(raw?.preferred_quality ?? "1080p");
     setJackettUrl(raw?.jackett_url ?? "");
@@ -59,7 +59,7 @@ export function WatchlistSettingsCard({
       watchlist: {
         ...raw,
         enabled,
-        check_interval: checkInterval,
+        check_interval_minutes: checkInterval,
         auto_add: autoAdd,
         preferred_quality: preferredQuality,
         jackett_url: jackettUrl,

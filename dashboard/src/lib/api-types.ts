@@ -36,8 +36,8 @@ export interface TorrentFileRecord {
 export interface TorrentConfig {
     download_dir: string;
     max_concurrent: number;         // default: 5
-    max_download_speed: number;     // bytes/sec, 0 = unlimited
-    max_upload_speed: number;       // bytes/sec, 0 = unlimited
+    max_download_speed: number;     // KB/s, 0 = unlimited
+    max_upload_speed: number;       // KB/s, 0 = unlimited
     seed_ratio_limit: number;       // default: 2.0, 0 = unlimited
     auto_start: boolean;            // default: true
     port: number;                   // default: 0 (random)

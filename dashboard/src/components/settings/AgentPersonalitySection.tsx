@@ -2,32 +2,51 @@
 
 import { useState, useEffect } from "react";
 import { getSoul, saveSoul } from "@/lib/api";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Section } from "@/components/ui/section";
-import { Spinner } from "@/components/ui/feedback";
+import { SectionSaveButton } from "@/components/settings/shared";
 
 export function AgentPersonalitySection() {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
+  // A failed load must never leave an empty editor over a real file —
+  // saving that would wipe SOUL.md.
+  const fetchSoul = () =>
     getSoul()
       .then((data) => {
         setContent(data.content);
-        setLoading(false);
+        setLoadError(null);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => setLoadError((err as Error).message))
+      .finally(() => setLoading(false));
+
+  useEffect(() => {
+    void fetchSoul();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const retry = () => {
+    setLoading(true);
+    void fetchSoul();
+  };
 
   const handleSave = async () => {
     setSaving(true);
-    await saveSoul(content);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaveError(null);
+    try {
+      await saveSoul(content);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setSaveError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) return null;
@@ -44,32 +63,30 @@ export function AgentPersonalitySection() {
       }
       description={<>Define your agent&apos;s communication style. Saved to ~/.fonte/SOUL.md</>}
     >
-      <div className="space-y-3">
-        <Textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="min-h-32 font-mono resize-y"
-          placeholder={"# Soul\n\nYou are..."}
-        />
-        <div className="flex items-center gap-3 pt-2 border-t border-border/50">
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-agent text-agent-foreground hover:bg-agent/90"
-          >
-            {saving && <Spinner size="xs" />}
-            {saved ? "Saved" : saving ? "Saving..." : "Save Personality"}
-          </Button>
-          {saved && (
-            <span className="text-sm text-done flex items-center gap-1">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-              Saved
-            </span>
-          )}
+      {loadError ? (
+        <div className="space-y-3">
+          <p className="text-sm text-destructive">Could not load SOUL.md: {loadError}</p>
+          <button type="button" onClick={retry} className="text-xs text-muted-foreground underline hover:text-foreground">
+            Retry
+          </button>
         </div>
-      </div>
+      ) : (
+        <div className="space-y-3">
+          <Textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="min-h-32 font-mono resize-y"
+            placeholder={"# Soul\n\nYou are..."}
+          />
+          {saveError && <p className="text-xs text-destructive">{saveError}</p>}
+          <SectionSaveButton
+            onClick={handleSave}
+            saving={saving}
+            saved={saved}
+            accentClass="bg-agent text-agent-foreground hover:bg-agent/90"
+          />
+        </div>
+      )}
     </Section>
   );
 }

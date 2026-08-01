@@ -5,6 +5,7 @@ import {
   startWhatsApp,
   getWhatsAppStatus,
   stopWhatsApp,
+  unlinkWhatsApp,
   getWhatsAppChats,
   getAllowedChat,
   setAllowedChat,
@@ -12,6 +13,7 @@ import {
   type WhatsAppChat,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Section } from "@/components/ui/section";
 import { Spinner } from "@/components/ui/feedback";
@@ -25,6 +27,8 @@ export function WhatsAppSection() {
   const [phone, setPhone] = useState("");
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [pairingError, setPairingError] = useState<string | null>(null);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [unlinkOpen, setUnlinkOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -59,22 +63,38 @@ export function WhatsAppSection() {
 
   const handleConnect = async () => {
     setConnectLoading(true);
+    setConnectError(null);
     try {
       await startWhatsApp();
-    } catch {}
+    } catch (err) {
+      setConnectError((err as Error).message);
+    }
     setConnectLoading(false);
   };
 
+  // Routine stop — the paired session survives; unlinking is a separate,
+  // confirmed action.
   const handleDisconnect = async () => {
     setConnectLoading(true);
+    setConnectError(null);
     try {
       await stopWhatsApp();
       setStatus("disconnected");
       setQr(null);
       setShowPairing(false);
       setPairingCode(null);
-    } catch {}
+    } catch (err) {
+      setConnectError((err as Error).message);
+    }
     setConnectLoading(false);
+  };
+
+  const handleUnlink = async () => {
+    await unlinkWhatsApp();
+    setStatus("disconnected");
+    setQr(null);
+    setShowPairing(false);
+    setPairingCode(null);
   };
 
   const handleRequestPairing = async () => {
@@ -98,6 +118,7 @@ export function WhatsAppSection() {
             <p className="text-sm text-muted-foreground">
               Connect WhatsApp to manage torrents and get notifications on your phone.
             </p>
+            {connectError && <p className="text-xs text-destructive">{connectError}</p>}
             <div className="flex gap-2">
               <Button
                 onClick={handleConnect}
@@ -118,9 +139,12 @@ export function WhatsAppSection() {
         )}
 
         {status === "connecting" && (
-          <div className="text-center py-4">
+          <div className="text-center py-4 space-y-3">
             <Spinner className="mx-auto text-done" />
-            <p className="text-sm text-muted-foreground mt-2">Initializing WhatsApp...</p>
+            <p className="text-sm text-muted-foreground">Initializing WhatsApp…</p>
+            <Button variant="ghost" size="sm" onClick={handleDisconnect} disabled={connectLoading}>
+              Cancel
+            </Button>
           </div>
         )}
 
@@ -197,20 +221,42 @@ export function WhatsAppSection() {
                 <span className="h-2.5 w-2.5 rounded-full bg-done animate-pulse" />
                 <span className="text-sm font-medium">Connected</span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDisconnect}
-                disabled={connectLoading}
-                className="text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              >
-                Disconnect
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDisconnect}
+                  disabled={connectLoading}
+                  className="text-xs text-muted-foreground"
+                >
+                  Disconnect
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setUnlinkOpen(true)}
+                  disabled={connectLoading}
+                  className="text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                >
+                  Unlink device
+                </Button>
+              </div>
             </div>
             <WhatsAppChatPicker />
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={unlinkOpen}
+        title="Unlink this device?"
+        message="WhatsApp will revoke the link and wipe the saved session — reconnecting requires scanning a new QR code. To stop temporarily, use Disconnect instead."
+        confirmLabel="Unlink"
+        destructive
+        busyLabel="Unlinking…"
+        onConfirm={handleUnlink}
+        onClose={() => setUnlinkOpen(false)}
+      />
     </Section>
   );
 }

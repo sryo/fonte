@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import { getTorrentManager, parseTorrentName, searchReleases, computeQualityMatch, resolveReleaseSource } from '@fonte/torrent';
 import type { TorrentStatus } from '@fonte/torrent';
-import { log, expandHomePath } from '@fonte/core';
+import { log, expandHomePath, validateSettings } from '@fonte/core';
 import { ok, fail } from '../http';
+import { mutateSettings } from './settings';
 
 const app = new Hono();
 
@@ -75,8 +76,17 @@ app.get('/api/torrents/config', (c) => {
 app.put('/api/torrents/config', async (c) => {
     try {
         const body = await c.req.json();
+        // Same strictness as PUT /api/settings — this endpoint previously
+        // accepted anything and persisted nothing.
+        const { typeErrors, warnings } = validateSettings({ torrent: body });
+        if (typeErrors.length || warnings.length) {
+            return fail(c, [...typeErrors, ...warnings].join('; '));
+        }
         const manager = getTorrentManager();
-        manager.updateConfig(body);
+        await manager.updateConfig(body);
+        mutateSettings((s) => {
+            s.torrent = { ...s.torrent, ...body };
+        });
         return ok(c, { config: manager.getConfig() });
     } catch (err) {
         return fail(c, (err as Error).message);
