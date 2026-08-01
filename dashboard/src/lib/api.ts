@@ -8,3 +8,4 @@ export * from "./api/torrents";
 export * from "./api/watchlist";
 export * from "./api/automations";
 export * from "./api/whatsapp";
+export * from "./api/notifications";

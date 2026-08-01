@@ -77,6 +77,11 @@ export interface Settings {
         tmdb_api_key?: string;
         opensubtitles_api_key?: string;
     };
+    notifications?: {
+        enabled?: boolean;
+        torrent_completed?: boolean;
+        watchlist_match?: boolean;
+    };
     libraries?: Record<string, string>;  // type → folder path, e.g. { "Movies": "/media/Movies", "TV": "/media/TV", "Music": "/media/Music" }
     whatsapp?: {
         allowed_chat?: string | null;  // chat id (e.g. "1234567890@c.us" or "1234567890-1500000000@g.us"). null/missing = ignore all

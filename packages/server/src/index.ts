@@ -30,6 +30,7 @@ import indexersRoutes from './routes/indexers';
 import subtitlesRoutes from './routes/subtitles';
 import automationsRoutes from './routes/automations';
 import whatsappRoutes from './routes/whatsapp';
+import notificationsRoutes from './routes/notifications';
 
 const API_PORT = parseInt(process.env.FONTE_API_PORT || '3777', 10);
 // Loopback-only by default: the API has no authentication, so exposing it
@@ -67,6 +68,7 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
     app.route('/', subtitlesRoutes);
     app.route('/', automationsRoutes);
     app.route('/', whatsappRoutes);
+    app.route('/', notificationsRoutes);
 
     app.get('/api/status', (c) => {
         return ok(c, {

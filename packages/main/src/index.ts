@@ -6,7 +6,7 @@ import path from 'path';
 import {
     MessageJobData,
     getSettings, getAgents, checkSettingsFile, LOG_FILE, FILES_DIR, FONTE_HOME,
-    log, emitEvent, onEvent,
+    log, emitEvent, onEvent, notifyForEvent,
     parseAgentRouting, getAgentResetFlag,
     invokeAgent, killAgentProcess,
     loadPlugins, runIncomingHooks,
@@ -286,6 +286,8 @@ onEvent((type, data) => {
         });
     }
 });
+
+onEvent(notifyForEvent);
 
 log('INFO', 'Queue processor started (SQLite)');
 logAgentConfig();
