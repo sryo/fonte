@@ -104,7 +104,7 @@ export function SubtitleSettingsCard({
   return (
     <Section
       title={
-        <span className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-2">
           <ChatCenteredText className="h-4 w-4 text-subtitle" weight="bold" />
           Subtitles
         </span>

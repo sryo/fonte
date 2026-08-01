@@ -123,7 +123,7 @@ export function WatchlistSettingsCard({
   return (
     <Section
       title={
-        <span className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-2">
           <Eye className="h-4 w-4 text-watchlist" weight="bold" />
           Watchlist
         </span>

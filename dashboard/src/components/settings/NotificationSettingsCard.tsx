@@ -90,7 +90,7 @@ export function NotificationSettingsCard({
   return (
     <Section
       title={
-        <span className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-2">
           <Bell className="h-4 w-4 text-primary" weight="bold" />
           Notifications
         </span>
