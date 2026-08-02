@@ -213,7 +213,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
 
   return (
     <header className="border-b bg-card shrink-0">
-      <div className="max-w-6xl mx-auto flex items-center gap-3 px-4 py-2">
+      <div className="max-w-(--content-max-w) mx-auto flex items-center gap-3 px-4 py-2">
       <nav className="flex items-center gap-1">
         <TooltipProvider>
           {NAV_ITEMS.map(({ href, label, icon: Icon, exact, seq }) => {

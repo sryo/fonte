@@ -158,7 +158,7 @@ export default function AgentConfigPage({
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-6 space-y-6 animate-card-enter">
+    <div className="max-w-(--content-max-w) mx-auto px-6 py-6 space-y-6 animate-card-enter">
       <PageHeader
         backHref="/"
         title={

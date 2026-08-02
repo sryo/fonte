@@ -52,6 +52,8 @@
 }
 
 :root {
+  /* Global content column width; the edge-drag handle in app-shell overrides it. */
+  --content-max-w: 72rem;
   /* Home grid card width; the size slider overrides it per-page. */
   --card-w: 11rem;
   --background: #fafaf9;
@@ -301,6 +303,11 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .card-poof-collapsing, .card-poof-dissolving { animation: none; }
+}
+
+/* Soft radial glow that rides the content-width hairline near the pointer. */
+.content-width-glow {
+  background: radial-gradient(2px 70px at center, var(--ring), transparent 75%);
 }
 
 /* Shine technique from

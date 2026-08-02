@@ -143,7 +143,7 @@ export default function WatchlistDetailPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-6xl px-6 py-6">
+      <div className="mx-auto max-w-(--content-max-w) px-6 py-6">
         <LoadingState label="Loading watchlist entry..." />
       </div>
     );
@@ -151,7 +151,7 @@ export default function WatchlistDetailPage() {
 
   if (error || !entry) {
     return (
-      <div className="mx-auto max-w-6xl px-6 py-6">
+      <div className="mx-auto max-w-(--content-max-w) px-6 py-6">
         <EmptyState
           title="Entry not found"
           hint={error || `No watchlist entry with ID "${id}" exists.`}
@@ -169,7 +169,7 @@ export default function WatchlistDetailPage() {
   const MediaIcon = entry.mediaType === "tv" ? Television : FilmStrip;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-6 py-6 animate-card-enter">
+    <div className="mx-auto max-w-(--content-max-w) space-y-6 px-6 py-6 animate-card-enter">
       <PageHeader
         backHref="/"
         actions={

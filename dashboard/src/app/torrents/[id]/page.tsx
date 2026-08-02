@@ -180,7 +180,7 @@ export default function TorrentDetailPage() {
 
   if (!torrent) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-6">
+      <div className="max-w-(--content-max-w) mx-auto px-6 py-6">
         <EmptyState
           title="Torrent not found"
           hint={error || `No torrent with ID "${id}" exists.`}
@@ -196,7 +196,7 @@ export default function TorrentDetailPage() {
   const canPauseResume = ["downloading", "seeding", "paused", "completed"].includes(torrent.status);
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-6 space-y-6 animate-card-enter">
+    <div className="max-w-(--content-max-w) mx-auto px-6 py-6 space-y-6 animate-card-enter">
       <PageHeader
         backHref="/"
         actions={

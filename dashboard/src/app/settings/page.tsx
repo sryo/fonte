@@ -149,7 +149,7 @@ export default function SettingsPage() {
 
   if (!settings && errorMsg) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-6">
+      <div className="max-w-(--content-max-w) mx-auto px-6 py-6">
         <div className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground space-y-3">
           <p>Could not load settings. The API server may not be reachable.</p>
           <p>
@@ -175,7 +175,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-6 space-y-6 animate-card-enter">
+    <div className="max-w-(--content-max-w) mx-auto px-6 py-6 space-y-6 animate-card-enter">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground mt-0.5">

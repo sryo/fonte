@@ -60,7 +60,7 @@ export function StatusStrip() {
         label={`Overall download progress: ${Math.round(aggregateProgress)}%`}
       />
 
-      <div className="max-w-6xl mx-auto text-xs text-muted-foreground text-center py-2 flex items-center justify-center gap-1">
+      <div className="max-w-(--content-max-w) mx-auto text-xs text-muted-foreground text-center py-2 flex items-center justify-center gap-1">
         <span>
           <span aria-label="Download speed" className="text-torrent">&#8595;</span>{" "}
           {formatSpeed(downloadSpeed)}

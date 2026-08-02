@@ -252,7 +252,7 @@ export default function HomePage() {
   return (
     <CardSizeProvider size={cardSize} setSize={setCardSize}>
     <div
-      className="max-w-6xl mx-auto px-6 py-6 space-y-8 animate-card-enter group/cards"
+      className="max-w-(--content-max-w) mx-auto px-6 py-6 space-y-8 animate-card-enter group/cards"
       style={{ "--card-w": `${cardSize}px` } as CSSProperties}
       data-cards-root=""
       data-cards={cardSize < CARD_SIZE_COMPACT_BELOW ? "compact" : undefined}
