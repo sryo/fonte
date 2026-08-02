@@ -85,7 +85,7 @@ export function MiniTile({
               {ring && <ProgressRing {...ring} className="progress-ring--mini" />}
             </button>
           </TooltipTrigger>
-          <TooltipContent className="whitespace-pre-line text-center">
+          <TooltipContent sideOffset={4} className="whitespace-pre-line text-center">
             {`${title}\n${subtitle}`}
           </TooltipContent>
         </Tooltip>
@@ -106,7 +106,6 @@ export function TorrentMiniTile({
   const router = useRouter();
   const pct = toPct(torrent.progress);
 
-  // Same ring rules as TorrentCard/CompletedCard, at mini scale.
   let subtitle: string;
   let ring: MiniRing | undefined;
   if (isFinished(torrent)) {
@@ -253,7 +252,7 @@ export function AddMiniTile({
               <Plus className="h-4 w-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent>{label}</TooltipContent>
+          <TooltipContent sideOffset={4}>{label}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     </div>

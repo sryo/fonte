@@ -7,12 +7,16 @@ import { cn } from "@/lib/utils"
 
 function TooltipProvider({
   delayDuration = 0,
+  // Every tooltip here is a plain label; hoverable content would let the
+  // bubble trap the pointer and cover whatever sits behind it.
+  disableHoverableContent = true,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return (
     <TooltipPrimitive.Provider
       data-slot="tooltip-provider"
       delayDuration={delayDuration}
+      disableHoverableContent={disableHoverableContent}
       {...props}
     />
   )

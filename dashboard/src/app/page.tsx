@@ -96,7 +96,6 @@ export default function HomePage() {
   );
 
   const isCollapsed = (key: SectionKey) => collapsedSections.includes(key);
-  // Morph the card↔tile swap when the browser can; plain swap otherwise.
   const withMorph = (update: () => void) => {
     if (document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       document.startViewTransition(() => {
