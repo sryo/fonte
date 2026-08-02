@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { Notches } from "@phosphor-icons/react";
+import { CONTENT_PAD, cardSnapCandidates, snapStep } from "@/lib/grid-snap";
 
 export const CARD_SIZE_MIN = 120;
 export const CARD_SIZE_MAX = 360;
@@ -36,7 +37,14 @@ export function CardSizeProvider({
     no provider is above (cards reused outside home). */
 export function CardResizeHandle() {
   const ctx = useContext(CardSizeContext);
-  const dragRef = useRef<{ startX: number; startSize: number; root: HTMLElement | null; last: number } | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startSize: number;
+    root: HTMLElement | null;
+    last: number;
+    candidates: number[];
+    snapped: number | null;
+  } | null>(null);
   if (!ctx) return null;
 
   const apply = (root: HTMLElement | null, next: number) => {
@@ -49,42 +57,58 @@ export function CardResizeHandle() {
   return (
     <span
       role="presentation"
-      title="Drag to resize cards"
+      title="Drag to resize cards. ⌥ disables snapping."
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e: ReactPointerEvent<HTMLSpanElement>) => {
         if (e.button !== 0) return;
         e.preventDefault();
         e.stopPropagation();
+        const root = e.currentTarget.closest<HTMLElement>("[data-cards-root]");
         dragRef.current = {
           startX: e.clientX,
           startSize: ctx.size,
-          root: e.currentTarget.closest<HTMLElement>("[data-cards-root]"),
+          root,
           last: ctx.size,
+          candidates: root
+            ? cardSnapCandidates(root.clientWidth - CONTENT_PAD, CARD_SIZE_MIN, CARD_SIZE_MAX)
+            : [],
+          snapped: null,
         };
         e.currentTarget.setPointerCapture(e.pointerId);
       }}
       onPointerMove={(e) => {
         const drag = dragRef.current;
         if (!drag) return;
-        const next = Math.round(
-          Math.min(CARD_SIZE_MAX, Math.max(CARD_SIZE_MIN, drag.startSize + (e.clientX - drag.startX)))
-        );
+        const raw = Math.min(CARD_SIZE_MAX, Math.max(CARD_SIZE_MIN, drag.startSize + (e.clientX - drag.startX)));
+        let next: number;
+        if (e.altKey) {
+          next = Math.round(raw);
+          drag.snapped = null;
+        } else {
+          const step = snapStep(raw, drag.candidates, drag.snapped, 6, 10);
+          drag.snapped = step.latched;
+          next = step.latched === null ? Math.round(step.value) : step.value;
+        }
         drag.last = next;
         apply(drag.root, next);
+        if (drag.snapped !== null) e.currentTarget.setAttribute("data-snapped", "");
+        else e.currentTarget.removeAttribute("data-snapped");
       }}
-      onPointerUp={() => {
+      onPointerUp={(e) => {
+        e.currentTarget.removeAttribute("data-snapped");
         const drag = dragRef.current;
         if (!drag) return;
         dragRef.current = null;
         ctx.setSize(drag.last);
       }}
-      onPointerCancel={() => {
+      onPointerCancel={(e) => {
+        e.currentTarget.removeAttribute("data-snapped");
         const drag = dragRef.current;
         if (!drag) return;
         dragRef.current = null;
         ctx.setSize(drag.last);
       }}
-      className="absolute bottom-1 right-1 z-10 hidden h-4 w-4 cursor-nwse-resize items-center justify-center rounded text-muted-foreground/50 hover:text-muted-foreground group-hover:flex"
+      className="absolute bottom-1 right-1 z-10 hidden h-4 w-4 cursor-nwse-resize items-center justify-center rounded text-muted-foreground/50 hover:text-muted-foreground data-[snapped]:text-foreground group-hover:flex"
     >
       <Notches className="h-3 w-3" weight="bold" />
     </span>

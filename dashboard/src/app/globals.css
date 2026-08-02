@@ -309,6 +309,18 @@ body {
 .content-width-glow {
   background: radial-gradient(2px 70px at center, var(--ring), transparent 75%);
 }
+/* Standalone `scale` so it composes with the translate utilities on the
+   glow element. */
+@keyframes cwh-snap-pulse {
+  from { scale: 1 1.4; }
+  to { scale: 1 1; }
+}
+[data-snapped] .content-width-glow {
+  animation: cwh-snap-pulse 150ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-snapped] .content-width-glow { animation: none; }
+}
 
 /* Shine technique from
    https://www.frontendhero.dev/tutorial/animated-shine-border-button/ */
