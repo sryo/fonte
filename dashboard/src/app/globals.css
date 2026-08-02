@@ -366,6 +366,12 @@ body {
   --progress: 1;
   --ring-color: var(--done);
 }
+/* Scaled for the 40px mini tiles of collapsed home rows (rounded-md parents). */
+.progress-ring--mini {
+  --ring-thickness: 2px;
+  --ring-inset: 1px;
+  border-radius: calc(var(--radius-md) - var(--ring-inset));
+}
 @keyframes progress-ring-shine {
   to { --shine-angle: 360deg; }
 }
@@ -396,4 +402,17 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .progress-bar-fill::after { animation: none; }
+}
+
+/* Collapse/expand morph on the home sections. */
+::view-transition-group(*) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
+  }
 }

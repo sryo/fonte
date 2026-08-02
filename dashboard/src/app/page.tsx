@@ -3,6 +3,7 @@
 // Dashboard home page: filterable rows of torrents, watchlist, and automations.
 
 import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
+import { flushSync } from "react-dom";
 import {
   getTorrents,
   getWatchlist,
@@ -58,6 +59,17 @@ import { EditAutomationModal } from "@/components/home/edit-automation-modal";
 import { RemoveTorrentDialog } from "@/components/torrent/remove-torrent-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CardSizeProvider, CARD_SIZE_COMPACT_BELOW, CARD_SIZE_MIN, CARD_SIZE_MAX } from "@/components/home/card-resize";
+import {
+  AddMiniTile,
+  AutomationMiniTile,
+  TorrentMiniTile,
+  TrayMiniTile,
+  WatchlistMiniTile,
+  vtName,
+} from "@/components/home/mini-tile";
+
+type SectionKey = "downloads" | "watchlist" | "automations";
+const SECTION_KEYS: readonly string[] = ["downloads", "watchlist", "automations"];
 
 export default function HomePage() {
   const [pill, setPill] = useState<PillKey>("all");
@@ -76,6 +88,32 @@ export default function HomePage() {
     176,
     (v): v is number => typeof v === "number" && v >= CARD_SIZE_MIN && v <= CARD_SIZE_MAX
   );
+  const [collapsedSections, setCollapsedSections] = usePersistedState<SectionKey[]>(
+    "fonte.home-collapsed-sections",
+    [],
+    (v): v is SectionKey[] =>
+      Array.isArray(v) && v.every((k) => typeof k === "string" && SECTION_KEYS.includes(k))
+  );
+
+  const isCollapsed = (key: SectionKey) => collapsedSections.includes(key);
+  // Morph the card↔tile swap when the browser can; plain swap otherwise.
+  const withMorph = (update: () => void) => {
+    if (document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.startViewTransition(() => {
+        flushSync(update);
+      });
+    } else {
+      update();
+    }
+  };
+  const toggleSection = (key: SectionKey) =>
+    withMorph(() =>
+      setCollapsedSections((prev) =>
+        prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+      )
+    );
+  const expandSection = (key: SectionKey) =>
+    withMorph(() => setCollapsedSections((prev) => prev.filter((k) => k !== key)));
 
   const [torrents, setTorrents] = useState<TorrentRecord[]>([]);
   const [watchlist, setWatchlist] = useState<WatchlistRecord[]>([]);
@@ -238,7 +276,32 @@ export default function HomePage() {
           count={shownTorrents.length}
           icon={DownloadSimple}
           isEmpty={lane.length === 0}
-          emptyContent={<AddTorrentCard onAdded={fetchAll} />}
+          emptyContent={
+            <div className="flex" style={{ viewTransitionName: "hi-add-dl" }}>
+              <AddTorrentCard onAdded={fetchAll} />
+            </div>
+          }
+          collapsed={isCollapsed("downloads")}
+          onToggleCollapse={() => toggleSection("downloads")}
+          transitionName="hs-downloads"
+          collapsedContent={
+            lane.length === 0 ? (
+              <AddMiniTile
+                label="Add a torrent"
+                onClick={() => expandSection("downloads")}
+                transitionName="hi-add-dl"
+              />
+            ) : (
+              shownTorrents.map((torrent) => (
+                <TorrentMiniTile
+                  key={torrent.id}
+                  torrent={torrent}
+                  exiting={exitingIds.has(torrent.id)}
+                  exitDelay={exitingIds.get(torrent.id)}
+                />
+              ))
+            )
+          }
           action={
             <div className="flex items-center gap-1">
               {finishedClearable.length > 0 && (
@@ -260,28 +323,32 @@ export default function HomePage() {
             </div>
           }
         >
-          {shownTorrents.map((torrent) =>
-            isFinished(torrent) ? (
-              <CompletedCard
-                key={torrent.id}
-                torrent={torrent}
-                exiting={exitingIds.has(torrent.id)}
-                exitDelay={exitingIds.get(torrent.id)}
-                onRefresh={fetchAll}
-                onRemoveRequest={() => setRemoveTarget(torrent)}
-              />
-            ) : (
-              <TorrentCard
-                key={torrent.id}
-                torrent={torrent}
-                exiting={exitingIds.has(torrent.id)}
-                exitDelay={exitingIds.get(torrent.id)}
-                stalled={!!torrent.stalledSince}
-                onRefresh={fetchAll}
-                onRemoveRequest={() => setRemoveTarget(torrent)}
-              />
-            )
-          )}
+          {shownTorrents.map((torrent) => (
+            <div
+              key={torrent.id}
+              className="flex"
+              style={{ viewTransitionName: vtName("t", torrent.id) }}
+            >
+              {isFinished(torrent) ? (
+                <CompletedCard
+                  torrent={torrent}
+                  exiting={exitingIds.has(torrent.id)}
+                  exitDelay={exitingIds.get(torrent.id)}
+                  onRefresh={fetchAll}
+                  onRemoveRequest={() => setRemoveTarget(torrent)}
+                />
+              ) : (
+                <TorrentCard
+                  torrent={torrent}
+                  exiting={exitingIds.has(torrent.id)}
+                  exitDelay={exitingIds.get(torrent.id)}
+                  stalled={!!torrent.stalledSince}
+                  onRefresh={fetchAll}
+                  onRemoveRequest={() => setRemoveTarget(torrent)}
+                />
+              )}
+            </div>
+          ))}
         </ContentRow>
       )}
 
@@ -292,12 +359,44 @@ export default function HomePage() {
           icon={Eye}
           isEmpty={watchlist.length === 0}
           emptyContent={
-            <EmptyRowCard
-              icon={Eye}
-              label="Watch for a release"
-              hint="We'll grab it when it shows up"
-              onClick={() => setShowAddWatchlist(true)}
-            />
+            <div className="flex" style={{ viewTransitionName: "hi-add-wl" }}>
+              <EmptyRowCard
+                icon={Eye}
+                label="Watch for a release"
+                hint="We'll grab it when it shows up"
+                onClick={() => setShowAddWatchlist(true)}
+              />
+            </div>
+          }
+          collapsed={isCollapsed("watchlist")}
+          onToggleCollapse={() => toggleSection("watchlist")}
+          transitionName="hs-watchlist"
+          collapsedContent={
+            watchlist.length === 0 ? (
+              <AddMiniTile
+                label="Watch for a release"
+                onClick={() => setShowAddWatchlist(true)}
+                transitionName="hi-add-wl"
+              />
+            ) : (
+              <>
+                {activeEntries.map((entry) => (
+                  <WatchlistMiniTile
+                    key={entry.id}
+                    entry={entry}
+                    searching={searchingWlIds.has(entry.id)}
+                    exiting={exitingIds.has(entry.id)}
+                    exitDelay={exitingIds.get(entry.id)}
+                  />
+                ))}
+                {fulfilledEntries.length > 0 && (
+                  <TrayMiniTile
+                    count={fulfilledEntries.length}
+                    onExpand={() => expandSection("watchlist")}
+                  />
+                )}
+              </>
+            )
           }
           action={
             <button
@@ -309,7 +408,15 @@ export default function HomePage() {
             </button>
           }
         >
-          {activeEntries.map(renderWatchlistCard)}
+          {activeEntries.map((entry) => (
+            <div
+              key={entry.id}
+              className="flex"
+              style={{ viewTransitionName: vtName("w", entry.id) }}
+            >
+              {renderWatchlistCard(entry)}
+            </div>
+          ))}
           {fulfilledEntries.length > 0 && (
             <FulfilledTray
               count={fulfilledEntries.length}
@@ -329,12 +436,35 @@ export default function HomePage() {
           icon={Lightning}
           isEmpty={enabledAutomations.length === 0}
           emptyContent={
-            <EmptyRowCard
-              icon={Lightning}
-              label="Create an automation"
-              hint="Run an agent when something happens"
-              onClick={() => setShowAddAutomation(true)}
-            />
+            <div className="flex" style={{ viewTransitionName: "hi-add-auto" }}>
+              <EmptyRowCard
+                icon={Lightning}
+                label="Create an automation"
+                hint="Run an agent when something happens"
+                onClick={() => setShowAddAutomation(true)}
+              />
+            </div>
+          }
+          collapsed={isCollapsed("automations")}
+          onToggleCollapse={() => toggleSection("automations")}
+          transitionName="hs-automations"
+          collapsedContent={
+            enabledAutomations.length === 0 ? (
+              <AddMiniTile
+                label="Create an automation"
+                onClick={() => setShowAddAutomation(true)}
+                transitionName="hi-add-auto"
+              />
+            ) : (
+              enabledAutomations.map((rule) => (
+                <AutomationMiniTile
+                  key={rule.id}
+                  rule={rule}
+                  running={runningAutoId === rule.id}
+                  onClick={() => setEditAutoRule(rule)}
+                />
+              ))
+            )
           }
           action={
             <button
@@ -347,14 +477,15 @@ export default function HomePage() {
           }
         >
           {enabledAutomations.map((rule) => (
-            <AutomationCard
-              key={rule.id}
-              rule={rule}
-              running={runningAutoId === rule.id}
-              onRun={() => runAutomation(rule)}
-              onEdit={() => setEditAutoRule(rule)}
-              onDelete={() => deleteAutomationRule(rule)}
-            />
+            <div key={rule.id} className="flex" style={{ viewTransitionName: vtName("a", rule.id) }}>
+              <AutomationCard
+                rule={rule}
+                running={runningAutoId === rule.id}
+                onRun={() => runAutomation(rule)}
+                onEdit={() => setEditAutoRule(rule)}
+                onDelete={() => deleteAutomationRule(rule)}
+              />
+            </div>
           ))}
         </ContentRow>
       )}

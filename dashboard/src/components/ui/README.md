@@ -19,7 +19,12 @@ poster cards where there's no room for a bar. It self-hides at 100% and has a
 `busy` mode for indeterminate "working…" states (watchlist search, automation
 run).
 
-Reach for the ring only when a bar won't fit. Everything else is a bar.
+Reach for the ring only when a bar won't fit. Everything else is a bar. "Won't
+fit" includes rounded-corner surfaces where a straight bar's ends get cropped by
+the radius — that's why the home cards and their collapsed mini tiles ring their
+borders instead. The ring's scale comes from a modifier class, not call-site
+sizing: `progress-ring--mini` (2px/1px) for the 40px tiles, the default (3px/2px)
+for cards.
 
 ## Ranked weights: pick a `variant`, don't hand-size
 
