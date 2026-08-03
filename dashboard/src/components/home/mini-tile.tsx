@@ -1,9 +1,10 @@
 "use client";
 
-import type { CSSProperties, ElementType, ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ElementType, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle, FilmStrip, Lightning, Plus, type IconWeight } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { poofBurst } from "@/lib/poof-burst";
 import { toPct } from "@/components/ui/progress-bar";
 import { ProgressRing, type RingColor } from "@/components/home/progress-ring";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -57,21 +58,36 @@ export function MiniTile({
   const style: CSSProperties = {};
   if (transitionName) style.viewTransitionName = transitionName;
   if (exiting) style.animationDelay = `${exitDelay}ms`;
+  const tileRef = useRef<HTMLButtonElement>(null);
+  // Same stagger delay that gates the CSS dissolve, so the two stay in sync.
+  useEffect(() => {
+    if (!exiting) return;
+    const timer = window.setTimeout(() => {
+      const rect = tileRef.current?.getBoundingClientRect();
+      if (!rect || rect.right < 0 || rect.left > window.innerWidth ||
+          rect.bottom < 0 || rect.top > window.innerHeight) return;
+      poofBurst(rect.left + rect.width / 2, rect.top + rect.height / 2, 0.35);
+    }, exitDelay);
+    return () => window.clearTimeout(timer);
+  }, [exiting, exitDelay]);
 
   return (
-    <div className={cn(exiting && "card-poof-dissolving pointer-events-none")} style={style}>
+    <div className={cn(exiting && "tile-poof-collapsing pointer-events-none")} style={style}>
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <button
+              ref={tileRef}
               type="button"
               onClick={exiting ? undefined : onClick}
               aria-label={`${title} — ${subtitle}`}
+              style={exiting ? { animationDelay: `${exitDelay}ms` } : undefined}
               className={cn(
                 "relative block w-10 h-15 rounded-md overflow-hidden bg-muted shadow-card cursor-pointer",
                 "transition-shadow hover:ring-2 hover:ring-ring/40",
                 "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                dimmed && "opacity-60 saturate-50"
+                dimmed && "opacity-60 saturate-50",
+                exiting && "card-poof-dissolving"
               )}
             >
               {posterUrl ? (

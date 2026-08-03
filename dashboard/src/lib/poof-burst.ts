@@ -12,7 +12,8 @@ const RINGS = [
   { n: 11, r: 22, d: [38, 78], s: [16, 30] },
 ];
 
-export function poofBurst(x: number, y: number) {
+/** scale shrinks the whole cloud proportionally (1 = tuned for ~176px cards). */
+export function poofBurst(x: number, y: number, scale = 1) {
   // Cleanup rides on animationend, so bail if animations won't run rather
   // than stranding the pieces on screen.
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -38,13 +39,13 @@ export function poofBurst(x: number, y: number) {
   for (const ring of RINGS) {
     for (let i = 0; i < ring.n; i++) {
       const angle = (i / ring.n) * Math.PI * 2 + Math.random() * 0.6;
-      const dist = ring.d[0] + Math.random() * ring.d[1];
+      const dist = (ring.d[0] + Math.random() * ring.d[1]) * scale;
       piece(
         "card-poof-puff",
-        x + Math.cos(angle) * ring.r,
-        y + Math.sin(angle) * ring.r,
-        ring.s[0] + Math.random() * ring.s[1],
-        `--tx:${Math.cos(angle) * dist}px; --ty:${Math.sin(angle) * dist - 30}px;` +
+        x + Math.cos(angle) * ring.r * scale,
+        y + Math.sin(angle) * ring.r * scale,
+        (ring.s[0] + Math.random() * ring.s[1]) * scale,
+        `--tx:${Math.cos(angle) * dist}px; --ty:${Math.sin(angle) * dist - 30 * scale}px;` +
           `--shrink:${0.05 + Math.random() * 0.15};` +
           `--dur:${340 + Math.random() * 240}ms;` +
           `--delay:${Math.random() * 45}ms`,
@@ -54,13 +55,13 @@ export function poofBurst(x: number, y: number) {
 
   for (let i = 0; i < 8; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const dist = 45 + Math.random() * 90;
+    const dist = (45 + Math.random() * 90) * scale;
     piece(
       "card-poof-mote",
       x,
       y,
-      2 + Math.random() * 4,
-      `--tx:${Math.cos(angle) * dist}px; --ty:${Math.sin(angle) * dist - 22}px;` +
+      (2 + Math.random() * 4) * scale,
+      `--tx:${Math.cos(angle) * dist}px; --ty:${Math.sin(angle) * dist - 22 * scale}px;` +
         `--dur:${320 + Math.random() * 200}ms`,
     );
   }

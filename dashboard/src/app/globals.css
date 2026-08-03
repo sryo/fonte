@@ -301,8 +301,17 @@ body {
   animation: card-poof-collapse 520ms ease-in forwards;
 }
 
+/* Mini-tile sibling: fixed 2.5rem tile in a gap-2 row. */
+@keyframes tile-poof-collapse {
+  0%, 45% { width: 2.5rem; margin-right: 0; }
+  100%    { width: 0;      margin-right: -0.5rem; }
+}
+.tile-poof-collapsing {
+  animation: tile-poof-collapse 520ms ease-in forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .card-poof-collapsing, .card-poof-dissolving { animation: none; }
+  .card-poof-collapsing, .card-poof-dissolving, .tile-poof-collapsing { animation: none; }
 }
 
 /* Soft radial glow that rides the content-width hairline near the pointer. */
