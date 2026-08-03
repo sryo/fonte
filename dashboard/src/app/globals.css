@@ -301,7 +301,6 @@ body {
   animation: card-poof-collapse 520ms ease-in forwards;
 }
 
-/* Mini-tile sibling: fixed 2.5rem tile in a gap-2 row. */
 @keyframes tile-poof-collapse {
   0%, 45% { width: 2.5rem; margin-right: 0; }
   100%    { width: 0;      margin-right: -0.5rem; }

@@ -71,4 +71,9 @@ $PB -c "Add :UTImportedTypeDeclarations:0:UTTypeTagSpecification:public.filename
 $PB -c "Add :UTImportedTypeDeclarations:0:UTTypeTagSpecification:public.filename-extension:0 string torrent" "$PLIST"
 $PB -c "Add :UTImportedTypeDeclarations:0:UTTypeTagSpecification:public.mime-type string 'application/x-bittorrent'" "$PLIST"
 
+if [ -f "$SRC_DIR/Fonte.icns" ]; then
+    cp "$SRC_DIR/Fonte.icns" "$OUT/Contents/Resources/droplet.icns"
+    touch "$OUT"
+fi
+
 echo "Built $OUT"
