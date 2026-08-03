@@ -45,6 +45,7 @@ GET    /api/torrents              List all
 GET    /api/torrents/:id          Detail
 POST   /api/torrents/:id/pause    Pause
 POST   /api/torrents/:id/resume   Resume
+POST   /api/torrents/:id/reveal   Show in Finder (optional body {"path": "<files[].path>"} for one file)
 DELETE /api/torrents/:id           Remove (files kept; ?deleteFiles=true moves them to Trash)
 GET    /api/torrents/stats        Speed + counts
 ```

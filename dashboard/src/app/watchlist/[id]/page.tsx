@@ -11,6 +11,7 @@ import {
   updateWatchlistEntry,
   deleteWatchlistEntry,
   markWatchlistResultsViewed,
+  revealTorrent,
   type WatchlistRecord,
   type WatchlistResultRecord,
 } from "@/lib/api";
@@ -213,9 +214,18 @@ export default function WatchlistDetailPage() {
         <Callout
           tone="done"
           action={
-            <Button asChild size="xs" variant="ghost">
-              <Link href={`/torrents/${entry.matchedTorrentId}`}>View torrent</Link>
-            </Button>
+            <span className="flex items-center gap-1">
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => revealTorrent(entry.matchedTorrentId!).catch((err) => setActionError((err as Error).message))}
+              >
+                Show in Finder
+              </Button>
+              <Button asChild size="xs" variant="ghost">
+                <Link href={`/torrents/${entry.matchedTorrentId}`}>View torrent</Link>
+              </Button>
+            </span>
           }
         >
           Matched and added as torrent.

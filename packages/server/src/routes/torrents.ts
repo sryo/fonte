@@ -1,7 +1,9 @@
+import { existsSync } from 'fs';
+import path from 'path';
 import { Hono } from 'hono';
 import { getTorrentManager, parseTorrentName, searchReleases, computeQualityMatch, resolveReleaseSource } from '@fonte/torrent';
 import type { TorrentStatus } from '@fonte/torrent';
-import { log, expandHomePath, validateSettings } from '@fonte/core';
+import { log, expandHomePath, validateSettings, revealInFinder } from '@fonte/core';
 import { ok, fail } from '../http';
 import { mutateSettings } from './settings';
 
@@ -154,6 +156,40 @@ app.post('/api/torrents/:id/reannounce', async (c) => {
         return ok(c);
     } catch (err) {
         return fail(c, (err as Error).message, 404);
+    }
+});
+
+// The API is unauthenticated loopback, so this only ever reveals paths
+// resolved from the torrent's own record — never a caller-supplied one.
+app.post('/api/torrents/:id/reveal', async (c) => {
+    if (process.platform !== 'darwin') {
+        return fail(c, 'Reveal in Finder is only supported on macOS');
+    }
+    const id = c.req.param('id');
+    const manager = getTorrentManager();
+    const torrent = manager.getTorrent(id);
+    if (!torrent) {
+        return fail(c, 'Torrent not found', 404);
+    }
+    const body = await c.req.json().catch(() => ({})) as { path?: string };
+    let abs: string;
+    if (body.path) {
+        const files = manager.getTorrentFiles(id);
+        if (!files.some((f) => f.path === body.path)) {
+            return fail(c, 'Unknown file path', 404);
+        }
+        abs = path.join(torrent.savePath, body.path);
+    } else {
+        abs = path.join(torrent.savePath, torrent.name);
+    }
+    if (!existsSync(abs)) {
+        return fail(c, 'Not on disk yet', 404);
+    }
+    try {
+        await revealInFinder(abs);
+        return ok(c);
+    } catch (err) {
+        return fail(c, (err as Error).message, 500);
     }
 });
 

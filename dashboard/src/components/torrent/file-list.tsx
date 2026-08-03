@@ -70,6 +70,7 @@ export interface FileSelectionSummary {
 export function FileList({
   files,
   onSetWanted,
+  onReveal,
   downloading,
   stalled,
   pollPausedRef,
@@ -78,6 +79,8 @@ export function FileList({
   files: TorrentFileRecord[];
   /** Apply a wanted state to a batch of original file indices in one call. */
   onSetWanted: (indices: number[], wanted: boolean) => void;
+  /** Show a file in Finder, by torrent-relative path. */
+  onReveal?: (path: string) => void;
   downloading: boolean;
   stalled: boolean;
   /** Page's poll gate — held true while a marquee drag is in flight. */
@@ -327,6 +330,7 @@ export function FileList({
             registerRef={registerRow(node.path)}
             onClick={(e) => handleRowClick(node, e)}
             onCheckbox={() => handleFileCheckbox(node)}
+            onReveal={onReveal && (() => onReveal(node.path))}
           />
         ) : (
           <FolderRow
@@ -421,6 +425,7 @@ function FileRow({
   registerRef,
   onClick,
   onCheckbox,
+  onReveal,
 }: {
   file: FileNode;
   highlighted: boolean;
@@ -429,6 +434,7 @@ function FileRow({
   registerRef: Ref<HTMLDivElement>;
   onClick: (e: ReactMouseEvent) => void;
   onCheckbox: () => void;
+  onReveal?: () => void;
 }) {
   return (
     <div
@@ -436,7 +442,7 @@ function FileRow({
       ref={registerRef}
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2 py-1.5 pl-2 pr-3 text-sm transition-colors hover:bg-muted/50",
+        "group flex items-center gap-2 py-1.5 pl-2 pr-3 text-sm transition-colors hover:bg-muted/50",
         !file.selected && "opacity-50",
         highlighted && "bg-primary/10 hover:bg-primary/10"
       )}
@@ -454,6 +460,19 @@ function FileRow({
         text={file.name}
         className={cn("min-w-0 flex-1 text-xs", !file.selected && "line-through")}
       />
+      {onReveal && (
+        <button
+          data-no-drag=""
+          onClick={(e) => {
+            e.stopPropagation();
+            onReveal();
+          }}
+          title="Show in Finder"
+          className="rounded p-1 text-muted-foreground opacity-0 transition-all hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          <FolderOpen className="h-3.5 w-3.5" />
+        </button>
+      )}
       <ProgressCell
         done={file.progress >= 1}
         value={file.progress}

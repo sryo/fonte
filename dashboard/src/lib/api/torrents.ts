@@ -58,6 +58,13 @@ export async function reannounceTorrent(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/torrents/${encodeURIComponent(id)}/reannounce`, { method: "POST" });
 }
 
+export async function revealTorrent(id: string, path?: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/torrents/${encodeURIComponent(id)}/reveal`, {
+    method: "POST",
+    ...(path ? { body: JSON.stringify({ path }) } : {}),
+  });
+}
+
 export interface AlternativeResult {
   title: string;
   magnetUri: string;

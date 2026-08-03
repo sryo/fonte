@@ -9,6 +9,7 @@ export * from './types';
 export * from './config';
 export * from './logging';
 export * from './notify';
+export * from './reveal';
 export * from './router';
 export * from './invoke';
 export * from './adapters';

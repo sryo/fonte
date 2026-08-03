@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Play, Stop, Trash } from "@phosphor-icons/react";
-import { pauseTorrent, resumeTorrent, type TorrentRecord } from "@/lib/api";
+import { FolderOpen, Play, Stop, Trash } from "@phosphor-icons/react";
+import { pauseTorrent, resumeTorrent, revealTorrent, type TorrentRecord } from "@/lib/api";
 import { formatBytes, formatSpeed, formatShortRelativeTime } from "@/lib/format";
 import { MediaCard } from "@/components/home/media-card";
 import { CardAction } from "@/components/home/card-action";
@@ -41,7 +41,12 @@ export function CompletedCard({
           <CardAction variant="primary" icon={Play} label="Seed" onClick={async () => { try { await resumeTorrent(torrent.id); } finally { onRefresh(); } }} />
         )
       }
-      secondaryAction={<CardAction icon={Trash} label="Remove" destructive onClick={onRemoveRequest} />}
+      secondaryAction={
+        <span className="flex gap-1">
+          <CardAction icon={FolderOpen} label="Show in Finder" onClick={() => revealTorrent(torrent.id).catch(() => {})} />
+          <CardAction icon={Trash} label="Remove" destructive onClick={onRemoveRequest} />
+        </span>
+      }
     >
       <p className="text-2xs text-muted-foreground">
         {torrent.status === "seeding" && torrent.uploadSpeed > 0 && (

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { DotsThree, X } from "@phosphor-icons/react";
 import {
   getTorrent, getTorrentFiles, pauseTorrent, resumeTorrent, removeTorrent,
-  verifyTorrent, reannounceTorrent, searchTorrentAlternatives, swapTorrent,
+  verifyTorrent, reannounceTorrent, revealTorrent, searchTorrentAlternatives, swapTorrent,
   getTorrentSubtitles, fetchTorrentSubtitles, setTorrentFilesWanted,
   type TorrentRecord, type TorrentFileRecord, type SubtitleRecord, type AlternativeResult,
 } from "@/lib/api";
@@ -212,6 +212,9 @@ export default function TorrentDetailPage() {
                 <Button variant="ghost" size="icon-sm" aria-label="More actions"><DotsThree weight="bold" /></Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => revealTorrent(torrent.id).catch((err) => setError((err as Error).message))}>
+                  Show in Finder
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleVerify} disabled={actionLoading}>Verify</DropdownMenuItem>
                 <DropdownMenuItem onClick={handleReannounce} disabled={actionLoading}>Update trackers</DropdownMenuItem>
                 <DropdownMenuItem onClick={handleFindAlternatives} disabled={altSearching}>Find alternatives</DropdownMenuItem>
@@ -296,6 +299,7 @@ export default function TorrentDetailPage() {
         <FileList
           files={files}
           onSetWanted={handleSetWanted}
+          onReveal={(path) => revealTorrent(torrent.id, path).catch((err) => setError((err as Error).message))}
           downloading={torrent.status === "downloading"}
           stalled={isStalled}
           pollPausedRef={filePollPausedRef}
