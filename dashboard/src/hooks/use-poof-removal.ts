@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 
 // Staggered dust-poof exit animation for card removal.
-export function usePoofRemoval(refetch: () => void) {
+export function usePoofRemoval(refetch: () => void | Promise<unknown>) {
   // id → stagger delay (ms) for cards currently playing the poof-out animation
   const [exitingIds, setExitingIds] = useState<Map<string, number>>(new Map());
 
@@ -18,12 +18,15 @@ export function usePoofRemoval(refetch: () => void) {
     return hidden.size ? items.filter((item) => !hidden.has(item.id)) : items;
   }, []);
 
+  /** Returns the ids whose delete failed; those are unhidden again. */
   const removeAll = useCallback(
     async (ids: string[], remove: (id: string) => Promise<unknown>) => {
       const settled = await Promise.allSettled(ids.map((id) => remove(id)));
       // A failed delete resurfaces its card instead of silently vanishing it
-      settled.forEach((result, i) => {
-        if (result.status === "rejected") hiddenIdsRef.current.delete(ids[i]);
+      return ids.filter((id, i) => {
+        if (settled[i].status !== "rejected") return false;
+        hiddenIdsRef.current.delete(id);
+        return true;
       });
     },
     [],
@@ -56,13 +59,23 @@ export function usePoofRemoval(refetch: () => void) {
         // unmount mid-animation. Hiding before the delete still prevents
         // an in-flight poll from resurrecting them afterwards.
         ids.forEach((id) => hiddenIdsRef.current.add(id));
-        await removeAll(ids, remove);
+        const failedIds = await removeAll(ids, remove);
+        if (failedIds.length) {
+          setExitingIds((prev) => {
+            const next = new Map(prev);
+            failedIds.forEach((id) => next.delete(id));
+            return next;
+          });
+        }
+        // The currently rendered list was fetched before the delete, so the
+        // exiting state must outlive it: clearing before the refreshed list
+        // lands flashes the card back at full size for the round-trip.
+        await refetch();
         setExitingIds((prev) => {
           const next = new Map(prev);
           ids.forEach((id) => next.delete(id));
           return next;
         });
-        refetch();
       }, maxDelay + 560);
     },
     [refetch, removeAll],
