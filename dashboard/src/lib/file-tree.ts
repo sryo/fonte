@@ -10,6 +10,8 @@ export interface FileNode {
   size: number;
   progress: number;
   selected: boolean;
+  /** Transmission bandwidth tier: -1 low, 0 normal, 1 high. */
+  priority: number;
   depth: number;
 }
 
@@ -69,6 +71,7 @@ export function buildFileTree(files: TorrentFileRecord[]): TreeNode[] {
       size: file.size,
       progress: file.progress,
       selected: file.selected,
+      priority: file.priority ?? 0,
       depth: segments.length - 1,
     };
     if (segments.length <= 1) {

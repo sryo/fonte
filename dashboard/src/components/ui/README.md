@@ -23,8 +23,8 @@ Reach for the ring only when a bar won't fit. Everything else is a bar. "Won't
 fit" includes rounded-corner surfaces where a straight bar's ends get cropped by
 the radius — that's why the home cards and their collapsed mini tiles ring their
 borders instead. The ring's scale comes from a modifier class, not call-site
-sizing: `progress-ring--mini` (2px/1px) for the 40px tiles, the default (3px/2px)
-for cards.
+sizing: `progress-ring--mini` (3px, flush) for the 40px tiles, the default
+(8px, flush) for cards.
 
 ## Ranked weights: pick a `variant`, don't hand-size
 

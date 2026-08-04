@@ -99,6 +99,28 @@ export async function setTorrentFilesWanted(
   });
 }
 
+/** Move within the download queue: a direction, or an absolute 0-based position. */
+export async function moveTorrentInQueue(
+  id: string,
+  move: "top" | "up" | "down" | "bottom" | number,
+): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/torrents/${encodeURIComponent(id)}/queue`, {
+    method: "POST",
+    body: JSON.stringify({ move }),
+  });
+}
+
+export async function setTorrentFilesPriority(
+  id: string,
+  indices: number[],
+  priority: "high" | "normal" | "low",
+): Promise<{ ok: boolean; files: TorrentFileRecord[] }> {
+  return apiFetch(`/api/torrents/${encodeURIComponent(id)}/files/priority`, {
+    method: "POST",
+    body: JSON.stringify({ indices, priority }),
+  });
+}
+
 export async function getTorrentStats(): Promise<{ ok: boolean } & TorrentStats> {
   return apiFetch("/api/torrents/stats");
 }

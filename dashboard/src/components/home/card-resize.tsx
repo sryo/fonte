@@ -108,7 +108,7 @@ export function CardResizeHandle() {
         dragRef.current = null;
         ctx.setSize(drag.last);
       }}
-      className="absolute bottom-1 right-1 z-10 hidden h-4 w-4 cursor-nwse-resize items-center justify-center rounded text-muted-foreground/50 hover:text-muted-foreground data-[snapped]:text-foreground group-hover:flex"
+      className="absolute bottom-1 right-1 z-10 hidden h-6 w-6 cursor-nwse-resize items-center justify-center rounded text-muted-foreground/50 hover:text-muted-foreground data-[snapped]:text-foreground group-hover:flex"
     >
       <Notches className="h-3 w-3" weight="bold" />
     </span>

@@ -15,12 +15,17 @@ export function CompletedCard({
   exitDelay,
   onRefresh,
   onRemoveRequest,
+  onQueueMove,
+  queueFlash,
 }: {
   torrent: TorrentRecord;
   exiting: boolean;
   exitDelay?: number;
   onRefresh: () => void;
   onRemoveRequest: () => void;
+  onQueueMove?: (move: "up" | "down" | "top" | "bottom") => void;
+  /** Transient position confirmation after a queue change. */
+  queueFlash?: { pos: number; leaving: boolean };
 }) {
   const router = useRouter();
   return (
@@ -32,7 +37,16 @@ export function CompletedCard({
       exitDelay={exitDelay}
       onClick={() => router.push(`/torrents/${torrent.id}`)}
       badges={
-        <PosterBadge tone="done">{torrent.status === "seeding" ? "Seeding" : "Done"}</PosterBadge>
+        <>
+          <PosterBadge tone="done">{torrent.status === "seeding" ? "Seeding" : "Done"}</PosterBadge>
+          {queueFlash && (
+            <span className={queueFlash.leaving ? "animate-overlay-out" : "animate-overlay-in"}>
+              <PosterBadge tone="active">
+                {queueFlash.pos === 0 ? "Next" : `#${queueFlash.pos + 1}`}
+              </PosterBadge>
+            </span>
+          )}
+        </>
       }
       primaryAction={
         <CardAction
@@ -45,10 +59,18 @@ export function CompletedCard({
         />
       }
       secondaryAction={
-        <span className="flex gap-1">
+        <span className="flex gap-1.5">
           <CardAction icon={FolderOpen} label="Show in Finder" onClick={() => revealTorrent(torrent.id).catch(() => {})} />
           <CardAction icon={Trash} label="Remove" destructive onClick={onRemoveRequest} />
         </span>
+      }
+      hotkeys={
+        onQueueMove && {
+          "[": () => onQueueMove("up"),
+          "]": () => onQueueMove("down"),
+          "{": () => onQueueMove("top"),
+          "}": () => onQueueMove("bottom"),
+        }
       }
     >
       <p className="text-2xs text-muted-foreground">

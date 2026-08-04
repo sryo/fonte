@@ -10,6 +10,9 @@ import {
   type Ref,
 } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowsDownUp,
   CaretRight,
   Check,
   File,
@@ -20,6 +23,7 @@ import {
   Folder,
   FolderOpen,
 } from "@phosphor-icons/react";
+import { IconSwap } from "@/components/ui/icon-swap";
 import { type TorrentFileRecord } from "@/lib/api";
 import {
   buildFileTree,
@@ -70,6 +74,7 @@ export interface FileSelectionSummary {
 export function FileList({
   files,
   onSetWanted,
+  onSetPriority,
   onReveal,
   downloading,
   stalled,
@@ -79,6 +84,8 @@ export function FileList({
   files: TorrentFileRecord[];
   /** Apply a wanted state to a batch of original file indices in one call. */
   onSetWanted: (indices: number[], wanted: boolean) => void;
+  /** Apply a bandwidth tier to a batch of original file indices in one call. */
+  onSetPriority?: (indices: number[], priority: "high" | "normal" | "low") => void;
   /** Show a file in Finder, by torrent-relative path. */
   onReveal?: (path: string) => void;
   downloading: boolean;
@@ -235,6 +242,18 @@ export function FileList({
     }
   };
 
+  // Cycles normal → high → low → normal; like the checkbox, a row that's
+  // part of a multi-selection carries the whole selection with it.
+  const handleFilePriority = (file: FileNode) => {
+    if (!onSetPriority) return;
+    const next = file.priority === 0 ? "high" : file.priority === 1 ? "low" : "normal";
+    if (selectedPaths.has(file.path) && selectedFiles.length > 1) {
+      onSetPriority(selectedFiles.map((f) => f.index), next);
+    } else {
+      onSetPriority([file.index], next);
+    }
+  };
+
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
@@ -330,6 +349,7 @@ export function FileList({
             registerRef={registerRow(node.path)}
             onClick={(e) => handleRowClick(node, e)}
             onCheckbox={() => handleFileCheckbox(node)}
+            onPriorityCycle={onSetPriority && (() => handleFilePriority(node))}
             onReveal={onReveal && (() => onReveal(node.path))}
           />
         ) : (
@@ -436,6 +456,7 @@ function FileRow({
   registerRef,
   onClick,
   onCheckbox,
+  onPriorityCycle,
   onReveal,
 }: {
   file: FileNode;
@@ -445,6 +466,7 @@ function FileRow({
   registerRef: Ref<HTMLDivElement>;
   onClick: (e: ReactMouseEvent) => void;
   onCheckbox: () => void;
+  onPriorityCycle?: () => void;
   onReveal?: () => void;
 }) {
   return (
@@ -471,6 +493,41 @@ function FileRow({
         text={file.name}
         className={cn("min-w-0 flex-1 text-xs", !file.selected && "line-through")}
       />
+      {onPriorityCycle && file.selected && (
+        <button
+          data-no-drag=""
+          onClick={(e) => {
+            e.stopPropagation();
+            onPriorityCycle();
+          }}
+          title={
+            file.priority === 1
+              ? "Priority: high — click for low"
+              : file.priority === -1
+                ? "Priority: low — click for normal"
+                : "Priority: normal — click for high"
+          }
+          className={cn(
+            "rounded p-1 transition-all focus-visible:opacity-100 group-hover:opacity-100",
+            // A non-normal tier keeps its arrow visible: the button doubles
+            // as the row's priority display.
+            file.priority === 0
+              ? "opacity-0 text-muted-foreground hover:text-foreground"
+              : file.priority === 1
+                ? "opacity-100 text-foreground"
+                : "opacity-100 text-muted-foreground"
+          )}
+        >
+          <IconSwap
+            active={file.priority === 1 ? "high" : file.priority === -1 ? "low" : "normal"}
+            icons={{
+              high: <ArrowUp weight="bold" className="h-3.5 w-3.5" />,
+              normal: <ArrowsDownUp className="h-3.5 w-3.5" />,
+              low: <ArrowDown weight="bold" className="h-3.5 w-3.5" />,
+            }}
+          />
+        </button>
+      )}
       {onReveal && (
         <button
           data-no-drag=""

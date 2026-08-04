@@ -83,7 +83,7 @@ export function MediaCard({
           </div>
         )}
         {badges && (
-          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 group-data-[cards=compact]/cards:hidden">
+          <div className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-1.5 group-data-[cards=compact]/cards:hidden">
             {badges}
           </div>
         )}
@@ -93,12 +93,12 @@ export function MediaCard({
               <div className="absolute inset-0 flex items-center justify-center">{primaryAction}</div>
             )}
             {secondaryAction && (
-              <div className="absolute bottom-2 right-2">{secondaryAction}</div>
+              <div className="absolute bottom-4 right-4">{secondaryAction}</div>
             )}
           </div>
         )}
       </div>
-      <div className="p-3 space-y-1">
+      <div className="p-4 space-y-1">
         <MiddleTruncate text={title} lines={2} className="text-sm font-medium leading-tight group-hover:text-foreground" />
         <div className="group-data-[cards=compact]/cards:hidden">{children}</div>
       </div>

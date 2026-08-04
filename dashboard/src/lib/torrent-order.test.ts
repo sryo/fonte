@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import type { TorrentRecord, TorrentStatus } from './api-types';
 import {
     isStalled, isFinished, recency, statusGroupRank, sortTorrents,
+    moveId, applyQueuePositions, queueDropPosition,
     TORRENT_PILL_PREDICATES, countTorrentPills,
 } from './torrent-order';
 
@@ -52,11 +53,12 @@ describe('derived predicates', () => {
 });
 
 describe('status sort', () => {
-    it('orders groups: error, stalled, adding, checking, downloading, paused, seeding, completed', () => {
+    it('orders groups: error, stalled, adding, checking, downloading, queued, paused, seeding, completed', () => {
         const torrents = [
             makeTorrent({ status: 'completed', progress: 1 }),
             makeTorrent({ status: 'seeding', progress: 1 }),
             makeTorrent({ status: 'paused' }),
+            makeTorrent({ status: 'queued' }),
             makeTorrent({ status: 'downloading' }),
             makeTorrent({ status: 'checking' }),
             makeTorrent({ status: 'adding' }),
@@ -65,7 +67,7 @@ describe('status sort', () => {
         ];
         const sorted = sortTorrents(torrents, 'status');
         expect(sorted.map(t => (isStalled(t) ? 'stalled' : t.status))).toEqual([
-            'error', 'stalled', 'adding', 'checking', 'downloading', 'paused', 'seeding', 'completed',
+            'error', 'stalled', 'adding', 'checking', 'downloading', 'queued', 'paused', 'seeding', 'completed',
         ]);
     });
 
@@ -110,10 +112,11 @@ describe('other sorts', () => {
 });
 
 describe('pill predicates', () => {
-    it('active covers adding, checking, downloading (including stalled)', () => {
+    it('active covers adding, checking, downloading, queued (including stalled)', () => {
         const { active } = TORRENT_PILL_PREDICATES;
         expect(active(makeTorrent({ status: 'adding' }))).toBe(true);
         expect(active(makeTorrent({ status: 'checking' }))).toBe(true);
+        expect(active(makeTorrent({ status: 'queued' }))).toBe(true);
         expect(active(makeTorrent({ stalledSince: 1 }))).toBe(true);
         expect(active(makeTorrent({ status: 'seeding' }))).toBe(false);
         expect(active(makeTorrent({ status: 'paused' }))).toBe(false);
@@ -140,5 +143,46 @@ describe('pill predicates', () => {
             makeTorrent({ stalledSince: 1 }),
         ]);
         expect(counts).toEqual({ active: 1, seeding: 1, paused: 0, finished: 2, issues: 2 });
+    });
+});
+
+describe('queue sort', () => {
+    it('orders by queuePosition with unpositioned torrents last', () => {
+        const list = [
+            makeTorrent({ queuePosition: 2 }),
+            makeTorrent({ queuePosition: 0 }),
+            makeTorrent({}),
+            makeTorrent({ queuePosition: 1 }),
+        ];
+        expect(sortTorrents(list, 'queue').map(t => t.queuePosition)).toEqual([0, 1, 2, undefined]);
+    });
+});
+
+describe('queue helpers', () => {
+    it('moveId relocates one id preserving the rest', () => {
+        expect(moveId(['a', 'b', 'c', 'd'], 3, 1)).toEqual(['a', 'd', 'b', 'c']);
+        expect(moveId(['a', 'b', 'c', 'd'], 0, 2)).toEqual(['b', 'c', 'a', 'd']);
+    });
+
+    it('applyQueuePositions rewrites only the listed ids', () => {
+        const a = makeTorrent({ queuePosition: 5 });
+        const b = makeTorrent({ queuePosition: 6 });
+        const other = makeTorrent({ queuePosition: 9 });
+        const next = applyQueuePositions([a, b, other], [b.id, a.id]);
+        expect(next.find(t => t.id === b.id)?.queuePosition).toBe(0);
+        expect(next.find(t => t.id === a.id)?.queuePosition).toBe(1);
+        expect(next.find(t => t.id === other.id)?.queuePosition).toBe(9);
+    });
+
+    it('queueDropPosition lands after the preceding neighbor in both directions', () => {
+        const list = [0, 1, 2, 3].map(p => makeTorrent({ queuePosition: p }));
+        const byId = new Map(list.map(t => [t.id, t]));
+        // list[3] pulled up between 0 and 1: prev keeps its slot, land after it.
+        const movedUp = [list[0].id, list[3].id, list[1].id, list[2].id];
+        expect(queueDropPosition(byId, movedUp, 1)).toBe(1);
+        // list[0] pushed down after 2: removal shifts prev one earlier first.
+        const movedDown = [list[1].id, list[2].id, list[0].id, list[3].id];
+        expect(queueDropPosition(byId, movedDown, 2)).toBe(2);
+        expect(queueDropPosition(byId, movedUp, 0)).toBe(0);
     });
 });

@@ -68,7 +68,9 @@ export function TopBar({ onOpenChat }: TopBarProps) {
   const [jumpPool, setJumpPool] = useState<JumpItem[] | null>(null);
   const [jumpOpen, setJumpOpen] = useState(false);
   const [selIdx, setSelIdx] = useState(-1);
-  const [toast, setToast] = useState<{
+  // Inline feedback rendered inside the dropdown surface, where the action
+  // happened — the search bar owns no toast.
+  const [notice, setNotice] = useState<{
     message: string;
     type: "success" | "error";
     leaving?: boolean;
@@ -110,16 +112,16 @@ export function TopBar({ onOpenChat }: TopBarProps) {
   }, []);
 
   useEffect(() => {
-    if (!toast) return;
-    const id = toast.leaving
-      ? setTimeout(() => setToast(null), 200)
-      : setTimeout(() => setToast((t) => (t ? { ...t, leaving: true } : t)), 2500);
+    if (!notice) return;
+    const id = notice.leaving
+      ? setTimeout(() => setNotice(null), 200)
+      : setTimeout(() => setNotice((n) => (n ? { ...n, leaving: true } : n)), 2200);
     return () => clearTimeout(id);
-  }, [toast]);
+  }, [notice]);
 
-  const showToast = useCallback(
+  const showNotice = useCallback(
     (message: string, type: "success" | "error" = "success") => {
-      setToast({ message, type });
+      setNotice({ message, type });
     },
     []
   );
@@ -168,14 +170,14 @@ export function TopBar({ onOpenChat }: TopBarProps) {
     try {
       if (value.startsWith("magnet:")) {
         await addTorrent({ magnetUri: value });
-        showToast("Torrent added");
+        showNotice("Torrent added");
         setInput("");
         return;
       }
 
       if (/^[a-fA-F0-9]{40}$/.test(value)) {
         await addTorrent({ magnetUri: `magnet:?xt=urn:btih:${value}` });
-        showToast("Torrent added");
+        showNotice("Torrent added");
         setInput("");
         return;
       }
@@ -190,7 +192,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
           const data = await res.json();
           setResults(data.results ?? []);
         } else {
-          showToast("Search failed", "error");
+          showNotice("Search failed", "error");
         }
         return;
       }
@@ -201,11 +203,10 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         channel: "web",
         sender: "Web",
       });
-      showToast("Message sent to agent");
       setInput("");
       onOpenChat();
     } catch (err) {
-      showToast((err as Error).message, "error");
+      showNotice((err as Error).message, "error");
     } finally {
       setLoading(false);
     }
@@ -214,12 +215,12 @@ export function TopBar({ onOpenChat }: TopBarProps) {
   const handleAddResult = async (result: SearchResult) => {
     try {
       await addTorrent({ magnetUri: result.magnetUri });
-      showToast("Torrent added");
+      showNotice("Torrent added");
       setResults((prev) =>
         prev.filter((r) => r.magnetUri !== result.magnetUri)
       );
     } catch (err) {
-      showToast((err as Error).message, "error");
+      showNotice((err as Error).message, "error");
     }
   };
 
@@ -332,23 +333,20 @@ export function TopBar({ onOpenChat }: TopBarProps) {
           )}
         </div>
 
-        {toast && (
-          <div
-            className={cn(
-              "absolute right-3 -bottom-8 z-30 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium shadow-md [--overlay-from-y:-4px]",
-              toast.leaving ? "animate-overlay-out" : "animate-overlay-in",
-              toast.type === "success"
-                ? "bg-done/90 text-white"
-                : "bg-destructive/90 text-destructive-foreground"
-            )}
-          >
-            {toast.type === "success" && <Check className="h-3 w-3" />}
-            {toast.message}
-          </div>
-        )}
-
-        {((jumpOpen && jumpMatches.length > 0) || results.length > 0) && (
+        {(notice || (jumpOpen && jumpMatches.length > 0) || results.length > 0) && (
           <div className="absolute w-full bg-card rounded-xl shadow-card mt-1 max-h-72 overflow-y-auto z-40">
+            {notice && (
+              <div
+                className={cn(
+                  "flex items-center gap-2 border-b px-4 py-2.5 text-sm last:border-b-0 [--overlay-from-y:-4px]",
+                  notice.leaving ? "animate-overlay-out" : "animate-overlay-in",
+                  notice.type === "error" && "text-destructive"
+                )}
+              >
+                {notice.type === "success" && <Check weight="bold" className="h-3.5 w-3.5 text-done" />}
+                {notice.message}
+              </div>
+            )}
             {jumpOpen && jumpMatches.length > 0 && (
               <div className="border-b last:border-b-0">
                 <p className="px-4 pt-2 pb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">

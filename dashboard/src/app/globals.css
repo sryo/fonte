@@ -316,6 +316,32 @@ body {
   .card-poof-collapsing, .card-poof-dissolving, .tile-poof-collapsing { animation: none; }
 }
 
+/* Queue drag: the grabbed wrapper lifts and tracks the pointer (inline
+   `translate` from use-queue-drag); every card's hover chrome sleeps so
+   cards passed over don't flash their overlays. */
+[data-queue-wrapper] {
+  transition: scale 150ms ease-out;
+}
+.queue-drag-lift {
+  position: relative;
+  z-index: 30;
+  scale: 1.04;
+  filter: drop-shadow(0 12px 24px rgb(0 0 0 / 0.35));
+}
+[data-queue-drag-active] [data-queue-wrapper] > * {
+  pointer-events: none;
+}
+/* One-shot tick when a card's queue position changes. */
+@keyframes queue-pulse {
+  35% { scale: 1.03; }
+}
+.queue-flash-pulse {
+  animation: queue-pulse 300ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .queue-flash-pulse { animation: none; }
+}
+
 /* Ghost cards behind a pile fan out on hover — "several things await"
    gets a peek before the click. Offsets come from stack-visual.ts. */
 .card-stack-ghost {
@@ -360,8 +386,8 @@ body {
 }
 .progress-ring {
   --progress: 0;
-  --ring-thickness: 3px;
-  --ring-inset: 2px;
+  --ring-thickness: 8px;
+  --ring-inset: 0px;
   --ring-color: var(--torrent);
   /* Track for the remaining arc; flips with the theme via muted-foreground. */
   --ring-track: color-mix(in oklab, var(--muted-foreground) 15%, transparent);
@@ -416,8 +442,8 @@ body {
 }
 /* Scaled for the 40px mini tiles of collapsed home rows (rounded-md parents). */
 .progress-ring--mini {
-  --ring-thickness: 2px;
-  --ring-inset: 1px;
+  --ring-thickness: 3px;
+  --ring-inset: 0px;
   border-radius: calc(var(--radius-md) - var(--ring-inset));
 }
 @keyframes progress-ring-shine {

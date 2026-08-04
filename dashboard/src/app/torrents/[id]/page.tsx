@@ -7,7 +7,7 @@ import { DotsThree, X } from "@phosphor-icons/react";
 import {
   getTorrent, getTorrentFiles, pauseTorrent, resumeTorrent, removeTorrent,
   verifyTorrent, reannounceTorrent, revealTorrent, searchTorrentAlternatives, swapTorrent,
-  getTorrentSubtitles, fetchTorrentSubtitles, setTorrentFilesWanted,
+  getTorrentSubtitles, fetchTorrentSubtitles, setTorrentFilesWanted, setTorrentFilesPriority,
   type TorrentRecord, type TorrentFileRecord, type SubtitleRecord, type AlternativeResult,
 } from "@/lib/api";
 import { formatBytes, formatSpeed } from "@/lib/format";
@@ -31,6 +31,10 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleString();
 }
 
+function selectionAllAt(indices: number[], files: TorrentFileRecord[], priority: number): boolean {
+  return indices.every((i) => (files[i]?.priority ?? 0) === priority);
+}
+
 export default function TorrentDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -51,14 +55,21 @@ export default function TorrentDetailPage() {
   const [subtitleError, setSubtitleError] = useState<string | null>(null);
   const [fileSelection, setFileSelection] = useState<FileSelectionSummary | null>(null);
 
-  // Wanted-toggles still in flight, by file index. Poll responses overlay
-  // these so a fetch that started before the toggle can't bounce the checkbox
-  // back to its pre-toggle state.
+  // Wanted/priority mutations still in flight, by file index. Poll responses
+  // overlay these so a fetch that started before the change can't bounce the
+  // row back to its pre-change state.
   const pendingFileToggles = useRef(new Map<number, boolean>());
+  const pendingFilePriorities = useRef(new Map<number, number>());
   const overlayPendingToggles = useCallback((serverFiles: TorrentFileRecord[]) => {
-    const pending = pendingFileToggles.current;
-    if (pending.size === 0) return serverFiles;
-    return serverFiles.map((f, i) => (pending.has(i) ? { ...f, selected: pending.get(i)! } : f));
+    const wanted = pendingFileToggles.current;
+    const priorities = pendingFilePriorities.current;
+    if (wanted.size === 0 && priorities.size === 0) return serverFiles;
+    return serverFiles.map((f, i) => {
+      let next = f;
+      if (wanted.has(i)) next = { ...next, selected: wanted.get(i)! };
+      if (priorities.has(i)) next = { ...next, priority: priorities.get(i)! };
+      return next;
+    });
   }, []);
 
   const filesRef = useRef<TorrentFileRecord[]>([]);
@@ -101,6 +112,24 @@ export default function TorrentDetailPage() {
     } catch {
       for (const i of indices) pendingFileToggles.current.delete(i);
       setFiles((prev) => prev.map((f, i) => (idxSet.has(i) ? { ...f, selected: prior.get(i)! } : f)));
+    }
+  }, [id, overlayPendingToggles]);
+
+  const handleSetPriority = useCallback(async (indices: number[], priority: "high" | "normal" | "low") => {
+    if (indices.length === 0) return;
+    const value = priority === "high" ? 1 : priority === "low" ? -1 : 0;
+    const idxSet = new Set(indices);
+    const prior = new Map(indices.map((i) => [i, filesRef.current[i]?.priority ?? 0]));
+    for (const i of indices) pendingFilePriorities.current.set(i, value);
+    setFiles((prev) => prev.map((f, i) => (idxSet.has(i) ? { ...f, priority: value } : f)));
+    try {
+      const res = await setTorrentFilesPriority(id, indices, priority);
+      for (const i of indices) pendingFilePriorities.current.delete(i);
+      if (res.ok && res.files) setFiles(overlayPendingToggles(res.files));
+    } catch {
+      for (const i of indices) pendingFilePriorities.current.delete(i);
+      setFiles((prev) => prev.map((f, i) => (idxSet.has(i) ? { ...f, priority: prior.get(i)! } : f)));
+      setError("Couldn't change file priority");
     }
   }, [id, overlayPendingToggles]);
 
@@ -286,6 +315,30 @@ export default function TorrentDetailPage() {
               <Button size="xs" variant="secondary" onClick={() => handleSetWanted(fileSelection.indices, true)}>
                 Download
               </Button>
+              <Button
+                size="xs"
+                variant={selectionAllAt(fileSelection.indices, files, 1) ? "secondary" : "ghost"}
+                onClick={() =>
+                  handleSetPriority(
+                    fileSelection.indices,
+                    selectionAllAt(fileSelection.indices, files, 1) ? "normal" : "high"
+                  )
+                }
+              >
+                High
+              </Button>
+              <Button
+                size="xs"
+                variant={selectionAllAt(fileSelection.indices, files, -1) ? "secondary" : "ghost"}
+                onClick={() =>
+                  handleSetPriority(
+                    fileSelection.indices,
+                    selectionAllAt(fileSelection.indices, files, -1) ? "normal" : "low"
+                  )
+                }
+              >
+                Low
+              </Button>
               <Button size="xs" variant="ghost" onClick={() => handleSetWanted(fileSelection.indices, false)}>
                 Skip
               </Button>
@@ -299,6 +352,7 @@ export default function TorrentDetailPage() {
         <FileList
           files={files}
           onSetWanted={handleSetWanted}
+          onSetPriority={handleSetPriority}
           onReveal={(path) => revealTorrent(torrent.id, path).catch((err) => setError((err as Error).message))}
           downloading={torrent.status === "downloading"}
           stalled={isStalled}

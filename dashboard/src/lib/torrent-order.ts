@@ -3,7 +3,7 @@
 
 import type { TorrentRecord } from "./api-types";
 
-export type SortKey = "status" | "recent" | "name" | "progress";
+export type SortKey = "status" | "recent" | "name" | "progress" | "queue";
 export type PillKey = "all" | "active" | "seeding" | "paused" | "finished" | "issues" | "watching";
 
 export function isStalled(t: TorrentRecord): boolean {
@@ -27,36 +27,78 @@ const STATUS_RANK: Record<string, number> = {
   adding: 2,
   checking: 3,
   downloading: 4,
-  paused: 5,
-  seeding: 6,
-  completed: 7,
+  queued: 5,
+  paused: 6,
+  seeding: 7,
+  completed: 8,
 };
 
 export function statusGroupRank(t: TorrentRecord): number {
   if (isStalled(t)) return 1;
-  return STATUS_RANK[t.status] ?? 8;
+  return STATUS_RANK[t.status] ?? 9;
 }
 
 type Comparator = (a: TorrentRecord, b: TorrentRecord) => number;
 
 const byId: Comparator = (a, b) => a.id.localeCompare(b.id);
 const byRecency: Comparator = (a, b) => recency(b) - recency(a);
+// Torrents the daemon hasn't positioned yet sink to the end.
+const byQueue: Comparator = (a, b) =>
+  (a.queuePosition ?? Number.MAX_SAFE_INTEGER) - (b.queuePosition ?? Number.MAX_SAFE_INTEGER);
 
 export const SORT_COMPARATORS: Record<SortKey, Comparator> = {
   status: (a, b) => statusGroupRank(a) - statusGroupRank(b) || byRecency(a, b) || byId(a, b),
   recent: (a, b) => byRecency(a, b) || byId(a, b),
   name: (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }) || byId(a, b),
   progress: (a, b) => b.progress - a.progress || byRecency(a, b) || byId(a, b),
+  queue: (a, b) => byQueue(a, b) || byRecency(a, b) || byId(a, b),
 };
 
 export function sortTorrents(torrents: TorrentRecord[], key: SortKey): TorrentRecord[] {
   return [...torrents].sort(SORT_COMPARATORS[key]);
 }
 
+/** `ids` with the item at `from` moved to `to`. */
+export function moveId(ids: string[], from: number, to: number): string[] {
+  const next = [...ids];
+  const [moved] = next.splice(from, 1);
+  next.splice(to, 0, moved);
+  return next;
+}
+
+/** Optimistic overlay: rewrite queuePosition so `orderedIds` becomes the
+    queue order, until the server echoes real positions. */
+export function applyQueuePositions(torrents: TorrentRecord[], orderedIds: string[]): TorrentRecord[] {
+  const pos = new Map(orderedIds.map((id, i) => [id, i]));
+  return torrents.map((t) => {
+    const p = pos.get(t.id);
+    return p === undefined ? t : { ...t, queuePosition: p };
+  });
+}
+
+/** Absolute Transmission queuePosition that lands the item at `index` of
+    `orderedIds` right after its preceding neighbor. Neighbor-based so it
+    stays correct when a pill filter hides part of the queue. */
+export function queueDropPosition(
+  byId: Map<string, TorrentRecord>,
+  orderedIds: string[],
+  index: number
+): number {
+  if (index <= 0) return 0;
+  const prev = byId.get(orderedIds[index - 1]);
+  const moved = byId.get(orderedIds[index]);
+  const prevPos = prev?.queuePosition ?? index - 1;
+  const curPos = moved?.queuePosition;
+  // Moving up past prev: prev keeps its slot, land right after it. Moving
+  // down: removing the card first shifts prev one earlier, so prev's old
+  // position is the landing slot.
+  return curPos !== undefined && curPos < prevPos ? prevPos : prevPos + 1;
+}
+
 export type TorrentPillKey = Exclude<PillKey, "all" | "watching">;
 
 export const TORRENT_PILL_PREDICATES: Record<TorrentPillKey, (t: TorrentRecord) => boolean> = {
-  active: (t) => t.status === "downloading" || t.status === "checking" || t.status === "adding",
+  active: (t) => t.status === "downloading" || t.status === "queued" || t.status === "checking" || t.status === "adding",
   seeding: (t) => t.status === "seeding",
   paused: (t) => t.status === "paused",
   finished: isFinished,
@@ -83,6 +125,7 @@ export const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "recent", label: "Recent" },
   { key: "name", label: "Name A–Z" },
   { key: "progress", label: "Progress" },
+  { key: "queue", label: "Queue" },
 ];
 
 export function countTorrentPills(torrents: TorrentRecord[]): Record<TorrentPillKey, number> {

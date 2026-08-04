@@ -9,6 +9,7 @@ import {
   getWatchlist,
   getAutomations,
   getIndexerStatus,
+  moveTorrentInQueue,
   removeTorrent,
   deleteWatchlistEntry,
   triggerAutomation,
@@ -31,9 +32,13 @@ import {
 import { usePollingEffect } from "@/lib/hooks";
 import { usePoofRemoval } from "@/hooks/use-poof-removal";
 import { usePersistedState } from "@/hooks/use-persisted-state";
+import { useQueueDrag } from "@/hooks/use-queue-drag";
 import {
+  applyQueuePositions,
   countTorrentPills,
   isFinished,
+  moveId,
+  queueDropPosition,
   sortTorrents,
   DEFAULT_VISIBLE_PILLS,
   SORT_OPTIONS,
@@ -42,6 +47,7 @@ import {
   type SortKey,
   type TorrentPillKey,
 } from "@/lib/torrent-order";
+import { cn } from "@/lib/utils";
 import { PillBar } from "@/components/home/pill-bar";
 import { SortDropdown } from "@/components/shared/sort-dropdown";
 import { EmptyRowCard } from "@/components/home/empty-row-card";
@@ -150,7 +156,44 @@ export default function HomePage() {
   }, [filterHidden]);
   fetchAllRef.current = fetchAll;
 
-  usePollingEffect(fetchAll, 3000);
+  // Held true from queue-drag pickup until the commit settles, so a poll
+  // can't rewrite the row mid-drag.
+  const queuePollPausedRef = useRef(false);
+
+  // Promotion feedback at the card itself: a transient position badge that
+  // dissolves after a beat, plus a one-shot scale tick on the wrapper.
+  const [queueFlash, setQueueFlash] = useState<Map<string, { pos: number; leaving: boolean }>>(
+    new Map()
+  );
+  const flashTimers = useRef(new Map<string, number[]>());
+  useEffect(() => {
+    const timers = flashTimers.current;
+    return () => timers.forEach((ids) => ids.forEach((t) => window.clearTimeout(t)));
+  }, []);
+  const flashQueuePosition = (id: string, pos: number) => {
+    flashTimers.current.get(id)?.forEach((t) => window.clearTimeout(t));
+    setQueueFlash((prev) => new Map(prev).set(id, { pos, leaving: false }));
+    const leave = window.setTimeout(() => {
+      setQueueFlash((prev) => {
+        const next = new Map(prev);
+        const f = next.get(id);
+        if (f) next.set(id, { ...f, leaving: true });
+        return next;
+      });
+    }, 2200);
+    const gone = window.setTimeout(() => {
+      setQueueFlash((prev) => {
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 2400);
+    flashTimers.current.set(id, [leave, gone]);
+  };
+  const fetchAllUnlessDragging = useCallback(() => {
+    if (!queuePollPausedRef.current) fetchAll();
+  }, [fetchAll]);
+  usePollingEffect(fetchAllUnlessDragging, 3000);
 
   // Indexer status is a real Jackett search, so it polls on a slow cadence
   // (not the 3s torrent poll) — enough to self-heal the banner when Jackett
@@ -205,7 +248,59 @@ export default function HomePage() {
   const pillPredicate = pill in TORRENT_PILL_PREDICATES
     ? TORRENT_PILL_PREDICATES[pill as TorrentPillKey]
     : null;
-  const shownTorrents = sortTorrents(pillPredicate ? lane.filter(pillPredicate) : lane, sort);
+  const filteredLane = pillPredicate ? lane.filter(pillPredicate) : lane;
+  const shownTorrents = sortTorrents(filteredLane, sort);
+  const queueOrderIds = sortTorrents(filteredLane, "queue").map((t) => t.id);
+
+  const queueDrag = useQueueDrag({
+    visibleIds: shownTorrents.map((t) => t.id),
+    queueIds: queueOrderIds,
+    canDrag: (id) => !exitingIds.has(id),
+    withMorph,
+    pollPausedRef: queuePollPausedRef,
+    onCommit: (id, index, orderedIds) => commitQueueMove(id, index, orderedIds),
+  });
+
+  function commitQueueMove(id: string, index: number, orderedIds: string[]) {
+    const target = queueDropPosition(new Map(lane.map((t) => [t.id, t])), orderedIds, index);
+    // Optimistic positions land in the same update that drops the drag
+    // override, so the row can't flash back to the pre-drag order.
+    const settle = () => {
+      setTorrents((prev) => applyQueuePositions(prev, orderedIds));
+      queueDrag.clearOrder();
+    };
+    if (sort !== "queue") withMorph(settle);
+    else settle();
+    flashQueuePosition(id, index);
+    moveTorrentInQueue(id, target)
+      .catch(() => {})
+      .finally(() => {
+        queuePollPausedRef.current = false;
+        fetchAll();
+      });
+  }
+
+  const nudgeQueue = (id: string, move: "up" | "down" | "top" | "bottom") => {
+    const from = queueOrderIds.indexOf(id);
+    if (from === -1) return;
+    const to =
+      move === "up" ? Math.max(0, from - 1)
+      : move === "down" ? Math.min(queueOrderIds.length - 1, from + 1)
+      : move === "top" ? 0
+      : queueOrderIds.length - 1;
+    if (to === from) return;
+    const next = moveId(queueOrderIds, from, to);
+    withMorph(() => setTorrents((prev) => applyQueuePositions(prev, next)));
+    flashQueuePosition(id, to);
+    moveTorrentInQueue(id, move).catch(() => {}).finally(() => fetchAll());
+  };
+
+  const laneById = new Map(lane.map((t) => [t.id, t]));
+  const displayTorrents = queueDrag.order
+    ? queueDrag.order
+        .map((id) => laneById.get(id))
+        .filter((t): t is TorrentRecord => t !== undefined)
+    : shownTorrents;
   // "Finished" in the user's sense: done downloading, whether still seeding
   // or stopped. Scoped to the visible cards so Clear never poofs torrents
   // hidden by the active pill.
@@ -255,6 +350,7 @@ export default function HomePage() {
       style={{ "--card-w": `${cardSize}px` } as CSSProperties}
       data-cards-root=""
       data-cards={cardSize < CARD_SIZE_COMPACT_BELOW ? "compact" : undefined}
+      data-queue-drag-active={queueDrag.draggingId != null ? "" : undefined}
     >
       <IndexerBanner status={indexerStatus} onRestarted={refreshIndexerStatus} />
 
@@ -291,7 +387,7 @@ export default function HomePage() {
                 transitionName="hi-add-dl"
               />
             ) : (
-              shownTorrents.map((torrent) => (
+              displayTorrents.map((torrent) => (
                 <TorrentMiniTile
                   key={torrent.id}
                   torrent={torrent}
@@ -322,10 +418,17 @@ export default function HomePage() {
             </div>
           }
         >
-          {shownTorrents.map((torrent) => (
+          {displayTorrents.map((torrent) => (
             <div
               key={torrent.id}
-              className="flex"
+              ref={queueDrag.registerWrapper(torrent.id)}
+              data-queue-wrapper=""
+              onPointerDown={queueDrag.onPointerDown(torrent.id)}
+              className={cn(
+                "flex",
+                queueDrag.draggingId === torrent.id && "queue-drag-lift",
+                queueFlash.has(torrent.id) && "queue-flash-pulse"
+              )}
               style={{ viewTransitionName: vtName("t", torrent.id) }}
             >
               {isFinished(torrent) ? (
@@ -335,6 +438,8 @@ export default function HomePage() {
                   exitDelay={exitingIds.get(torrent.id)}
                   onRefresh={fetchAll}
                   onRemoveRequest={() => setRemoveTarget(torrent)}
+                  onQueueMove={(move) => nudgeQueue(torrent.id, move)}
+                  queueFlash={queueFlash.get(torrent.id)}
                 />
               ) : (
                 <TorrentCard
@@ -344,6 +449,8 @@ export default function HomePage() {
                   stalled={!!torrent.stalledSince}
                   onRefresh={fetchAll}
                   onRemoveRequest={() => setRemoveTarget(torrent)}
+                  onQueueMove={(move) => nudgeQueue(torrent.id, move)}
+                  queueFlash={queueFlash.get(torrent.id)}
                 />
               )}
             </div>

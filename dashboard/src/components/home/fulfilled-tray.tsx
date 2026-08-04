@@ -90,11 +90,11 @@ export function FulfilledTray({
               )}
               <span className="text-2xl font-semibold tabular-nums">{showAsOpen ? "" : count}</span>
             </div>
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-2">
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-end p-4">
               <CardAction icon={Trash} label={`Clear all fulfilled\nRemoves ${count} item${count === 1 ? "" : "s"} from the watchlist`} destructive onClick={requestClear} />
             </div>
           </div>
-          <div className="p-3 space-y-1">
+          <div className="p-4 space-y-1">
             <p className="text-sm font-medium leading-tight group-hover:text-foreground">
               {showAsOpen ? "Stack away" : "Fulfilled"}
             </p>

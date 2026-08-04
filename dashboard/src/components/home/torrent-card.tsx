@@ -26,6 +26,8 @@ export function TorrentCard({
   stalled,
   onRefresh,
   onRemoveRequest,
+  onQueueMove,
+  queueFlash,
 }: {
   torrent: TorrentRecord;
   exiting: boolean;
@@ -33,10 +35,13 @@ export function TorrentCard({
   stalled: boolean;
   onRefresh: () => void;
   onRemoveRequest: () => void;
+  onQueueMove?: (move: "up" | "down" | "top" | "bottom") => void;
+  /** Transient position confirmation after a queue change. */
+  queueFlash?: { pos: number; leaving: boolean };
 }) {
   const router = useRouter();
   const pauseResume =
-    torrent.status === "downloading"
+    torrent.status === "downloading" || torrent.status === "queued"
       ? { active: "pause", label: "Pause", run: async () => { try { await pauseTorrent(torrent.id); } finally { onRefresh(); } } }
       : torrent.status === "paused"
       ? { active: "play", label: "Resume", run: async () => { try { await resumeTorrent(torrent.id); } finally { onRefresh(); } } }
@@ -50,12 +55,23 @@ export function TorrentCard({
       onClick={() => router.push(`/torrents/${torrent.id}`)}
       progress={torrent.status === "adding"
         ? undefined
-        : { value: torrent.progress, stalled: stalled || torrent.status === "paused" || torrent.status === "error" }}
+        : { value: torrent.progress, stalled: stalled || torrent.status === "paused" || torrent.status === "error" || torrent.status === "queued" }}
       busy={torrent.status === "adding"}
       badges={
-        <PosterBadge tone={stalled ? "warn" : statusTone(torrent.status)}>
-          {STATUS_LABEL[torrent.status] ?? `${toPct(torrent.progress)}%`}
-        </PosterBadge>
+        <>
+          <PosterBadge tone={stalled ? "warn" : statusTone(torrent.status)}>
+            {torrent.status === "queued"
+              ? `Queued #${(torrent.queuePosition ?? 0) + 1}`
+              : STATUS_LABEL[torrent.status] ?? `${toPct(torrent.progress)}%`}
+          </PosterBadge>
+          {queueFlash && torrent.status !== "queued" && (
+            <span className={queueFlash.leaving ? "animate-overlay-out" : "animate-overlay-in"}>
+              <PosterBadge tone="active">
+                {queueFlash.pos === 0 ? "Next" : `#${queueFlash.pos + 1}`}
+              </PosterBadge>
+            </span>
+          )}
+        </>
       }
       primaryAction={
         pauseResume && (
@@ -73,6 +89,12 @@ export function TorrentCard({
       }
       hotkeys={{
         ...(pauseResume && { p: pauseResume.run }),
+        ...(onQueueMove && {
+          "[": () => onQueueMove("up"),
+          "]": () => onQueueMove("down"),
+          "{": () => onQueueMove("top"),
+          "}": () => onQueueMove("bottom"),
+        }),
         Delete: onRemoveRequest,
         Backspace: onRemoveRequest,
       }}

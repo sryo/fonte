@@ -8,6 +8,7 @@ const STATUS_TONE: Record<string, Tone> = {
   downloading: "active",
   translating: "active",
   adding: "active",
+  queued: "neutral",
   watching: "watch",
   seeding: "done",
   completed: "done",
