@@ -47,12 +47,20 @@ POST   /api/torrents/:id/pause    Pause
 POST   /api/torrents/:id/resume   Resume
 POST   /api/torrents/:id/reveal   Show in Finder (optional body {"path": "<files[].path>"} for one file)
 DELETE /api/torrents/:id           Remove (files kept; ?deleteFiles=true moves them to Trash)
+POST   /api/torrents/:id/queue    Download-queue order: {"move": "top"|"up"|"down"|"bottom"|<position>}
+POST   /api/torrents/:id/priority Bandwidth priority: {"priority": "high"|"normal"|"low"}
+GET    /api/torrents/:id/files    List files; array index = file index for the endpoints below
+POST   /api/torrents/:id/files/wanted    Select files: {"wanted": [indices], "unwanted": [indices]}
+POST   /api/torrents/:id/files/priority  File priority: {"indices": [...], "priority": "high"|"normal"|"low"}
 GET    /api/torrents/stats        Speed + counts
 ```
 
+Queue order decides which torrents download when `max_concurrent` gates them ("download X first" → `{"move": "top"}`). File priority orders pieces *within* a torrent; skipping a file entirely is `files/wanted` with `unwanted`.
+
 `deleteFiles=true` moves the downloaded data and fetched subtitles to the Trash (recoverable). Default to keeping files; pass it only on an explicit user request.
 
-Torrent `status` values: `adding` → `downloading` → `seeding` → `completed`.
+Torrent `status` values: `adding` → `queued`/`downloading` → `seeding` → `completed`.
+- `queued` — waiting for a download slot behind `max_concurrent`; reorder via `POST /api/torrents/:id/queue`.
 - `seeding` — download finished, still uploading to peers.
 - `completed` — download finished AND stopped (user paused it, or the seed-ratio limit auto-stopped it). Resuming a completed torrent starts seeding again.
 - Others: `checking` (verifying local data), `paused` (stopped before finishing), `error`, `removed`.

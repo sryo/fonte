@@ -14,6 +14,7 @@ function formatProgress(progress: number): string {
 function statusColor(status: string): string {
     const colors: Record<string, string> = {
         downloading: '\x1b[36m', // cyan
+        queued: '\x1b[35m',      // magenta
         seeding: '\x1b[32m',     // green
         completed: '\x1b[32m',   // green
         paused: '\x1b[33m',      // yellow
@@ -112,7 +113,8 @@ async function torrentStatus(id: string) {
         console.log(`\n  Files (${filesResult.files.length}):`);
         for (const f of filesResult.files) {
             const sel = f.selected ? '✓' : '✗';
-            console.log(`    ${sel} ${f.name} (${formatBytes(f.size)}) ${(f.progress * 100).toFixed(0)}%`);
+            const pri = f.priority > 0 ? ' ↑' : f.priority < 0 ? ' ↓' : '';
+            console.log(`    ${sel} ${f.name} (${formatBytes(f.size)}) ${(f.progress * 100).toFixed(0)}%${pri}`);
         }
     }
 }
@@ -144,6 +146,27 @@ async function torrentRemove(id: string, deleteFiles: boolean) {
         console.log(`Removed torrent: ${id}${deleteFiles ? ' (files moved to Trash)' : ''}`);
     } else {
         p.log.error(result.error || 'Failed to remove torrent');
+        process.exit(1);
+    }
+}
+
+async function torrentQueue(id: string, move: string) {
+    const parsed: string | number = /^\d+$/.test(move) ? parseInt(move, 10) : move;
+    const result = await apiRequest('POST', `/api/torrents/${id}/queue`, { move: parsed });
+    if (result.ok) {
+        console.log(`Queue ${typeof parsed === 'number' ? `position ${parsed}` : parsed}: ${id}`);
+    } else {
+        p.log.error(result.error || 'Failed to move torrent in queue');
+        process.exit(1);
+    }
+}
+
+async function torrentPriority(id: string, priority: string) {
+    const result = await apiRequest('POST', `/api/torrents/${id}/priority`, { priority });
+    if (result.ok) {
+        console.log(`Priority ${priority}: ${id}`);
+    } else {
+        p.log.error(result.error || 'Failed to set priority');
         process.exit(1);
     }
 }
@@ -227,11 +250,25 @@ const arg2 = process.argv[4];
                 }
                 await torrentRemove(arg1, process.argv.includes('--delete-files'));
                 break;
+            case 'queue':
+                if (!arg1 || !arg2) {
+                    p.log.error('Usage: fonte torrent queue <id> <top|up|down|bottom|position>');
+                    process.exit(1);
+                }
+                await torrentQueue(arg1, arg2);
+                break;
+            case 'priority':
+                if (!arg1 || !arg2 || !['high', 'normal', 'low'].includes(arg2)) {
+                    p.log.error('Usage: fonte torrent priority <id> <high|normal|low>');
+                    process.exit(1);
+                }
+                await torrentPriority(arg1, arg2);
+                break;
             case 'config':
                 await torrentConfig(arg1, arg2);
                 break;
             default:
-                console.log('Usage: fonte torrent {add|list|status|pause|resume|remove|config}');
+                console.log('Usage: fonte torrent {add|list|status|pause|resume|remove|queue|priority|config}');
                 process.exit(1);
         }
     } catch (err) {

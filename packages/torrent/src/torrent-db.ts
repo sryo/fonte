@@ -24,6 +24,8 @@ export function initTorrentDb(): void {
             added_at INTEGER NOT NULL,
             completed_at INTEGER,
             stalled_since INTEGER,
+            queue_position INTEGER,
+            bandwidth_priority INTEGER NOT NULL DEFAULT 0,
             updated_at INTEGER NOT NULL
         );
 
@@ -35,6 +37,7 @@ export function initTorrentDb(): void {
             size INTEGER NOT NULL DEFAULT 0,
             progress REAL NOT NULL DEFAULT 0,
             selected INTEGER NOT NULL DEFAULT 1,
+            priority INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (torrent_id) REFERENCES torrents(id) ON DELETE CASCADE
         );
 
@@ -149,6 +152,19 @@ export function initTorrentDb(): void {
         db.exec('ALTER TABLE torrents ADD COLUMN stalled_since INTEGER');
     }
 
+    if (!torrentCols.some(c => c.name === 'queue_position')) {
+        db.exec('ALTER TABLE torrents ADD COLUMN queue_position INTEGER');
+    }
+
+    if (!torrentCols.some(c => c.name === 'bandwidth_priority')) {
+        db.exec('ALTER TABLE torrents ADD COLUMN bandwidth_priority INTEGER NOT NULL DEFAULT 0');
+    }
+
+    const fileCols = db.prepare("PRAGMA table_info(torrent_files)").all() as { name: string }[];
+    if (!fileCols.some(c => c.name === 'priority')) {
+        db.exec('ALTER TABLE torrent_files ADD COLUMN priority INTEGER NOT NULL DEFAULT 0');
+    }
+
     const autoRuleCols = getDb().prepare("PRAGMA table_info(automation_rules)").all() as { name: string }[];
     if (!autoRuleCols.some(c => c.name === 'prompt')) {
         getDb().exec("ALTER TABLE automation_rules ADD COLUMN prompt TEXT DEFAULT ''");
@@ -214,6 +230,8 @@ export function updateTorrent(id: string, fields: Partial<{
     tags: string[];
     posterUrl: string;
     magnetUri: string;
+    queuePosition: number | null;
+    bandwidthPriority: number;
 }>): void {
     const sets: string[] = [];
     const values: any[] = [];
@@ -233,6 +251,8 @@ export function updateTorrent(id: string, fields: Partial<{
     if (fields.tags !== undefined) { sets.push('tags = ?'); values.push(JSON.stringify(fields.tags)); }
     if (fields.magnetUri !== undefined) { sets.push('magnet_uri = ?'); values.push(fields.magnetUri); }
     if (fields.posterUrl !== undefined) { sets.push('poster_url = ?'); values.push(fields.posterUrl); }
+    if (fields.queuePosition !== undefined) { sets.push('queue_position = ?'); values.push(fields.queuePosition); }
+    if (fields.bandwidthPriority !== undefined) { sets.push('bandwidth_priority = ?'); values.push(fields.bandwidthPriority); }
 
     if (sets.length === 0) return;
     sets.push('updated_at = ?');
@@ -279,7 +299,7 @@ export function getTorrents(filter?: { status?: TorrentStatus; limit?: number })
 
 export function getActiveTorrents(): TorrentRecord[] {
     const rows = getDb().prepare(
-        "SELECT * FROM torrents WHERE status IN ('adding', 'downloading', 'seeding') ORDER BY added_at DESC"
+        "SELECT * FROM torrents WHERE status IN ('adding', 'queued', 'downloading', 'seeding') ORDER BY added_at DESC"
     ).all() as any[];
     return rows.map(rowToRecord);
 }
@@ -310,6 +330,7 @@ export function getTorrentFiles(torrentId: string): TorrentFileRecord[] {
         size: r.size,
         progress: r.progress,
         selected: !!r.selected,
+        priority: r.priority ?? 0,
     }));
 }
 
@@ -321,6 +342,11 @@ export function updateTorrentFileProgress(torrentId: string, filePath: string, p
 export function setFileSelection(torrentId: string, filePath: string, selected: boolean): void {
     getDb().prepare('UPDATE torrent_files SET selected = ? WHERE torrent_id = ? AND path = ?')
         .run(selected ? 1 : 0, torrentId, filePath);
+}
+
+export function setFilePriority(torrentId: string, filePath: string, priority: number): void {
+    getDb().prepare('UPDATE torrent_files SET priority = ? WHERE torrent_id = ? AND path = ?')
+        .run(priority, torrentId, filePath);
 }
 
 export function updateTorrentInfoHash(id: string, infoHash: string): void {
@@ -351,5 +377,7 @@ function rowToRecord(row: any): TorrentRecord {
         errorMessage: row.error_message ?? undefined,
         tags: row.tags ? JSON.parse(row.tags) : undefined,
         posterUrl: row.poster_url ?? undefined,
+        queuePosition: row.queue_position ?? undefined,
+        bandwidthPriority: row.bandwidth_priority ?? 0,
     };
 }

@@ -1,6 +1,6 @@
 // GENERATED — edit packages/torrent/src/types.ts and run `npm run sync:types`.
 
-export type TorrentStatus = 'adding' | 'downloading' | 'checking' | 'seeding' | 'paused' | 'completed' | 'error' | 'removed';
+export type TorrentStatus = 'adding' | 'queued' | 'downloading' | 'checking' | 'seeding' | 'paused' | 'completed' | 'error' | 'removed';
 
 export interface TorrentRecord {
     id: string;
@@ -23,6 +23,8 @@ export interface TorrentRecord {
     errorMessage?: string;
     tags?: string[];
     posterUrl?: string;
+    queuePosition?: number;     // Transmission download-queue order, 0-based; unset until first sync
+    bandwidthPriority?: number; // -1 low | 0 normal | 1 high
 }
 
 export interface TorrentFileRecord {
@@ -31,6 +33,7 @@ export interface TorrentFileRecord {
     size: number;
     progress: number;
     selected: boolean;
+    priority: number;           // -1 low | 0 normal | 1 high
 }
 
 export interface TorrentConfig {

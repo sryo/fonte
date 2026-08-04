@@ -63,7 +63,7 @@ switch (command) {
 
     case 'torrent':
         if (!restArgs[0]) {
-            console.log('Usage: fonte torrent {add|list|status|pause|resume|remove|config}');
+            console.log('Usage: fonte torrent {add|list|status|pause|resume|remove|queue|priority|config}');
             process.exit(1);
         }
         runCliScript('torrent.js', restArgs);
@@ -224,6 +224,8 @@ switch (command) {
         console.log('  torrent pause <id>       Pause a torrent');
         console.log('  torrent resume <id>      Resume a torrent');
         console.log('  torrent remove <id>      Remove torrent (--delete-files to delete data)');
+        console.log('  torrent queue <id> <to>  Move in download queue (top|up|down|bottom|position)');
+        console.log('  torrent priority <id> <p> Set bandwidth priority (high|normal|low)');
         console.log('  torrent config [k] [v]   View or update torrent settings');
         console.log('');
         console.log('Watchlist:');

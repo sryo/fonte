@@ -10,7 +10,7 @@ import {
     initTorrentDb, closeTorrentDb,
     insertTorrent, updateTorrent, updateTorrentInfoHash, getTorrent, getTorrentByHash,
     getTorrents, getActiveTorrents, deleteTorrent,
-    insertTorrentFiles, getTorrentFiles, updateTorrentFileProgress, setFileSelection,
+    insertTorrentFiles, getTorrentFiles, updateTorrentFileProgress, setFileSelection, setFilePriority,
     decodeTorrentName,
 } from './torrent-db';
 import { fetchTorrentPoster } from './poster-manager';
@@ -425,9 +425,45 @@ export class TorrentManager {
         await this.syncTorrentFiles(id, tId);
     }
 
+    async setFilePriority(id: string, indices: number[], priority: -1 | 0 | 1): Promise<void> {
+        if (!this.rpc) throw new Error('Transmission RPC not available');
+        const tId = this.transmissionIds.get(id);
+        if (!tId) throw new Error(`Torrent ${id} not mapped to Transmission`);
+        const key = priority === 1 ? 'priority-high' : priority === -1 ? 'priority-low' : 'priority-normal';
+        await this.rpc.call('torrent-set', { ids: [tId], [key]: indices });
+        // Refresh file priorities from Transmission so the DB matches.
+        await this.syncTorrentFiles(id, tId);
+    }
+
+    async setBandwidthPriority(id: string, priority: -1 | 0 | 1): Promise<void> {
+        if (!this.rpc) throw new Error('Transmission RPC not available');
+        const record = this.getRequiredTorrent(id);
+        const tId = this.transmissionIds.get(id);
+        if (!tId) throw new Error(`Torrent ${id} not mapped to Transmission`);
+        await this.rpc.call('torrent-set', { ids: [tId], bandwidthPriority: priority });
+        updateTorrent(id, { bandwidthPriority: priority });
+        log('INFO', `Bandwidth priority ${priority} for torrent: ${record.name || id}`);
+    }
+
+    async moveInQueue(id: string, move: 'top' | 'up' | 'down' | 'bottom' | number): Promise<void> {
+        if (!this.rpc) throw new Error('Transmission RPC not available');
+        const record = this.getRequiredTorrent(id);
+        const tId = this.transmissionIds.get(id);
+        if (!tId) throw new Error(`Torrent ${id} not mapped to Transmission`);
+        if (typeof move === 'number') {
+            await this.rpc.call('torrent-set', { ids: [tId], queuePosition: move });
+        } else {
+            await this.rpc.call(`queue-move-${move}`, { ids: [tId] });
+        }
+        // A single move renumbers other torrents too; re-read every position so
+        // the next GET reflects the new order instead of waiting for a sync tick.
+        await this.syncQueuePositions();
+        log('INFO', `Queue move ${move} for torrent: ${record.name || id}`);
+    }
+
     getStats(): TorrentStats {
         const all = getTorrents();
-        const active = all.filter(t => t.status === 'downloading' || t.status === 'seeding');
+        const active = all.filter(t => t.status === 'downloading' || t.status === 'queued' || t.status === 'seeding');
         const downloadSpeed = all.reduce((s, t) => s + t.downloadSpeed, 0);
         const uploadSpeed = all.reduce((s, t) => s + t.uploadSpeed, 0);
 
@@ -497,6 +533,22 @@ export class TorrentManager {
         }
     }
 
+    private async syncQueuePositions(): Promise<void> {
+        if (!this.rpc) return;
+        try {
+            const result = await this.rpc.call('torrent-get', {
+                fields: ['id', 'hashString', 'queuePosition'],
+            });
+            for (const t of result.torrents || []) {
+                const record = getTorrentByHash((t.hashString as string || '').toLowerCase());
+                if (!record || record.status === 'removed') continue;
+                updateTorrent(record.id, { queuePosition: t.queuePosition ?? null });
+            }
+        } catch (err) {
+            log('WARN', `Queue position sync failed: ${(err as Error).message}`);
+        }
+    }
+
     private async syncTorrentFiles(recordId: string, transmissionId: number): Promise<void> {
         if (!this.rpc) return;
         try {
@@ -535,6 +587,9 @@ export class TorrentManager {
                 if (stats && typeof stats.wanted === 'boolean' && (!prev || prev.selected !== stats.wanted)) {
                     setFileSelection(recordId, f.name, stats.wanted);
                 }
+                if (stats && typeof stats.priority === 'number' && (!prev || prev.priority !== stats.priority)) {
+                    setFilePriority(recordId, f.name, stats.priority);
+                }
             }
         } catch (err) {
             log('WARN', `File sync failed for ${recordId}: ${(err as Error).message}`);
@@ -551,6 +606,7 @@ export class TorrentManager {
                     'id', 'hashString', 'name', 'status', 'percentDone',
                     'rateDownload', 'rateUpload', 'downloadedEver', 'uploadedEver',
                     'totalSize', 'peersConnected', 'error', 'errorString',
+                    'queuePosition', 'bandwidthPriority',
                 ],
             });
             transmissionTorrents = result.torrents || [];
@@ -567,7 +623,7 @@ export class TorrentManager {
             this.transmissionIds.set(record.id, t.id);
 
             const progress = t.percentDone ?? 0;
-            const wasPending = record.status === 'downloading' || record.status === 'adding';
+            const wasPending = record.status === 'downloading' || record.status === 'queued' || record.status === 'adding';
             const isDone = progress >= 1;
 
             // Map Transmission status: 0=stopped, 1=check-wait, 2=checking, 3=dl-wait,
@@ -579,7 +635,9 @@ export class TorrentManager {
                 newStatus = 'error';
             } else if (t.status === 1 || t.status === 2) {
                 newStatus = 'checking';
-            } else if (t.status === 3 || t.status === 4) {
+            } else if (t.status === 3) {
+                newStatus = 'queued';
+            } else if (t.status === 4) {
                 newStatus = 'downloading';
             } else if (t.status === 5 || t.status === 6) {
                 newStatus = 'seeding';
@@ -601,10 +659,10 @@ export class TorrentManager {
             const receivedData = (t.rateDownload ?? 0) > 0 || (t.downloadedEver ?? 0) > activity.downloaded;
             activity.downloaded = t.downloadedEver ?? 0;
             // The stall clock only accumulates while actively downloading;
-            // checking/paused/errored stretches don't count against it, and
-            // neither does dl-wait (status 3) — a torrent queued behind
-            // download-queue-size receives no data by design, not by stall.
-            if (receivedData || newStatus !== 'downloading' || isDone || t.status === 3) {
+            // queued/checking/paused/errored stretches don't count against it —
+            // a torrent waiting behind download-queue-size receives no data by
+            // design, not by stall.
+            if (receivedData || newStatus !== 'downloading' || isDone) {
                 activity.lastDataAt = Date.now();
             }
             const stalledSince = newStatus === 'downloading' && !isDone && Date.now() - activity.lastDataAt > STALL_TIMEOUT_MS
@@ -621,10 +679,12 @@ export class TorrentManager {
                 size: t.totalSize || record.size,
                 status: newStatus,
                 stalledSince,
+                queuePosition: t.queuePosition ?? null,
+                bandwidthPriority: t.bandwidthPriority ?? 0,
                 // percentDone covers wanted files only, so re-wanting a file can
                 // regress a "completed" torrent. 'checking' is excluded — verify
                 // passes regress progress transiently.
-                ...(record.completedAt && !isDone && newStatus === 'downloading'
+                ...(record.completedAt && !isDone && (newStatus === 'downloading' || newStatus === 'queued')
                     ? { completedAt: null }
                     : {}),
             };

@@ -288,4 +288,69 @@ app.post('/api/torrents/:id/files/wanted', async (c) => {
     }
 });
 
+// Wire priorities are named levels; Transmission's -1/0/1 stays internal.
+const PRIORITY_LEVELS: Record<string, -1 | 0 | 1> = { low: -1, normal: 0, high: 1 };
+
+app.post('/api/torrents/:id/files/priority', async (c) => {
+    const id = c.req.param('id');
+    const manager = getTorrentManager();
+    if (!manager.getTorrent(id)) {
+        return fail(c, 'Torrent not found', 404);
+    }
+    const body = await c.req.json().catch(() => ({})) as { indices?: number[]; priority?: string };
+    const level = body.priority !== undefined ? PRIORITY_LEVELS[body.priority] : undefined;
+    if (level === undefined) {
+        return fail(c, 'priority must be "high", "normal", or "low"');
+    }
+    if (!Array.isArray(body.indices) || body.indices.length === 0 || !body.indices.every(i => Number.isInteger(i) && i >= 0)) {
+        return fail(c, 'indices must be a non-empty array of file indices');
+    }
+    try {
+        await manager.setFilePriority(id, body.indices, level);
+        return ok(c, { files: manager.getTorrentFiles(id) });
+    } catch (err) {
+        return fail(c, (err as Error).message, 500);
+    }
+});
+
+app.post('/api/torrents/:id/priority', async (c) => {
+    const id = c.req.param('id');
+    const manager = getTorrentManager();
+    if (!manager.getTorrent(id)) {
+        return fail(c, 'Torrent not found', 404);
+    }
+    const body = await c.req.json().catch(() => ({})) as { priority?: string };
+    const level = body.priority !== undefined ? PRIORITY_LEVELS[body.priority] : undefined;
+    if (level === undefined) {
+        return fail(c, 'priority must be "high", "normal", or "low"');
+    }
+    try {
+        await manager.setBandwidthPriority(id, level);
+        return ok(c);
+    } catch (err) {
+        return fail(c, (err as Error).message, 500);
+    }
+});
+
+app.post('/api/torrents/:id/queue', async (c) => {
+    const id = c.req.param('id');
+    const manager = getTorrentManager();
+    if (!manager.getTorrent(id)) {
+        return fail(c, 'Torrent not found', 404);
+    }
+    const body = await c.req.json().catch(() => ({})) as { move?: string | number };
+    const move = body.move;
+    const isDirection = move === 'top' || move === 'up' || move === 'down' || move === 'bottom';
+    const isPosition = typeof move === 'number' && Number.isInteger(move) && move >= 0;
+    if (!isDirection && !isPosition) {
+        return fail(c, 'move must be "top", "up", "down", "bottom", or a position number');
+    }
+    try {
+        await manager.moveInQueue(id, move as 'top' | 'up' | 'down' | 'bottom' | number);
+        return ok(c);
+    } catch (err) {
+        return fail(c, (err as Error).message, 500);
+    }
+});
+
 export default app;

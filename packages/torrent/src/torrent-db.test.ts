@@ -70,6 +70,7 @@ describe('insertTorrent / getTorrent', () => {
             errorMessage: undefined,
             tags: undefined,
             posterUrl: undefined,
+            bandwidthPriority: 0,
         });
 
         expect(db.getTorrentByHash('hash-t1')).toEqual(record);
@@ -130,8 +131,41 @@ describe('torrent record wire shape', () => {
         expect(db.getTorrents()[0].files).toEqual([]);
 
         expect(db.getTorrentFiles('t1')).toEqual([
-            { name: 'a.mkv', path: 'dir/a.mkv', size: 100, progress: 0, selected: true },
-            { name: 'b.srt', path: 'dir/b.srt', size: 5, progress: 0, selected: true },
+            { name: 'a.mkv', path: 'dir/a.mkv', size: 100, progress: 0, selected: true, priority: 0 },
+            { name: 'b.srt', path: 'dir/b.srt', size: 5, progress: 0, selected: true, priority: 0 },
         ]);
+    });
+});
+
+describe('queue position and priorities', () => {
+    it('round-trips queuePosition and bandwidthPriority through updateTorrent', () => {
+        insertBasic('t1');
+        expect(db.getTorrent('t1')?.queuePosition).toBeUndefined();
+        expect(db.getTorrent('t1')?.bandwidthPriority).toBe(0);
+
+        db.updateTorrent('t1', { queuePosition: 3, bandwidthPriority: 1 });
+        const record = db.getTorrent('t1');
+        expect(record?.queuePosition).toBe(3);
+        expect(record?.bandwidthPriority).toBe(1);
+
+        db.updateTorrent('t1', { queuePosition: 0, bandwidthPriority: -1 });
+        expect(db.getTorrent('t1')?.queuePosition).toBe(0);
+        expect(db.getTorrent('t1')?.bandwidthPriority).toBe(-1);
+
+        db.updateTorrent('t1', { queuePosition: null });
+        expect(db.getTorrent('t1')?.queuePosition).toBeUndefined();
+    });
+
+    it('stores per-file priority via setFilePriority', () => {
+        insertBasic('t1');
+        db.insertTorrentFiles('t1', [
+            { name: 'a.mkv', path: 'dir/a.mkv', size: 100 },
+            { name: 'b.srt', path: 'dir/b.srt', size: 5 },
+        ]);
+
+        db.setFilePriority('t1', 'dir/a.mkv', 1);
+        db.setFilePriority('t1', 'dir/b.srt', -1);
+
+        expect(db.getTorrentFiles('t1').map(f => f.priority)).toEqual([1, -1]);
     });
 });

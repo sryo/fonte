@@ -222,7 +222,11 @@ curl http://localhost:3777/api/torrents
 **Resume:** \`POST /api/torrents/{id}/resume\`
 **Remove (keeps downloaded files):** \`DELETE /api/torrents/{id}\`
 **Remove and trash files:** \`DELETE /api/torrents/{id}?deleteFiles=true\` — moves the downloaded data and fetched subtitles to the Trash (recoverable). Use only when the user asks to remove the files too.
-**List files:** \`GET /api/torrents/{id}/files\`
+**List files:** \`GET /api/torrents/{id}/files\` — array index = file index for the file endpoints
+**Select files (skip/unskip):** \`POST /api/torrents/{id}/files/wanted\` body \`{"wanted": [indices], "unwanted": [indices]}\`
+**File priority:** \`POST /api/torrents/{id}/files/priority\` body \`{"indices": [...], "priority": "high"|"normal"|"low"}\`
+**Queue order:** \`POST /api/torrents/{id}/queue\` body \`{"move": "top"|"up"|"down"|"bottom"|<position>}\` — decides which torrents download when the concurrent limit gates them ("download X first" → top)
+**Bandwidth priority:** \`POST /api/torrents/{id}/priority\` body \`{"priority": "high"|"normal"|"low"}\`
 **Global stats:** \`GET /api/torrents/stats\`
 **Config:** \`GET /api/torrents/config\` | \`PUT /api/torrents/config\`
 

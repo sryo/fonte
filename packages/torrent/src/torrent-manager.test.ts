@@ -89,7 +89,9 @@ describe('syncStats status mapping', () => {
     // [DB status, Transmission code, percentDone, expected status]
     const cases: [TorrentStatus, number, number, TorrentStatus][] = [
         ['downloading', 4, 0.5, 'downloading'],
-        ['downloading', 3, 0.5, 'downloading'],   // dl-wait counts as downloading
+        ['downloading', 3, 0.5, 'queued'],         // dl-wait = waiting for a download slot
+        ['queued', 4, 0.5, 'downloading'],         // slot freed up
+        ['queued', 0, 0.5, 'paused'],              // stopped while waiting
         ['downloading', 1, 0.5, 'checking'],
         ['downloading', 2, 1, 'checking'],
         ['downloading', 6, 1, 'seeding'],          // finished + uploading = seeding, no transient completed
@@ -130,6 +132,14 @@ describe('completion detection', () => {
         expect(db.getTorrent('t1')?.completedAt).toEqual(expect.any(Number));
         expect(eventsOf(TORRENT_EVENTS.COMPLETED)).toHaveLength(1);
 
+        await sync(manager);
+        expect(db.getTorrent('t1')?.status).toBe('seeding');
+        expect(eventsOf(TORRENT_EVENTS.COMPLETED)).toHaveLength(1);
+    });
+
+    it('fires COMPLETED for a torrent that finishes straight out of the queue', async () => {
+        insertBasic('t1', { status: 'queued' });
+        const manager = managerWith([tRow('t1', { status: 6, percentDone: 1 })]);
         await sync(manager);
         expect(db.getTorrent('t1')?.status).toBe('seeding');
         expect(eventsOf(TORRENT_EVENTS.COMPLETED)).toHaveLength(1);
@@ -451,5 +461,70 @@ describe('buildTransmissionIdMap', () => {
         await (manager as any).buildTransmissionIdMap();
         expect((manager as any).transmissionIds.get('t1')).toBe(99);
         expect((manager as any).transmissionIds.get('t2')).toBe(42);
+    });
+});
+
+describe('queue and priority', () => {
+    function managerWithCalls(response: (method: string, args: any) => any) {
+        const calls: { method: string; args: any }[] = [];
+        const manager = new TM.TorrentManager();
+        (manager as any).rpc = {
+            call: async (method: string, args: any) => {
+                calls.push({ method, args });
+                return response(method, args);
+            },
+        };
+        (manager as any).transmissionIds.set('t1', 1);
+        return { manager, calls };
+    }
+
+    it('persists queuePosition and bandwidthPriority from syncStats', async () => {
+        insertBasic('t1');
+        const manager = managerWith([tRow('t1', { status: 4, percentDone: 0.5, queuePosition: 2, bandwidthPriority: 1 })]);
+        await sync(manager);
+
+        const record = db.getTorrent('t1');
+        expect(record?.queuePosition).toBe(2);
+        expect(record?.bandwidthPriority).toBe(1);
+    });
+
+    it('moveInQueue maps directions to queue-move-* and positions to torrent-set, then re-reads positions', async () => {
+        insertBasic('t1');
+        const { manager, calls } = managerWithCalls(() => ({
+            torrents: [{ id: 1, hashString: 'hash-t1', queuePosition: 0 }],
+        }));
+
+        await manager.moveInQueue('t1', 'top');
+        expect(calls[0]).toEqual({ method: 'queue-move-top', args: { ids: [1] } });
+        expect(calls[1].method).toBe('torrent-get');
+        expect(db.getTorrent('t1')?.queuePosition).toBe(0);
+
+        await manager.moveInQueue('t1', 4);
+        expect(calls[2]).toEqual({ method: 'torrent-set', args: { ids: [1], queuePosition: 4 } });
+    });
+
+    it('setFilePriority maps tiers to Transmission args and re-syncs file rows', async () => {
+        insertBasic('t1');
+        db.insertTorrentFiles('t1', [{ name: 'a.mkv', path: 'a.mkv', size: 100 }]);
+        const { manager, calls } = managerWithCalls((method) =>
+            method === 'torrent-get'
+                ? { torrents: [{ files: [{ name: 'a.mkv', length: 100, bytesCompleted: 0 }], fileStats: [{ wanted: true, priority: 1 }] }] }
+                : {});
+
+        await manager.setFilePriority('t1', [0], 1);
+        expect(calls[0]).toEqual({ method: 'torrent-set', args: { ids: [1], 'priority-high': [0] } });
+        expect(db.getTorrentFiles('t1')[0].priority).toBe(1);
+
+        await manager.setFilePriority('t1', [0], -1);
+        expect(calls[2]).toEqual({ method: 'torrent-set', args: { ids: [1], 'priority-low': [0] } });
+    });
+
+    it('setBandwidthPriority writes through to the record', async () => {
+        insertBasic('t1');
+        const { manager, calls } = managerWithCalls(() => ({}));
+
+        await manager.setBandwidthPriority('t1', -1);
+        expect(calls[0]).toEqual({ method: 'torrent-set', args: { ids: [1], bandwidthPriority: -1 } });
+        expect(db.getTorrent('t1')?.bandwidthPriority).toBe(-1);
     });
 });
