@@ -2,6 +2,7 @@
 
 import { Plus } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { useSlidingIndicator } from "@/hooks/use-sliding-indicator";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -36,27 +37,47 @@ export function PillBar({
     onVisibleChange(on ? [...visible, key] : visible.filter((k) => k !== key));
   };
 
+  // Pills auto-hide at zero matches and the Issues label embeds its count,
+  // so both feed the layout key (repositions without animating).
+  const { containerRef, indicatorRef } = useSlidingIndicator<HTMLSpanElement>(
+    active,
+    `${shown.map((p) => p.key).join(",")}:${counts.issues}`,
+    true
+  );
+
   return (
-    <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Filter view">
+    <div
+      ref={containerRef}
+      className="group/pills relative flex items-center gap-2 flex-wrap"
+      role="group"
+      aria-label="Filter view"
+    >
+      <span
+        ref={indicatorRef}
+        aria-hidden
+        className="absolute left-0 top-0 rounded-full bg-foreground opacity-0 transition-[transform,width,height] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
+      />
       {shown.map(({ key, label }) => {
         const selected = active === key;
         const isIssues = key === "issues";
         return (
           <button
             key={key}
+            data-indicator-key={key}
             aria-pressed={selected}
             aria-label={isIssues ? `Issues, ${counts.issues} items` : undefined}
             onClick={() => onSelect(key)}
             className={cn(
               "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
               selected
-                ? "bg-foreground text-background"
+                ? "bg-foreground text-background group-data-[sliding]/pills:bg-transparent"
                 : isIssues
                   ? "bg-warning/15 text-warning hover:bg-warning/25"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
             )}
           >
-            {isIssues ? `${label} (${counts.issues})` : label}
+            {/* Raised above the sliding thumb, which paints over button backgrounds. */}
+            <span className="relative">{isIssues ? `${label} (${counts.issues})` : label}</span>
           </button>
         );
       })}

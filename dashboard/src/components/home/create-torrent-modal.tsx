@@ -5,6 +5,7 @@ import { Check, Copy } from "@phosphor-icons/react";
 import { createTorrent } from "@/lib/api";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { IconSwap } from "@/components/ui/icon-swap";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
@@ -79,7 +80,10 @@ export function CreateTorrentModal({
           <div className="rounded-md bg-muted p-3 font-mono text-2xs break-all">{magnetUri}</div>
           <div className="flex gap-2 pt-1">
             <Button type="button" size="sm" onClick={copyMagnet}>
-              {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+              <IconSwap
+                active={copied ? "check" : "copy"}
+                icons={{ copy: <Copy className="size-3.5" />, check: <Check className="size-3.5" /> }}
+              />
               {copied ? "Copied" : "Copy magnet"}
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={close}>

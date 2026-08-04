@@ -35,11 +35,14 @@ export function CompletedCard({
         <PosterBadge tone="done">{torrent.status === "seeding" ? "Seeding" : "Done"}</PosterBadge>
       }
       primaryAction={
-        torrent.status === "seeding" ? (
-          <CardAction variant="primary" icon={Stop} label="Stop seeding" onClick={async () => { try { await pauseTorrent(torrent.id); } finally { onRefresh(); } }} />
-        ) : (
-          <CardAction variant="primary" icon={Play} label="Seed" onClick={async () => { try { await resumeTorrent(torrent.id); } finally { onRefresh(); } }} />
-        )
+        <CardAction
+          variant="primary"
+          icons={{ active: torrent.status === "seeding" ? "stop" : "play", map: { stop: Stop, play: Play } }}
+          label={torrent.status === "seeding" ? "Stop seeding" : "Seed"}
+          onClick={async () => {
+            try { await (torrent.status === "seeding" ? pauseTorrent : resumeTorrent)(torrent.id); } finally { onRefresh(); }
+          }}
+        />
       }
       secondaryAction={
         <span className="flex gap-1">

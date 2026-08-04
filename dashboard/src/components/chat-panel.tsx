@@ -88,7 +88,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay
-          className="fixed inset-0 z-40 bg-black/20 data-[state=open]:animate-chat-backdrop-in data-[state=closed]:animate-chat-backdrop-out"
+          className="fixed inset-0 z-40 bg-black/20 data-[state=open]:animate-backdrop-in data-[state=closed]:animate-backdrop-out"
         />
 
         <Dialog.Content

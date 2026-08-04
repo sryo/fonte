@@ -2,12 +2,15 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
+import { IconSwap } from "@/components/ui/icon-swap";
 import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Two-tier hover actions: the contextual verb is prominent, remove/delete recedes.
-export function CardAction({ icon: Icon, label, onClick, destructive, variant = "secondary", hotkey }: {
-  icon: React.ElementType;
+export function CardAction({ icon: Icon, icons, label, onClick, destructive, variant = "secondary", hotkey }: {
+  icon?: React.ElementType;
+  /** Cross-dissolving icon set for actions whose verb toggles (pause/play). */
+  icons?: { active: string; map: Record<string, React.ElementType> };
   label: string;
   onClick: (e: React.MouseEvent) => void;
   destructive?: boolean;
@@ -15,6 +18,10 @@ export function CardAction({ icon: Icon, label, onClick, destructive, variant = 
   /** Key that triggers this action while the card is focused, shown in the tooltip. */
   hotkey?: string;
 }) {
+  const iconClass =
+    variant === "primary"
+      ? "h-6 w-6 group-data-[cards=compact]/cards:h-4 group-data-[cards=compact]/cards:w-4"
+      : "h-4 w-4";
   return (
     <TooltipProvider>
       <Tooltip>
@@ -32,14 +39,19 @@ export function CardAction({ icon: Icon, label, onClick, destructive, variant = 
                   : "h-7 w-7 rounded-md bg-white/20 hover:bg-white/30 text-white group-data-[cards=compact]/cards:hidden",
             )}
           >
-            <Icon
-              className={
-                variant === "primary"
-                  ? "h-6 w-6 group-data-[cards=compact]/cards:h-4 group-data-[cards=compact]/cards:w-4"
-                  : "h-4 w-4"
-              }
-              weight="bold"
-            />
+            {icons ? (
+              <IconSwap
+                active={icons.active}
+                icons={Object.fromEntries(
+                  Object.entries(icons.map).map(([key, I]) => [
+                    key,
+                    <I key={key} className={iconClass} weight="bold" />,
+                  ])
+                )}
+              />
+            ) : (
+              Icon && <Icon className={iconClass} weight="bold" />
+            )}
           </button>
         </TooltipTrigger>
         <TooltipContent className="flex items-center gap-1.5">

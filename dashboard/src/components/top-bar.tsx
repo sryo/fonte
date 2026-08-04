@@ -20,12 +20,14 @@ import {
 } from "@phosphor-icons/react";
 import { addTorrent, sendMessage, getTorrents, getWatchlist } from "@/lib/api";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { IconSwap } from "@/components/ui/icon-swap";
 import { Kbd } from "@/components/ui/kbd";
 import { MiddleTruncate } from "@/components/ui/middle-truncate";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatBytes } from "@/lib/format";
 import { useHotkey } from "@/components/hotkeys-provider";
 import { useIsMac, modKeyLabel } from "@/hooks/use-platform";
+import { useSlidingIndicator } from "@/hooks/use-sliding-indicator";
 
 interface SearchResult {
   title: string;
@@ -69,10 +71,18 @@ export function TopBar({ onOpenChat }: TopBarProps) {
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
+    leaving?: boolean;
   } | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
+
+  const activeNav =
+    NAV_ITEMS.find(({ href, exact }) =>
+      exact ? pathname === href : pathname === href || pathname.startsWith(href + "/")
+    )?.href ?? "";
+  const { containerRef: navRef, indicatorRef: navIndicatorRef } =
+    useSlidingIndicator<HTMLSpanElement>(activeNav, "", true);
 
   useEffect(() => setMounted(true), []);
 
@@ -101,7 +111,9 @@ export function TopBar({ onOpenChat }: TopBarProps) {
 
   useEffect(() => {
     if (!toast) return;
-    const id = setTimeout(() => setToast(null), 2500);
+    const id = toast.leaving
+      ? setTimeout(() => setToast(null), 200)
+      : setTimeout(() => setToast((t) => (t ? { ...t, leaving: true } : t)), 2500);
     return () => clearTimeout(id);
   }, [toast]);
 
@@ -214,23 +226,27 @@ export function TopBar({ onOpenChat }: TopBarProps) {
   return (
     <header className="border-b bg-card shrink-0">
       <div className="max-w-(--content-max-w) mx-auto flex items-center gap-3 px-4 py-2">
-      <nav className="flex items-center gap-1">
+      <nav ref={navRef} className="group/nav relative flex items-center gap-1">
+        <span
+          ref={navIndicatorRef}
+          aria-hidden
+          className="absolute left-0 top-0 rounded-md bg-primary/10 opacity-0 transition-[transform,width,height] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
+        />
         <TooltipProvider>
-          {NAV_ITEMS.map(({ href, label, icon: Icon, exact, seq }) => {
-            const active = exact
-              ? pathname === href
-              : pathname === href || pathname.startsWith(href + "/");
+          {NAV_ITEMS.map(({ href, label, icon: Icon, seq }) => {
+            const active = href === activeNav;
 
             return (
               <Tooltip key={href}>
                 <TooltipTrigger asChild>
                   <Link
                     href={href}
+                    data-indicator-key={href}
                     aria-label={label}
                     className={cn(
-                      "h-9 w-9 rounded-md flex items-center justify-center transition-colors",
+                      "relative h-9 w-9 rounded-md flex items-center justify-center transition-colors",
                       active
-                        ? "bg-primary/10 text-foreground"
+                        ? "bg-primary/10 text-foreground group-data-[sliding]/nav:bg-transparent"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     )}
                   >
@@ -253,11 +269,14 @@ export function TopBar({ onOpenChat }: TopBarProps) {
 
       <div className="flex-1 relative" ref={searchWrapperRef}>
         <div className="flex items-center gap-2 rounded-md border bg-background h-9 px-3 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all">
-          {loading ? (
-            <SpinnerGap className="h-[18px] w-[18px] text-muted-foreground animate-spin shrink-0" />
-          ) : (
-            <MagnifyingGlass className="h-[18px] w-[18px] text-muted-foreground shrink-0" weight="bold" />
-          )}
+          <IconSwap
+            active={loading ? "spinner" : "search"}
+            className="shrink-0"
+            icons={{
+              search: <MagnifyingGlass className="h-[18px] w-[18px] text-muted-foreground" weight="bold" />,
+              spinner: <SpinnerGap className="h-[18px] w-[18px] text-muted-foreground animate-spin" />,
+            }}
+          />
 
           <input
             ref={inputRef}
@@ -316,7 +335,8 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         {toast && (
           <div
             className={cn(
-              "absolute right-3 -bottom-8 z-30 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium shadow-md transition-all animate-in fade-in slide-in-from-top-1 duration-200",
+              "absolute right-3 -bottom-8 z-30 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium shadow-md [--overlay-from-y:-4px]",
+              toast.leaving ? "animate-overlay-out" : "animate-overlay-in",
               toast.type === "success"
                 ? "bg-done/90 text-white"
                 : "bg-destructive/90 text-destructive-foreground"

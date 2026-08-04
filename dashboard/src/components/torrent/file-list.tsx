@@ -395,24 +395,35 @@ function ProgressCell({
   label: string;
 }) {
   return (
-    <span className="flex w-[132px] shrink-0 items-center justify-end gap-2">
-      {done ? (
-        <Check weight="bold" className="h-3.5 w-3.5 text-done" aria-label="Complete" />
-      ) : (
-        <>
-          <ProgressBar
-            value={value}
-            variant="list"
-            shine={shine}
-            stalled={stalled}
-            className="w-24"
-            label={label}
-          />
-          <span className="w-9 text-right text-2xs tabular-nums text-muted-foreground">
-            {toPct(value)}%
-          </span>
-        </>
-      )}
+    <span className="grid w-[132px] shrink-0 items-center">
+      <span
+        aria-hidden={done}
+        className={cn(
+          "col-start-1 row-start-1 flex items-center justify-end gap-2 transition-[opacity,filter] duration-250 motion-reduce:transition-none",
+          done && "opacity-0 blur-[2px]"
+        )}
+      >
+        <ProgressBar
+          value={value}
+          variant="list"
+          shine={shine}
+          stalled={stalled}
+          className="w-24"
+          label={label}
+        />
+        <span className="w-9 text-right text-2xs tabular-nums text-muted-foreground">
+          {toPct(value)}%
+        </span>
+      </span>
+      <span
+        aria-hidden={!done}
+        className={cn(
+          "col-start-1 row-start-1 flex origin-right justify-end transition-[opacity,scale,filter] duration-250 motion-reduce:transition-none",
+          done ? "opacity-100 scale-100 blur-none" : "opacity-0 scale-25 blur-[2px]"
+        )}
+      >
+        <Check weight="bold" className="h-3.5 w-3.5 text-done" aria-label={done ? "Complete" : undefined} />
+      </span>
     </span>
   );
 }

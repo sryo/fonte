@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, use } from "react";
 import { usePolling } from "@/lib/hooks";
+import { useSlidingIndicator } from "@/hooks/use-sliding-indicator";
 import {
   getAgents,
   getAgentSystemPrompt,
@@ -53,6 +54,8 @@ export default function AgentConfigPage({
   );
 
   const [activeTab, setActiveTab] = useState<TabId>("chat");
+  const { containerRef: tabListRef, indicatorRef: tabIndicatorRef } =
+    useSlidingIndicator<HTMLSpanElement>(activeTab);
   const [spSaving, setSpSaving] = useState(false);
   const [spSaved, setSpSaved] = useState(false);
   const [hbSaving, setHbSaving] = useState(false);
@@ -181,7 +184,12 @@ export default function AgentConfigPage({
         }
       />
 
-      <div className="flex items-center border-b">
+      <div ref={tabListRef} className="group/tabs relative flex items-center border-b">
+        <span
+          ref={tabIndicatorRef}
+          aria-hidden
+          className="absolute -bottom-px left-0 h-0.5 bg-primary opacity-0 transition-[transform,width] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
+        />
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
@@ -189,13 +197,14 @@ export default function AgentConfigPage({
             <Button
               key={tab.id}
               variant="ghost"
+              data-indicator-key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`
                 flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors rounded-none
                 border-b-2 -mb-px h-auto
                 ${
                   active
-                    ? "border-primary text-foreground"
+                    ? "border-primary text-foreground group-data-[sliding]/tabs:border-transparent"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:bg-transparent"
                 }
               `}

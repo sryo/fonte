@@ -37,9 +37,9 @@ export function TorrentCard({
   const router = useRouter();
   const pauseResume =
     torrent.status === "downloading"
-      ? { icon: Pause, label: "Pause", run: async () => { try { await pauseTorrent(torrent.id); } finally { onRefresh(); } } }
+      ? { active: "pause", label: "Pause", run: async () => { try { await pauseTorrent(torrent.id); } finally { onRefresh(); } } }
       : torrent.status === "paused"
-      ? { icon: Play, label: "Resume", run: async () => { try { await resumeTorrent(torrent.id); } finally { onRefresh(); } } }
+      ? { active: "play", label: "Resume", run: async () => { try { await resumeTorrent(torrent.id); } finally { onRefresh(); } } }
       : undefined;
   return (
     <MediaCard
@@ -59,7 +59,13 @@ export function TorrentCard({
       }
       primaryAction={
         pauseResume && (
-          <CardAction variant="primary" icon={pauseResume.icon} label={pauseResume.label} onClick={pauseResume.run} hotkey="P" />
+          <CardAction
+            variant="primary"
+            icons={{ active: pauseResume.active, map: { pause: Pause, play: Play } }}
+            label={pauseResume.label}
+            onClick={pauseResume.run}
+            hotkey="P"
+          />
         )
       }
       secondaryAction={
