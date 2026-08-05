@@ -86,9 +86,10 @@ export async function runWatchlistCheck(): Promise<void> {
             });
 
             const now = Date.now();
+            let freshCount = 0;
             for (const r of filtered.slice(0, 50)) {
                 const qm = computeQualityMatch(r.title, entry.quality);
-                insertWatchlistResult({
+                const { created } = insertWatchlistResult({
                     watchlistId: entry.id,
                     title: r.title,
                     magnetUri: r.magnetUri,
@@ -99,10 +100,12 @@ export async function runWatchlistCheck(): Promise<void> {
                     publishDate: r.publishDate,
                     indexer: r.indexer,
                 });
+                if (created) freshCount++;
             }
 
             updateWatchlistEntry(entry.id, { lastCheckedAt: now });
 
+            let grabbed = false;
             if (autoAdd && filtered.length > 0) {
                 const ranked = rankResults(filtered, preferredQuality);
                 // Ongoing watches fall through past already-tracked releases —
@@ -146,10 +149,21 @@ export async function runWatchlistCheck(): Promise<void> {
                         });
 
                         log('INFO', `Watchlist: auto-added "${best.title}" for "${entry.title}"`);
+                        grabbed = true;
                     } catch (err) {
                         log('ERROR', `Watchlist: failed to add torrent for "${entry.title}": ${(err as Error).message}`);
                     }
                 }
+            }
+
+            // Auto-grabs already announce themselves via MATCH; this covers
+            // finds that await the user's pick.
+            if (freshCount > 0 && !grabbed) {
+                emitEvent(WATCHLIST_EVENTS.RESULTS, {
+                    watchlistId: entry.id,
+                    title: entry.title,
+                    count: freshCount,
+                });
             }
         } catch (err) {
             log('ERROR', `Watchlist: search failed for "${entry.title}": ${(err as Error).message}`);

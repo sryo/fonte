@@ -11,6 +11,7 @@ export function ContentRow({
   children,
   emptyContent,
   isEmpty,
+  chips,
   action,
   collapsed = false,
   onToggleCollapse,
@@ -23,6 +24,8 @@ export function ContentRow({
   children: React.ReactNode;
   emptyContent: React.ReactNode;
   isEmpty: boolean;
+  /** Deviation-only state chips, rendered beside the count (outside the toggle). */
+  chips?: React.ReactNode;
   action?: React.ReactNode;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -47,7 +50,9 @@ export function ContentRow({
     <>
       <Icon className="h-5 w-5 text-muted-foreground" weight="bold" />
       {title}
-      {count > 0 && <span className="text-sm font-normal text-muted-foreground">({count})</span>}
+      {count > 0 && (
+        <span className="text-sm font-normal tabular-nums text-muted-foreground">{count}</span>
+      )}
     </>
   );
 
@@ -58,7 +63,7 @@ export function ContentRow({
     >
       <div className="flex items-center justify-between">
         {onToggleCollapse ? (
-          <h2 className="text-lg font-bold">
+          <h2 className="flex items-center gap-2 text-lg font-bold">
             <button
               type="button"
               onClick={() => {
@@ -90,9 +95,13 @@ export function ContentRow({
                 }
               />
             </button>
+            {chips}
           </h2>
         ) : (
-          <h2 className="text-lg font-bold flex items-center gap-2">{heading}</h2>
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            {heading}
+            {chips}
+          </h2>
         )}
         {action}
       </div>

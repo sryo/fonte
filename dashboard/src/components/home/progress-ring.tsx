@@ -9,24 +9,35 @@ export type RingColor = DomainColor;
 export function ProgressRing({
   progress,
   busy,
-  color = "torrent",
+  color,
   complete,
   className,
 }: {
   progress?: { value: number; stalled?: boolean };
   busy?: boolean;
   color?: RingColor;
-  complete?: boolean;
+  /** Full ring: true shines (live activity), "still" waits (no shine). */
+  complete?: boolean | "still";
   /** Scale modifier only (e.g. "progress-ring--mini"), never ad-hoc sizing. */
   className?: string;
 }) {
-  if (complete)
-    return <div aria-hidden className={cn("progress-ring progress-ring--complete", className)} />;
+  if (complete && !busy)
+    return (
+      <div
+        aria-hidden
+        className={cn(
+          "progress-ring progress-ring--complete",
+          complete === "still" && "progress-ring--still",
+          className
+        )}
+        style={color ? { ["--ring-color" as string]: `var(--${color})` } : undefined}
+      />
+    );
   const indeterminate = !progress && busy;
   if (!progress && !busy) return null;
   if (progress && progress.value >= 1) return null;
   const style: React.CSSProperties = {
-    ["--ring-color" as string]: `var(--${color})`,
+    ["--ring-color" as string]: `var(--${color ?? "torrent"})`,
   };
   if (progress) {
     const value = Number.isFinite(progress.value)

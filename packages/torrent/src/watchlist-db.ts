@@ -128,7 +128,7 @@ export function insertWatchlistResult(result: {
     qualityMatch: number;
     publishDate?: number;
     indexer?: string;
-}): number {
+}): { id: number; created: boolean } {
     const now = Date.now();
     const existing = getDb().prepare(
         'SELECT id FROM watchlist_results WHERE watchlist_id = ? AND magnet_uri = ?'
@@ -150,7 +150,7 @@ export function insertWatchlistResult(result: {
             now,
             existing.id,
         );
-        return existing.id;
+        return { id: existing.id, created: false };
     }
 
     const info = getDb().prepare(`
@@ -169,7 +169,7 @@ export function insertWatchlistResult(result: {
         now,
         now,
     );
-    return Number(info.lastInsertRowid);
+    return { id: Number(info.lastInsertRowid), created: true };
 }
 
 export function getWatchlistResultByMagnet(watchlistId: string, magnetUri: string): WatchlistResultRecord | undefined {

@@ -316,6 +316,33 @@ body {
   .card-poof-collapsing, .card-poof-dissolving, .tile-poof-collapsing { animation: none; }
 }
 
+/* Masked gradient sweep for transient "working" labels. Two layers (base
+   text + ::before duplicate via data-text) so base and highlight theme
+   independently and glyphs never blank between passes. */
+.shimmer-text {
+  position: relative;
+  color: var(--muted-foreground);
+}
+.shimmer-text::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 40%, var(--foreground) 50%, transparent 60%);
+  background-size: 400% 100%;
+  background-repeat: no-repeat;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: shimmer-sweep 2s linear infinite;
+}
+@keyframes shimmer-sweep {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-text::before { animation: none; content: none; }
+}
+
 /* Queue drag: the grabbed wrapper lifts and tracks the pointer (inline
    `translate` from use-queue-drag); every card's hover chrome sleeps so
    cards passed over don't flash their overlays. */
@@ -340,24 +367,6 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .queue-flash-pulse { animation: none; }
-}
-
-/* Ghost cards behind a pile fan out on hover — "several things await"
-   gets a peek before the click. Offsets come from stack-visual.ts. */
-.card-stack-ghost {
-  translate: var(--stack-dx) var(--stack-dy);
-  rotate: var(--stack-rot);
-  transition: translate 300ms ease-out, rotate 300ms ease-out;
-}
-.card-stack:hover .card-stack-ghost,
-.card-stack:focus-within .card-stack-ghost {
-  translate: calc(var(--stack-dx) * 1.9) calc(var(--stack-dy) * 1.9);
-  rotate: calc(var(--stack-rot) * 1.9);
-  transition-duration: 410ms;
-  transition-timing-function: cubic-bezier(0.31, 1.84, 0.64, 1);
-}
-@media (prefers-reduced-motion: reduce) {
-  .card-stack-ghost { transition: none; }
 }
 
 /* Soft radial glow that rides the content-width hairline near the pointer. */
@@ -439,6 +448,16 @@ body {
 .progress-ring--complete {
   --progress: 1;
   --ring-color: var(--done);
+}
+/* Full ring for a waiting state (found results): present, not transferring —
+   so no shine. */
+.progress-ring--still {
+  background: conic-gradient(
+    var(--ring-color) 0,
+    var(--ring-color) calc(var(--progress) * 1turn),
+    var(--ring-track) calc(var(--progress) * 1turn)
+  );
+  animation: none;
 }
 /* Scaled for the 40px mini tiles of collapsed home rows (rounded-md parents). */
 .progress-ring--mini {

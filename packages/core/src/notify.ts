@@ -30,5 +30,8 @@ export function notifyForEvent(type: string, data: Record<string, unknown>): voi
         sendMacNotification('Download complete', String(data.name ?? data.id ?? ''));
     } else if (type === 'watchlist:match' && prefs.watchlist_match) {
         sendMacNotification('Watchlist match', `${data.title} → ${data.torrentName}`);
+    } else if (type === 'watchlist:results' && prefs.watchlist_match) {
+        const n = Number(data.count ?? 0);
+        sendMacNotification('Watchlist results', `${n} new result${n === 1 ? '' : 's'} · ${data.title}`);
     }
 }

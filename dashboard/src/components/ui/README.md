@@ -26,6 +26,10 @@ borders instead. The ring's scale comes from a modifier class, not call-site
 sizing: `progress-ring--mini` (3px, flush) for the 40px tiles, the default
 (8px, flush) for cards.
 
+A **full ring** marks a state that awaits or continues, in the domain's color:
+green = seeding (live upload), watchlist purple = new results found and not yet
+reviewed — it stays until the user opens the entry, which clears it.
+
 ## Ranked weights: pick a `variant`, don't hand-size
 
 A bar's prominence comes from its `variant`, not from ad-hoc `h-*`/`rounded-*`

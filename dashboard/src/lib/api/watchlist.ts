@@ -48,3 +48,8 @@ export async function addWatchlistResult(watchlistId: string, resultId: number):
 export async function markWatchlistResultsViewed(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/watchlist/${encodeURIComponent(id)}/results/viewed`, { method: "POST" });
 }
+
+/** Run the full periodic check now — all watching entries, auto-add included. */
+export async function runWatchlistCheck(): Promise<{ ok: boolean }> {
+  return apiFetch("/api/watchlist/check", { method: "POST" });
+}

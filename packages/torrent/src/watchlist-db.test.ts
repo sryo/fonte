@@ -42,6 +42,10 @@ function insertEntry(id: string, overrides: Partial<Parameters<typeof wdb.insert
 }
 
 function insertResult(watchlistId: string, magnetUri: string, overrides: Partial<Parameters<typeof wdb.insertWatchlistResult>[0]> = {}): number {
+    return insertResultFull(watchlistId, magnetUri, overrides).id;
+}
+
+function insertResultFull(watchlistId: string, magnetUri: string, overrides: Partial<Parameters<typeof wdb.insertWatchlistResult>[0]> = {}) {
     return wdb.insertWatchlistResult({
         watchlistId,
         title: 'Some.Release.1080p',

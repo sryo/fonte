@@ -31,6 +31,26 @@ async function multiSearch(title: string, year?: number, quality?: string, categ
     return searchReleases({ title, year, quality, category, season });
 }
 
+// Persist so the results have real ids (Add-as-Torrent needs them) and
+// survive the page's periodic re-fetch from the DB.
+async function searchAndPersist(entry: { id: string; title: string; year?: number; quality: string; category?: number }): Promise<void> {
+    const found = await multiSearch(entry.title, entry.year, entry.quality, entry.category);
+    for (const r of found.slice(0, 50)) {
+        insertWatchlistResult({
+            watchlistId: entry.id,
+            title: r.title,
+            magnetUri: r.magnetUri,
+            seeders: r.seeders ?? 0,
+            leechers: r.leechers ?? 0,
+            size: r.size ?? 0,
+            qualityMatch: computeQualityMatch(r.title, entry.quality),
+            publishDate: r.publishDate,
+            indexer: r.indexer,
+        });
+    }
+    updateWatchlistEntry(entry.id, { lastCheckedAt: Date.now() });
+}
+
 // Accepts a title, IMDB URL/ID, magnet URI, or info hash and dispatches
 // on the shape of the query.
 app.post('/api/search', async (c) => {
@@ -165,6 +185,12 @@ app.post('/api/watchlist', async (c) => {
         }
 
         const entry = getWatchlistEntry(id);
+        if (entry) {
+            // First search fires immediately; results surface on the next poll
+            // (purple ring + "new" chip) without holding up the add response.
+            searchAndPersist(entry).catch(err =>
+                log('ERROR', `[watchlist] Initial search failed for ${id}: ${(err as Error).message}`));
+        }
         return ok(c, { entry });
     } catch (err) {
         const msg = (err as Error).message;
@@ -203,29 +229,27 @@ app.delete('/api/watchlist/:id', requireEntry, (c) => {
     return ok(c);
 });
 
+// Run the full periodic check on demand (all watching entries, auto-add included).
+app.post('/api/watchlist/check', async (c) => {
+    try {
+        await runWatchlistCheck();
+        return ok(c);
+    } catch (err) {
+        return fail(c, (err as Error).message, 500);
+    }
+});
+
 app.post('/api/watchlist/:id/search', requireEntry, async (c) => {
     const id = c.req.param('id');
     const entry = c.get('entity');
 
     try {
-        const found = await multiSearch(entry.title, entry.year, entry.quality, entry.category);
-
-        // Persist so the results have real ids (Add-as-Torrent needs them)
-        // and survive the page's periodic re-fetch from the DB.
-        for (const r of found.slice(0, 50)) {
-            insertWatchlistResult({
-                watchlistId: id,
-                title: r.title,
-                magnetUri: r.magnetUri,
-                seeders: r.seeders ?? 0,
-                leechers: r.leechers ?? 0,
-                size: r.size ?? 0,
-                qualityMatch: computeQualityMatch(r.title, entry.quality),
-                publishDate: r.publishDate,
-                indexer: r.indexer,
-            });
+        // Searching a fulfilled entry is an explicit "find me more": it
+        // rejoins the watching flow (periodic checks and auto-add included).
+        if (entry.status === 'fulfilled') {
+            updateWatchlistEntry(id, { status: 'watching' });
         }
-        updateWatchlistEntry(id, { lastCheckedAt: Date.now() });
+        await searchAndPersist(entry);
 
         const results = getWatchlistResults(id, 50);
         return ok(c, { resultCount: results.length, results });

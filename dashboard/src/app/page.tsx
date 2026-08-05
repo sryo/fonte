@@ -10,6 +10,7 @@ import {
   getAutomations,
   getIndexerStatus,
   moveTorrentInQueue,
+  runWatchlistCheck,
   removeTorrent,
   deleteWatchlistEntry,
   triggerAutomation,
@@ -26,6 +27,7 @@ import {
   DownloadSimple,
   Eye,
   Lightning,
+  MagnifyingGlass,
   Plus,
   Trash,
 } from "@phosphor-icons/react";
@@ -47,7 +49,9 @@ import {
   type SortKey,
   type TorrentPillKey,
 } from "@/lib/torrent-order";
+import { watchOrder } from "@/lib/watchlist-order";
 import { cn } from "@/lib/utils";
+import { TONE_BADGE } from "@/lib/status";
 import { PillBar } from "@/components/home/pill-bar";
 import { SortDropdown } from "@/components/shared/sort-dropdown";
 import { EmptyRowCard } from "@/components/home/empty-row-card";
@@ -55,7 +59,7 @@ import { AddTorrentCard } from "@/components/home/add-torrent-card";
 import { ContentRow } from "@/components/home/content-row";
 import { TorrentCard } from "@/components/home/torrent-card";
 import { WatchlistCard } from "@/components/home/watchlist-card";
-import { FulfilledTray } from "@/components/home/fulfilled-tray";
+import { Spinner } from "@/components/ui/feedback";
 import { CompletedCard } from "@/components/home/completed-card";
 import { AutomationCard } from "@/components/home/automation-card";
 import { IndexerBanner } from "@/components/home/indexer-banner";
@@ -69,13 +73,53 @@ import {
   AddMiniTile,
   AutomationMiniTile,
   TorrentMiniTile,
-  TrayMiniTile,
   WatchlistMiniTile,
   vtName,
 } from "@/components/home/mini-tile";
 
 type SectionKey = "downloads" | "watchlist" | "automations";
 const SECTION_KEYS: readonly string[] = ["downloads", "watchlist", "automations"];
+
+// Resolves once the update has actually been applied — startViewTransition
+// runs its callback async, and callers like the poof flow must not proceed
+// before the new state is committed.
+function withMorph(update: () => void): Promise<void> {
+  if (document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const transition = document.startViewTransition(() => {
+      flushSync(update);
+    });
+    return transition.updateCallbackDone.catch(() => {});
+  }
+  update();
+  return Promise.resolve();
+}
+
+/** Deviation-only section chip: doubles as a shortcut to the state it names. */
+function HeaderChip({
+  className,
+  onClick,
+  label,
+  children,
+}: {
+  className: string;
+  onClick: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      className={cn(
+        "rounded-full px-2 py-0.5 text-2xs font-medium tabular-nums transition-opacity hover:opacity-80",
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function HomePage() {
   const [pill, setPill] = useState<PillKey>("all");
@@ -102,15 +146,6 @@ export default function HomePage() {
   );
 
   const isCollapsed = (key: SectionKey) => collapsedSections.includes(key);
-  const withMorph = (update: () => void) => {
-    if (document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      document.startViewTransition(() => {
-        flushSync(update);
-      });
-    } else {
-      update();
-    }
-  };
   const toggleSection = (key: SectionKey) =>
     withMorph(() =>
       setCollapsedSections((prev) =>
@@ -130,6 +165,8 @@ export default function HomePage() {
   const [editAutoRule, setEditAutoRule] = useState<AutomationRule | null>(null);
   const [removeTarget, setRemoveTarget] = useState<TorrentRecord | null>(null);
   const [clearOpen, setClearOpen] = useState(false);
+  const [clearFulfilledOpen, setClearFulfilledOpen] = useState(false);
+  const [searchingAll, setSearchingAll] = useState(false);
   const [runningAutoId, setRunningAutoId] = useState<string | null>(null);
   const [searchingWlIds, setSearchingWlIds] = useState<Set<string>>(new Set());
 
@@ -138,6 +175,9 @@ export default function HomePage() {
   const fetchAllRef = useRef<() => void>(() => {});
   const { exitingIds, poofThenRemove, filterHidden } = usePoofRemoval(() => fetchAllRef.current());
 
+  // Watchlist lane order signature; a change (a search landed finds, or finds
+  // were reviewed) morphs the reorder instead of snapping it.
+  const watchOrderSigRef = useRef<string | null>(null);
   const fetchAll = useCallback(async () => {
     try {
       const [torrentsRes, watchlistRes, automationsRes] = await Promise.all([
@@ -145,9 +185,17 @@ export default function HomePage() {
         getWatchlist(),
         getAutomations(),
       ]);
-      setTorrents(filterHidden(torrentsRes.torrents));
-      setWatchlist(filterHidden(watchlistRes.entries));
-      setAutomations(automationsRes.rules);
+      const nextWatchlist = filterHidden(watchlistRes.entries);
+      const sig = watchOrder(nextWatchlist).map((w) => w.id).join(",");
+      const orderChanged = watchOrderSigRef.current !== null && watchOrderSigRef.current !== sig;
+      watchOrderSigRef.current = sig;
+      const apply = () => {
+        setTorrents(filterHidden(torrentsRes.torrents));
+        setWatchlist(nextWatchlist);
+        setAutomations(automationsRes.rules);
+      };
+      if (orderChanged) await withMorph(apply);
+      else apply();
     } catch {
       // keep the last good data
     } finally {
@@ -208,6 +256,22 @@ export default function HomePage() {
     return () => clearInterval(t);
   }, [refreshIndexerStatus]);
 
+  const searchAllWatchlist = async () => {
+    if (searchingAll) return;
+    setSearchingAll(true);
+    const watchingIds = watchlist.filter((w) => w.status === "watching").map((w) => w.id);
+    setSearchingWlIds((prev) => new Set([...prev, ...watchingIds]));
+    try { await runWatchlistCheck(); }
+    catch {}
+    setSearchingWlIds((prev) => {
+      const next = new Set(prev);
+      watchingIds.forEach((id) => next.delete(id));
+      return next;
+    });
+    setSearchingAll(false);
+    fetchAll();
+  };
+
   const searchWatchlistEntry = async (id: string) => {
     setSearchingWlIds((prev) => { const next = new Set(prev); next.add(id); return next; });
     try { await triggerWatchlistSearch(id); }
@@ -229,14 +293,9 @@ export default function HomePage() {
   };
 
   const lane = torrents.filter((t) => t.status !== "removed");
-  // Every entry stays reachable from home; fulfilled ones pile into the tray.
-  const watchlistStatusRank = { watching: 0, paused: 1, fulfilled: 2 } as const;
-  const activeEntries = watchlist
-    .filter((w) => w.status !== "fulfilled")
-    .sort((a, b) => watchlistStatusRank[a.status] - watchlistStatusRank[b.status]);
-  const fulfilledEntries = watchlist
-    .filter((w) => w.status === "fulfilled")
-    .sort((a, b) => (b.lastMatchAt ?? b.updatedAt) - (a.lastMatchAt ?? a.updatedAt));
+  const activeEntries = watchOrder(watchlist);
+  const foundCount = activeEntries.filter((w) => (w.newResultsCount ?? 0) > 0).length;
+  const fulfilledEntries = watchlist.filter((w) => w.status === "fulfilled");
   const enabledAutomations = automations.filter((a) => a.enabled);
 
   const counts: Record<PillKey, number> = {
@@ -370,6 +429,17 @@ export default function HomePage() {
           title="Downloads"
           count={shownTorrents.length}
           icon={DownloadSimple}
+          chips={
+            counts.issues > 0 && (
+              <HeaderChip
+                className={TONE_BADGE.warn}
+                label={`Filter to ${counts.issues} torrents with issues`}
+                onClick={() => setPill("issues")}
+              >
+                {counts.issues} issue{counts.issues === 1 ? "" : "s"}
+              </HeaderChip>
+            )
+          }
           isEmpty={lane.length === 0}
           emptyContent={
             <div className="flex" style={{ viewTransitionName: "hi-add-dl" }}>
@@ -463,6 +533,17 @@ export default function HomePage() {
           title="Watchlist"
           count={watchlist.length}
           icon={Eye}
+          chips={
+            foundCount > 0 && (
+              <HeaderChip
+                className={TONE_BADGE.watch}
+                label={`${foundCount} entries with unreviewed results`}
+                onClick={() => expandSection("watchlist")}
+              >
+                {foundCount} new
+              </HeaderChip>
+            )
+          }
           isEmpty={watchlist.length === 0}
           emptyContent={
             <div className="flex" style={{ viewTransitionName: "hi-add-wl" }}>
@@ -495,23 +576,36 @@ export default function HomePage() {
                     exitDelay={exitingIds.get(entry.id)}
                   />
                 ))}
-                {fulfilledEntries.length > 0 && (
-                  <TrayMiniTile
-                    count={fulfilledEntries.length}
-                    onExpand={() => expandSection("watchlist")}
-                  />
-                )}
               </>
             )
           }
           action={
-            <button
-              onClick={() => setShowAddWatchlist(true)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add
-            </button>
+            <div className="flex items-center gap-1">
+              {fulfilledEntries.length > 0 && (
+                <button
+                  onClick={() => setClearFulfilledOpen(true)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
+                >
+                  <Trash className="h-3.5 w-3.5" />
+                  Clear
+                </button>
+              )}
+              <button
+                onClick={searchAllWatchlist}
+                disabled={searchingAll}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted disabled:opacity-60"
+              >
+                {searchingAll ? <Spinner size="xs" /> : <MagnifyingGlass className="h-3.5 w-3.5" />}
+                Search
+              </button>
+              <button
+                onClick={() => setShowAddWatchlist(true)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add
+              </button>
+            </div>
           }
         >
           {activeEntries.map((entry) => (
@@ -523,15 +617,6 @@ export default function HomePage() {
               {renderWatchlistCard(entry)}
             </div>
           ))}
-          {fulfilledEntries.length > 0 && (
-            <FulfilledTray
-              count={fulfilledEntries.length}
-              posterUrl={fulfilledEntries[0].posterUrl}
-              onClear={() => poofThenRemove(fulfilledEntries.map((e) => e.id), deleteWatchlistEntry)}
-            >
-              {fulfilledEntries.map(renderWatchlistCard)}
-            </FulfilledTray>
-          )}
         </ContentRow>
       )}
 
@@ -540,6 +625,17 @@ export default function HomePage() {
           title="Automations"
           count={enabledAutomations.length}
           icon={Lightning}
+          chips={
+            runningAutoId != null && (
+              <HeaderChip
+                className="bg-automation/15 text-automation"
+                label="An automation is running"
+                onClick={() => expandSection("automations")}
+              >
+                1 running
+              </HeaderChip>
+            )
+          }
           isEmpty={enabledAutomations.length === 0}
           emptyContent={
             <div className="flex" style={{ viewTransitionName: "hi-add-auto" }}>
@@ -624,6 +720,16 @@ export default function HomePage() {
           const target = removeTarget;
           if (target) poofThenRemove([target.id], (id) => removeTorrent(id, deleteFiles));
         }}
+      />
+
+      <ConfirmDialog
+        open={clearFulfilledOpen}
+        title="Clear fulfilled"
+        message={<>Remove {fulfilledEntries.length} fulfilled item{fulfilledEntries.length === 1 ? "" : "s"} from the watchlist?</>}
+        confirmLabel="Remove"
+        destructive
+        onConfirm={() => poofThenRemove(fulfilledEntries.map((e) => e.id), deleteWatchlistEntry)}
+        onClose={() => setClearFulfilledOpen(false)}
       />
 
       <ConfirmDialog

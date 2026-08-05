@@ -36,7 +36,7 @@ export function MediaCard({
   progress?: { value: number; stalled?: boolean };
   busy?: boolean;
   ringColor?: RingColor;
-  complete?: boolean;
+  complete?: boolean | "still";
   exiting?: boolean;
   exitDelay?: number;
 }) {
@@ -56,7 +56,7 @@ export function MediaCard({
   }, [exiting, exitDelay]);
   return (
     <div
-      className={`relative${exiting ? " card-poof-collapsing pointer-events-none" : ""}`}
+      className={`relative z-[1]${exiting ? " card-poof-collapsing pointer-events-none" : ""}`}
       style={delayStyle}
     >
     <div
@@ -71,7 +71,7 @@ export function MediaCard({
           hotkeys[e.key]();
         }
       }}
-      className={`w-(--card-w) h-full rounded-xl shadow-card bg-card overflow-hidden text-left hover:bg-accent/50 transition-colors group cursor-pointer relative focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50${exiting ? " card-poof-dissolving" : ""}`}
+      className={`w-(--card-w) h-full rounded-xl shadow-card bg-card overflow-hidden text-left hover:bg-[color-mix(in_oklab,var(--card),var(--accent)_50%)] transition-colors group cursor-pointer relative z-[1] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50${exiting ? " card-poof-dissolving" : ""}`}
       style={delayStyle}
     >
       <div className="aspect-[2/3] w-full bg-muted relative overflow-hidden">

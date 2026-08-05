@@ -24,7 +24,7 @@ export function Section({
           <h2 className="flex items-center gap-1.5 text-sm font-semibold">
             {title}
             {count !== undefined && (
-              <span className="font-normal text-muted-foreground">({count})</span>
+              <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
             )}
           </h2>
           {description && (

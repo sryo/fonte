@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type CSSProperties, type ElementType, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle, FilmStrip, Lightning, Plus, type IconWeight } from "@phosphor-icons/react";
+import { FilmStrip, Lightning, Plus, type IconWeight } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { poofBurst } from "@/lib/poof-burst";
 import { toPct } from "@/components/ui/progress-bar";
@@ -20,7 +20,7 @@ type MiniRing = {
   progress?: { value: number; stalled?: boolean };
   busy?: boolean;
   color?: RingColor;
-  complete?: boolean;
+  complete?: boolean | "still";
 };
 
 /** Tiny fixed-size rendition of a home card for collapsed sections: poster (or
@@ -188,7 +188,15 @@ export function WatchlistMiniTile({
       subtitle={subtitle}
       posterUrl={entry.posterUrl}
       dimmed={entry.status === "paused"}
-      ring={searching ? { busy: true, color: "watchlist" } : undefined}
+      ring={
+        searching
+          ? { busy: true, color: "watchlist" }
+          : entry.status === "fulfilled"
+            ? { complete: "still" }
+            : newCount > 0
+              ? { complete: "still", color: "watchlist" }
+              : undefined
+      }
       badge={
         newCount > 0 ? (
           <span className="absolute top-0.5 right-0.5 min-w-3.5 h-3.5 px-0.5 rounded-full bg-watchlist text-white text-2xs flex items-center justify-center tabular-nums">
@@ -223,24 +231,6 @@ export function AutomationMiniTile({
       ring={running ? { busy: true, color: "automation" } : undefined}
       onClick={onClick}
       transitionName={vtName("a", rule.id)}
-    />
-  );
-}
-
-export function TrayMiniTile({ count, onExpand }: { count: number; onExpand: () => void }) {
-  return (
-    <MiniTile
-      title="Fulfilled"
-      subtitle={`${count} matched · click to expand`}
-      icon={CheckCircle}
-      iconClassName="h-4 w-4 text-done"
-      iconWeight="fill"
-      badge={
-        <span className="absolute top-0.5 right-0.5 min-w-3.5 h-3.5 px-0.5 rounded-full bg-done text-white text-2xs flex items-center justify-center tabular-nums">
-          {count}
-        </span>
-      }
-      onClick={onExpand}
     />
   );
 }

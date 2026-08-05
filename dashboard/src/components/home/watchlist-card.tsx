@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import type { WatchlistRecord } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
-import { stackDepthForCount } from "@/lib/stack-visual";
-import { CardStack } from "@/components/home/card-stack";
 import { MediaCard } from "@/components/home/media-card";
 import { CardAction } from "@/components/home/card-action";
 import { PosterBadge } from "@/components/home/poster-badge";
@@ -30,8 +28,10 @@ export function WatchlistCard({
 }) {
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const fulfilled = entry.status === "fulfilled";
+  const found = entry.status === "watching" && (entry.newResultsCount ?? 0) > 0;
   return (
-    <CardStack depth={stackDepthForCount(entry.newResultsCount ?? 0)} seed={entry.id}>
+    <>
     <MediaCard
       title={entry.title}
       posterUrl={entry.posterUrl}
@@ -39,7 +39,8 @@ export function WatchlistCard({
       exitDelay={exitDelay}
       onClick={() => router.push(`/watchlist/${entry.id}`)}
       busy={searching}
-      ringColor="watchlist"
+      ringColor={fulfilled ? undefined : "watchlist"}
+      complete={fulfilled || found ? "still" : false}
       badges={
         <>
           {(entry.newResultsCount ?? 0) > 0 && (
@@ -48,6 +49,7 @@ export function WatchlistCard({
             </span>
           )}
           {entry.status === "paused" && <PosterBadge tone="neutral">Paused</PosterBadge>}
+          {fulfilled && <PosterBadge tone="done">Fulfilled</PosterBadge>}
           <PosterBadge>{entry.quality}</PosterBadge>
         </>
       }
@@ -82,6 +84,6 @@ export function WatchlistCard({
       onConfirm={onPoofRemove}
       onClose={() => setConfirmOpen(false)}
     />
-    </CardStack>
+    </>
   );
 }

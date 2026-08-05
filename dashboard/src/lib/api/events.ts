@@ -19,11 +19,11 @@ export function subscribeToEvents(
 
   const types = eventTypes ?? [
     "message:incoming", "agent:invoke", "agent:progress",
-    "agent:response", "agent:mention", "message:done",
+    "agent:response", "agent:mention", "agent:cancelled", "message:done",
     "torrent:added", "torrent:progress", "torrent:completed",
     "torrent:paused", "torrent:resumed", "torrent:removed",
     "torrent:error", "torrent:stats",
-    "watchlist:search", "watchlist:match", "watchlist:added", "watchlist:removed",
+    "watchlist:search", "watchlist:match", "watchlist:results", "watchlist:added", "watchlist:removed",
     "subtitle:downloaded", "subtitle:translated", "subtitle:error",
   ];
   for (const type of types) {
