@@ -334,13 +334,4 @@ app.post('/api/watchlist/:id/results/viewed', requireEntry, (c) => {
     return ok(c);
 });
 
-app.post('/api/watchlist/check', async (c) => {
-    try {
-        await runWatchlistCheck();
-        return ok(c);
-    } catch (err) {
-        return fail(c, (err as Error).message, 500);
-    }
-});
-
 export default app;
