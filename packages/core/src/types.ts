@@ -152,6 +152,8 @@ export interface MessageJobData {
     messageId: string;
     agent?: string;
     fromAgent?: string;
+    /** Fork the provider conversation from this session (edit-and-rerun). */
+    resumeSessionId?: string;
 }
 
 export interface ResponseJobData {

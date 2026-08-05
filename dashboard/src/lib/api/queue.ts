@@ -41,6 +41,10 @@ export interface AgentMessage {
   message_id: string;
   content: string;
   created_at: number;
+  /** 'text' | 'tool' (content is JSON {name, input}) | 'system'. Absent on old rows. */
+  kind?: string;
+  /** Provider session captured for the run this row belongs to. */
+  sessionId?: string | null;
 }
 
 export async function getQueueStatus(): Promise<QueueStatus> {
@@ -53,6 +57,23 @@ export async function getProcessingMessages(): Promise<ProcessingMessage[]> {
 
 export async function killAgentSession(id: number): Promise<{ ok: boolean; agent: string; processKilled: boolean }> {
   return apiFetch(`/api/queue/processing/${id}/kill`, { method: "POST" });
+}
+
+/** Terminal, message-scoped stop: no retry, and the partial answer is suppressed. */
+export async function cancelAgentRun(id: number): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/queue/processing/${id}/cancel`, { method: "POST" });
+}
+
+/** Truncate an agent's visible history from a row id onward (edit-and-rerun). */
+export async function deleteAgentMessagesFrom(agentId: string, fromId: number): Promise<{ ok: boolean }> {
+  return apiFetch(
+    `/api/agents/${encodeURIComponent(agentId)}/messages?from=${fromId}`,
+    { method: "DELETE" }
+  );
+}
+
+export async function resetAgent(agentId: string): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/agents/${encodeURIComponent(agentId)}/reset`, { method: "POST" });
 }
 
 export async function getResponses(limit = 20): Promise<ResponseData[]> {
@@ -68,6 +89,8 @@ export async function sendMessage(payload: {
   agent?: string;
   sender?: string;
   channel?: string;
+  /** Fork the conversation from this provider session (edit-and-rerun). */
+  resumeSessionId?: string;
 }): Promise<{ ok: boolean; messageId: string }> {
   return apiFetch("/api/message", { method: "POST", body: JSON.stringify(payload) });
 }

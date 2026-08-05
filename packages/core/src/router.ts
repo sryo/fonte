@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 import { AgentConfig } from './types';
 
@@ -29,4 +30,11 @@ export function parseAgentRouting(
 
 export function getAgentResetFlag(agentId: string, workspacePath: string): string {
     return path.join(workspacePath, agentId, 'reset_flag');
+}
+
+/** Write the reset flag the agent's next run consumes (fresh conversation). */
+export function requestAgentReset(agentId: string, workspacePath: string): void {
+    const flag = getAgentResetFlag(agentId, workspacePath);
+    fs.mkdirSync(path.dirname(flag), { recursive: true });
+    fs.writeFileSync(flag, '');
 }

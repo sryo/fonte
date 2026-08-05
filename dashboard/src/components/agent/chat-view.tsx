@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { IconSwap } from "@/components/ui/icon-swap";
 import { usePolling, timeAgo } from "@/lib/hooks";
 import {
   getAgentMessages,
@@ -23,6 +24,9 @@ import { Markdown } from "@/components/ui/markdown";
 import { Robot, ArrowUp, Square } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { agentColor } from "@/lib/agent-colors";
+import { groupActivity } from "@/lib/agent-activity";
+import { useAgentRun } from "@/hooks/use-agent-run";
+import { SystemNote, ToolActivity } from "@/components/agent/tool-activity";
 
 interface AgentChatItem {
   id: string;
@@ -31,6 +35,7 @@ interface AgentChatItem {
   created_at: number;
   sender?: string;
   message_id?: string;
+  kind?: string;
 }
 
 function stripAgentPrefix(content: string, agentId: string): string {
@@ -52,6 +57,7 @@ function normalizeMessage(message: AgentMessage, agentId: string): AgentChatItem
     created_at: message.created_at,
     sender: message.sender,
     message_id: message.message_id,
+    kind: message.kind,
   };
 }
 
@@ -65,6 +71,7 @@ export function AgentChatView({
   const [messages, setMessages] = useState<AgentChatItem[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const { run, stopping, stop } = useAgentRun(agentId, true);
 
   const fetchMessages = useCallback(async () => {
     return getAgentMessages(agentId, 200, 0);
@@ -135,6 +142,10 @@ export function AgentChatView({
     }
   }, [input, sending, agentId]);
 
+  const chatItems = useMemo(() => groupActivity(messages), [messages]);
+  const lastChatItem = chatItems[chatItems.length - 1];
+  const stopMode = run != null && !input.trim();
+
   return (
     <div className="flex h-full flex-col relative">
       <div className="absolute top-3 right-4 z-10 flex items-center gap-1.5">
@@ -154,7 +165,18 @@ export function AgentChatView({
       ) : (
         <ChatContainerRoot className="flex-1">
           <ChatContainerContent className="space-y-3 px-6 pt-4 pb-28">
-            {messages.map((msg) => {
+            {chatItems.map((item) => {
+              if (item.type === "tools") {
+                return (
+                  <div key={item.key} className="pl-11">
+                    <ToolActivity calls={item.calls} live={run != null && item === lastChatItem} />
+                  </div>
+                );
+              }
+              if (item.type === "system") {
+                return <SystemNote key={item.row.id}>{item.row.content}</SystemNote>;
+              }
+              const msg = item.row;
               const isUser = msg.role === "user";
               const label = isUser ? "You" : agentName;
               const initials = label.slice(0, 2).toUpperCase();
@@ -198,20 +220,22 @@ export function AgentChatView({
           <PromptInputTextarea placeholder={`Message ${agentName}...`} className="min-h-[70px]" />
           <PromptInputActions className="absolute bottom-2 right-2">
             <PromptInputAction
-              tooltip={sending ? "Sending..." : "Send message"}
+              tooltip={stopMode ? "Stop the agent" : sending ? "Sending..." : "Send message"}
             >
               <Button
                 variant="default"
                 size="icon"
                 className="h-8 w-8 rounded-full"
-                disabled={!input.trim() || sending}
-                onClick={handleSend}
+                disabled={stopMode ? stopping : !input.trim() || sending}
+                onClick={stopMode ? stop : handleSend}
               >
-                {sending ? (
-                  <Square className="size-5" weight="fill" />
-                ) : (
-                  <ArrowUp className="size-5" />
-                )}
+                <IconSwap
+                  active={stopMode || sending ? "stop" : "send"}
+                  icons={{
+                    send: <ArrowUp className="size-5" />,
+                    stop: <Square className="size-5" weight="fill" />,
+                  }}
+                />
               </Button>
             </PromptInputAction>
           </PromptInputActions>

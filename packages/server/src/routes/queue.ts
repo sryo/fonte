@@ -4,7 +4,8 @@ import {
     getQueueStatus, getAgentQueueStatus, getRecentResponses, getResponsesForChannel,
     ackResponse, enqueueResponse,
     getDeadMessages, retryDeadMessage, deleteDeadMessage,
-    getProcessingMessages, failMessage, getActiveAgentIds, killAgentProcess, queueEvents,
+    getProcessingMessages, getProcessingMessage, failMessage, cancelMessage,
+    getActiveAgentIds, killAgentProcess, queueEvents,
 } from '@fonte/core';
 import { ok, fail } from '../http';
 
@@ -161,10 +162,25 @@ export function createQueueRoutes() {
         });
     });
 
+    // Terminal, message-scoped stop: unlike /kill, the row does NOT retry, and
+    // the main loop suppresses the killed run's partial answer on every channel.
+    app.post('/api/queue/processing/:id/cancel', (c) => {
+        const id = parseInt(c.req.param('id'), 10);
+        const msg = getProcessingMessage(id);
+        if (!msg) return fail(c, 'processing message not found', 404);
+
+        const agent = msg.agent || 'default';
+        cancelMessage(id);
+        const processKilled = msg.status === 'processing' ? killAgentProcess(agent) : false;
+        emitEvent('agent:cancelled', { agentId: agent, messageId: msg.message_id });
+
+        log('INFO', `[API] Cancelled run for ${agent} (message ${id}), process killed: ${processKilled}`);
+        return ok(c, { agent, processKilled });
+    });
+
     app.post('/api/queue/processing/:id/kill', (c) => {
         const id = parseInt(c.req.param('id'), 10);
-        const messages = getProcessingMessages();
-        const msg = messages.find((m: any) => m.id === id);
+        const msg = getProcessingMessage(id);
         if (!msg) return fail(c, 'processing message not found', 404);
 
         const agent = msg.agent || 'default';

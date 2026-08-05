@@ -5,7 +5,7 @@ import {
   getAgents,
   saveAgent,
   deleteAgent,
-  sendMessage,
+  resetAgent,
   getCustomProviders,
   BUILTIN_PROVIDERS,
   type AgentConfig,
@@ -82,7 +82,7 @@ export function AgentsSection() {
   const confirmReset = async () => {
     const id = resetTarget;
     if (!id) return;
-    await sendMessage({ message: `@${id} /reset`, agent: id, channel: "web", sender: "Web" });
+    await resetAgent(id);
     setResetSent(id);
     setTimeout(() => setResetSent(null), 2000);
   };

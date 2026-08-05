@@ -52,7 +52,7 @@ export const geminiAdapter: AgentAdapter = {
                 } catch {
                     if (line.trim()) onEvent(line);
                 }
-            }, workingDir, env);
+            }, workingDir, env, agentId);
             const output = await promise;
 
             try {

@@ -8,11 +8,11 @@ import {
     getSettings, getAgents, checkSettingsFile, LOG_FILE, FILES_DIR, FONTE_HOME,
     log, emitEvent, onEvent, notifyForEvent,
     parseAgentRouting, getAgentResetFlag,
-    invokeAgent, killAgentProcess,
+    invokeAgent, killAgentProcess, getActiveAgentIds,
     loadPlugins, runIncomingHooks,
     streamResponse,
     initQueueDb, getPendingAgents, claimAllPendingMessages,
-    markProcessing, completeMessage, failMessage,
+    markProcessing, completeMessage, failMessage, getMessageStatus, setMessageSessionId,
     recoverStaleMessages, pruneAckedResponses, pruneCompletedMessages,
     closeQueueDb, queueEvents,
     insertAgentMessage,
@@ -91,26 +91,50 @@ async function processMessage(dbMsg: any): Promise<void> {
     ({ text: message } = await runIncomingHooks(message, { channel, sender, messageId, originalMessage: rawMessage }));
 
     emitEvent('agent:invoke', { agentId, agentName: agent.name, fromAgent: data.fromAgent || null });
+    let sessionId: string | null = null;
     let response: string;
+    let errored = false;
     try {
-        response = await invokeAgent(agent, agentId, message, workspacePath, shouldReset, agents, {}, (text) => {
-            log('INFO', `Agent ${agentId}: ${text}`);
-            insertAgentMessage({ agentId, role: 'assistant', channel, sender: agentId, messageId, content: text });
-            emitEvent('agent:progress', { agentId, agentName: agent.name, text, messageId });
-            // Don't send intermediate chunks to the channel: some adapters emit the
-            // full response as one chunk, which would duplicate the final send below.
+        response = await invokeAgent(agent, agentId, message, workspacePath, shouldReset, agents, {}, {
+            onEvent: (text) => {
+                log('INFO', `Agent ${agentId}: ${text}`);
+                insertAgentMessage({ agentId, role: 'assistant', channel, sender: agentId, messageId, content: text });
+                emitEvent('agent:progress', { agentId, agentName: agent.name, text, messageId });
+                // Don't send intermediate chunks to the channel: some adapters emit the
+                // full response as one chunk, which would duplicate the final send below.
+            },
+            resumeSessionId: dbMsg.resume_session_id ?? undefined,
+            onSessionId: (id) => { sessionId = id; },
+            onTool: (name, input) => {
+                let content = JSON.stringify({ name, input });
+                if (content.length > 2048) content = JSON.stringify({ name });
+                insertAgentMessage({ agentId, role: 'assistant', channel, sender: agentId, messageId, content, kind: 'tool' });
+                emitEvent('agent:progress', { agentId, agentName: agent.name, tool: name, messageId });
+            },
         });
     } catch (error) {
+        errored = true;
         const provider = agent.provider || 'anthropic';
         const providerLabel = provider === 'openai' ? 'Codex' : provider === 'opencode' ? 'OpenCode' : 'Claude';
         log('ERROR', `${providerLabel} error (agent: ${agentId}): ${(error as Error).message}`);
         response = "Sorry, I encountered an error processing your request. Please check the queue logs.";
+    }
+
+    // Session persists even for stopped runs, so an edit can fork from them.
+    if (sessionId) setMessageSessionId(dbMsg.id, sessionId);
+    // A stopped run must never deliver its partial answer to any channel.
+    if (getMessageStatus(dbMsg.id) === 'cancelled') {
+        insertAgentMessage({ agentId, role: 'assistant', channel, sender: agentId, messageId, content: 'Stopped', kind: 'system' });
+        return;
+    }
+    if (errored) {
         const msgSender = isInternal ? data.fromAgent! : sender;
         insertAgentMessage({ agentId, role: 'assistant', channel, sender: msgSender, messageId, content: response });
         await sendDirectResponse(response, {
             channel, sender, senderId: data.senderId,
             messageId, originalMessage: rawMessage, agentId,
         });
+        return;
     }
 
     emitEvent('agent:response', {
@@ -163,6 +187,7 @@ async function processQueue(): Promise<void> {
         const newChain = currentChain.catch(() => {}).then(async () => {
             const epoch = agentKillEpoch.get(agentId) || 0;
             for (const msg of messages) {
+                if (getMessageStatus(msg.id) === 'cancelled') continue;
                 if ((agentKillEpoch.get(agentId) || 0) !== epoch) {
                     failMessage(msg.id, 'Agent killed');
                     continue;
@@ -307,6 +332,8 @@ function shutdown(exitCode = 0): void {
     automationEngine.stop();
     clearInterval(pollInterval);
     clearInterval(maintenanceInterval);
+    // Detached CLI children would outlive us as orphans otherwise.
+    for (const id of getActiveAgentIds()) killAgentProcess(id);
     apiServer.close();
 
     const teardown = Promise.allSettled([

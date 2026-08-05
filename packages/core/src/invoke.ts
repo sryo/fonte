@@ -17,7 +17,20 @@ export function getActiveAgentIds(): string[] {
 export function killAgentProcess(agentId: string): boolean {
     const child = activeProcesses.get(agentId);
     if (!child) return false;
-    try { child.kill('SIGTERM'); } catch { /* already dead */ }
+    // Group signal: the CLI is spawned detached as a group leader, so this
+    // reaches its own subprocesses (bash tools etc.), not just the CLI.
+    const signal = (sig: NodeJS.Signals) => {
+        try {
+            if (child.pid) process.kill(-child.pid, sig);
+            else child.kill(sig);
+        } catch {
+            try { child.kill(sig); } catch { /* already dead */ }
+        }
+    };
+    signal('SIGTERM');
+    setTimeout(() => {
+        if (child.exitCode === null && child.signalCode === null) signal('SIGKILL');
+    }, 3000).unref();
     activeProcesses.delete(agentId);
     return true;
 }
@@ -90,6 +103,9 @@ export function runCommandStreaming(
             cwd: cwd || SCRIPT_DIR,
             stdio: ['ignore', 'pipe', 'pipe'],
             env,
+            // Own process group, so a user-initiated stop can signal the CLI
+            // together with its subprocesses.
+            detached: true,
         });
 
         if (agentId) {
@@ -182,7 +198,12 @@ export async function invokeAgent(
     _shouldReset: boolean,
     agents: Record<string, AgentConfig> = {},
     teams: Record<string, TeamConfig> = {},
-    onEvent?: (text: string) => void,
+    opts?: {
+        onEvent?: (text: string) => void;
+        onTool?: (name: string, input: unknown) => void;
+        onSessionId?: (sessionId: string) => void;
+        resumeSessionId?: string;
+    },
 ): Promise<string> {
     const agentDir = path.join(workspacePath, agentId);
     const isNewAgent = !fs.existsSync(agentDir);
@@ -263,6 +284,9 @@ export async function invokeAgent(
         model,
         shouldReset,
         envOverrides,
-        onEvent,
+        onEvent: opts?.onEvent,
+        onTool: opts?.onTool,
+        onSessionId: opts?.onSessionId,
+        resumeSessionId: opts?.resumeSessionId,
     });
 }

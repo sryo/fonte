@@ -10,6 +10,12 @@ export interface InvokeOptions {
     shouldReset: boolean;
     envOverrides: Record<string, string>;
     onEvent?: (text: string) => void;
+    /** Structured tool-use events; adapters without one keep stringifying into onEvent. */
+    onTool?: (name: string, input: unknown) => void;
+    /** Provider conversation id, when the stream announces one. */
+    onSessionId?: (sessionId: string) => void;
+    /** Fork from this provider session instead of continuing the last one. */
+    resumeSessionId?: string;
 }
 
 export interface AgentAdapter {

@@ -18,7 +18,9 @@ export function usePollingEffect(fn: () => void, intervalMs: number) {
 export function usePolling<T>(
   fetcher: () => Promise<T>,
   intervalMs: number,
-  deps: unknown[] = []
+  deps: unknown[] = [],
+  /** Keep the previous object identity when nothing changed, so consumers skip re-renders. */
+  isEqual?: (prev: T | null, next: T) => boolean
 ): { data: T | null; error: string | null; loading: boolean; refresh: () => void } {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export function usePolling<T>(
     try {
       const result = await fetcher();
       if (mountedRef.current) {
-        setData(result);
+        setData((prev) => (isEqual && isEqual(prev, result) ? prev : result));
         setError(null);
       }
     } catch (err) {

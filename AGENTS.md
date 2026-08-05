@@ -94,7 +94,14 @@ GET    /api/torrents/:id/subtitles           List
 GET    /api/agents                List agents
 GET    /api/status                Daemon and system status
 GET    /api/events                SSE stream for live updates
+POST   /api/queue/processing/{id}/cancel   Stop a running agent turn (terminal: no retry, partial answer suppressed)
+POST   /api/agents/{id}/reset     Start the agent's next run in a fresh conversation
+DELETE /api/agents/{id}/messages?from={rowId}   Truncate visible chat history from a row onward
 ```
+
+`POST /api/message` also accepts `resumeSessionId` (fork the provider
+conversation from that session — used by edit-and-rerun) and
+`freshSession: true` (start a new conversation for this one message).
 
 ## Sending a WhatsApp message
 

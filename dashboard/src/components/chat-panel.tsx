@@ -1,54 +1,66 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Dialog } from "radix-ui";
-import { Robot, X, PaperPlaneTilt } from "@phosphor-icons/react";
-import { getAgentMessages, sendMessage, type AgentMessage } from "@/lib/api";
+import { PaperPlaneTilt, PencilSimple, Robot, Stop, X } from "@phosphor-icons/react";
+import {
+  deleteAgentMessagesFrom,
+  getAgentMessages,
+  resetAgent,
+  sendMessage,
+  type AgentMessage,
+} from "@/lib/api";
+import { groupActivity } from "@/lib/agent-activity";
+import { formatClock } from "@/lib/format";
+import { useAgentRun } from "@/hooks/use-agent-run";
+import { IconSwap } from "@/components/ui/icon-swap";
 import { Markdown } from "@/components/ui/markdown";
+import { SystemNote, ToolActivity } from "@/components/agent/tool-activity";
+import { cn } from "@/lib/utils";
+
+const AGENT_ID = "fonte";
 
 interface ChatPanelProps {
   open: boolean;
   onClose: () => void;
 }
 
+function Elapsed({ since }: { since: number }) {
+  const [label, setLabel] = useState("0:00");
+  useEffect(() => {
+    const update = () => setLabel(formatClock(Date.now() - since));
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [since]);
+  return <span className="tabular-nums text-muted-foreground">{label}</span>;
+}
+
 export function ChatPanel({ open, onClose }: ChatPanelProps) {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [thinking, setThinking] = useState(false);
+  const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const { run, stopping, stop } = useAgentRun(AGENT_ID, open);
+
+  const refresh = useCallback(async () => {
+    try {
+      const data = await getAgentMessages(AGENT_ID, 50);
+      setMessages([...data].reverse());
+    } catch {
+      // silently fail polling
+    }
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-
-    let active = true;
-
-    const fetchMessages = async () => {
-      try {
-        const data = await getAgentMessages("fonte", 50);
-        if (active) {
-          const reversed = [...data].reverse();
-          setMessages((prev) => {
-            if (reversed.length > prev.length) {
-              setThinking(false);
-            }
-            return reversed;
-          });
-        }
-      } catch {
-        // silently fail polling
-      }
-    };
-
-    fetchMessages();
-    const id = setInterval(fetchMessages, 3000);
-
-    return () => {
-      active = false;
-      clearInterval(id);
-    };
-  }, [open]);
+    refresh();
+    const id = setInterval(refresh, 3000);
+    return () => clearInterval(id);
+  }, [open, refresh]);
 
   useEffect(() => {
     if (open) {
@@ -58,29 +70,56 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     }
   }, [open]);
 
+  const startEditing = useCallback((msg: AgentMessage) => {
+    setEditingRowId(msg.id);
+    setInput(msg.content);
+    inputRef.current?.focus();
+  }, []);
+
+  const cancelEditing = useCallback(() => {
+    setEditingRowId(null);
+    setInput("");
+  }, []);
+
   const handleSend = useCallback(async () => {
     const value = input.trim();
     if (!value || sending) return;
 
     setSending(true);
-    setThinking(true);
     try {
-      await sendMessage({
-        message: value,
-        agent: "fonte",
-        channel: "web",
-        sender: "Web",
-      });
+      if (editingRowId != null) {
+        // Edit-and-rerun: stop the in-flight run, truncate history from the
+        // edited message, and fork from the previous run's provider session
+        // — or reset for a fresh conversation when none was captured.
+        if (run) await stop();
+        const fork = messages.findLast((m) => m.id < editingRowId && m.sessionId)?.sessionId;
+        if (!fork) await resetAgent(AGENT_ID);
+        await deleteAgentMessagesFrom(AGENT_ID, editingRowId);
+        await sendMessage({
+          message: value,
+          agent: AGENT_ID,
+          channel: "web",
+          sender: "Web",
+          resumeSessionId: fork ?? undefined,
+        });
+        setEditingRowId(null);
+      } else {
+        await sendMessage({ message: value, agent: AGENT_ID, channel: "web", sender: "Web" });
+      }
       setInput("");
       // Fetch right away so the user's own message shows before the next poll.
-      const data = await getAgentMessages("fonte", 50);
-      setMessages([...data].reverse());
+      await refresh();
     } catch {
-      setThinking(false);
+      // next poll reconciles
     } finally {
       setSending(false);
     }
-  }, [input, sending]);
+  }, [input, sending, editingRowId, messages, run, stop, refresh]);
+
+  const items = useMemo(() => groupActivity(messages), [messages]);
+  const lastItem = items[items.length - 1];
+  const lastUserRowId = messages.findLast((m) => m.role === "user" && m.channel === "web")?.id;
+  const stopMode = run != null && !input.trim();
 
   return (
     // Radix Presence keeps the portal mounted until the data-state=closed
@@ -130,59 +169,106 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
             </div>
           )}
 
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              style={{ overflowAnchor: "none" }}
-            >
+          {items.map((item) => {
+            if (item.type === "tools") {
+              return (
+                <div key={item.key} className="flex justify-start" style={{ overflowAnchor: "none" }}>
+                  <ToolActivity calls={item.calls} live={run != null && item === lastItem} />
+                </div>
+              );
+            }
+            if (item.type === "system") {
+              return <SystemNote key={item.row.id}>{item.row.content}</SystemNote>;
+            }
+            const msg = item.row;
+            return (
               <div
-                className={`px-3 py-2 text-sm max-w-[80%] break-words ${
-                  msg.role === "user"
-                    ? "bg-muted rounded-xl rounded-br-sm ml-auto whitespace-pre-wrap"
-                    : "bg-card border rounded-xl rounded-bl-sm prose prose-sm dark:prose-invert max-w-none"
-                }`}
+                key={msg.id}
+                className={`group/bubble flex items-end gap-1 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                style={{ overflowAnchor: "none" }}
               >
-                {msg.role === "user" ? msg.content : <Markdown>{msg.content}</Markdown>}
+                {msg.role === "user" && msg.id === lastUserRowId && (
+                  <button
+                    type="button"
+                    onClick={() => startEditing(msg)}
+                    aria-label="Edit and rerun"
+                    title="Edit and rerun"
+                    className="mb-1 rounded p-1 text-muted-foreground opacity-0 transition-all hover:text-foreground focus-visible:opacity-100 group-hover/bubble:opacity-100"
+                  >
+                    <PencilSimple className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <div
+                  className={cn(
+                    "px-3 py-2 text-sm max-w-[80%] break-words",
+                    msg.role === "user"
+                      ? "bg-muted rounded-xl rounded-br-sm whitespace-pre-wrap"
+                      : "bg-card border rounded-xl rounded-bl-sm prose prose-sm dark:prose-invert max-w-none",
+                    editingRowId === msg.id && "ring-2 ring-ring/50"
+                  )}
+                >
+                  {msg.role === "user" ? msg.content : <Markdown>{msg.content}</Markdown>}
+                </div>
               </div>
-            </div>
-          ))}
-
-          {thinking && (
-            <div className="flex justify-start">
-              <div className="bg-card border rounded-xl rounded-bl-sm px-3 py-2 text-sm text-muted-foreground flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground animate-pulse" />
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground animate-pulse" style={{animationDelay: "0.2s"}} />
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground animate-pulse" style={{animationDelay: "0.4s"}} />
-              </div>
-            </div>
-          )}
+            );
+          })}
 
           <div ref={messagesEndRef} style={{ overflowAnchor: "auto" }} />
         </div>
 
-        <div className="px-4 py-3 border-t flex gap-2 shrink-0">
-          <input
-            type="text"
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSend();
-            }}
-            placeholder="Type a message..."
-            disabled={sending}
-            className="flex-1 bg-muted/50 rounded-md border px-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all disabled:opacity-60"
-          />
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={sending || !input.trim()}
-            className="flex items-center justify-center h-9 w-9 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 shrink-0"
-            aria-label="Send message"
-          >
-            <PaperPlaneTilt className="h-4 w-4" />
-          </button>
+        <div className="border-t shrink-0">
+          {run && (
+            <div className="flex items-center gap-2 px-4 pt-2 text-xs">
+              <span className="shimmer-text" data-text="Working…">Working…</span>
+              <Elapsed since={run.startedAt} />
+            </div>
+          )}
+          {editingRowId != null && (
+            <div className="flex items-center justify-between px-4 pt-2 text-xs text-muted-foreground">
+              <span>Editing — reruns from here</span>
+              <button
+                type="button"
+                onClick={cancelEditing}
+                className="rounded px-1.5 py-0.5 hover:bg-muted hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          <div className="px-4 py-3 flex gap-2">
+            <input
+              type="text"
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSend();
+                else if (e.key === "Escape" && editingRowId != null) {
+                  e.stopPropagation();
+                  cancelEditing();
+                }
+              }}
+              placeholder={editingRowId != null ? "Edit your message…" : "Type a message..."}
+              disabled={sending}
+              className="flex-1 bg-muted/50 rounded-md border px-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all disabled:opacity-60"
+            />
+            <button
+              type="button"
+              onClick={stopMode ? stop : handleSend}
+              disabled={sending || stopping || (!stopMode && !input.trim())}
+              className="flex items-center justify-center h-9 w-9 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 shrink-0"
+              aria-label={stopMode ? "Stop the agent" : "Send message"}
+              title={stopMode ? "Stop the agent" : undefined}
+            >
+              <IconSwap
+                active={stopMode ? "stop" : "send"}
+                icons={{
+                  send: <PaperPlaneTilt className="h-4 w-4" />,
+                  stop: <Stop weight="fill" className="h-4 w-4" />,
+                }}
+              />
+            </button>
+          </div>
         </div>
         </Dialog.Content>
       </Dialog.Portal>
