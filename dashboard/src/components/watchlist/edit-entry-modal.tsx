@@ -67,7 +67,7 @@ export function EditEntryModal({
       mediaType: form.mediaType,
       year: form.year ? parseInt(form.year) : null,
       quality: form.quality,
-      seasonPattern: form.seasonPattern.trim() || null,
+      seasonPattern: form.mediaType === "tv" ? form.seasonPattern.trim() || null : null,
       posterUrl: form.posterUrl.trim() || null,
     });
   };
@@ -104,13 +104,14 @@ export function EditEntryModal({
             </Select>
           </div>
           <div className="w-24 space-y-1.5">
-            <Label htmlFor="edit-year">Year</Label>
+            <Label htmlFor="edit-year">{form.mediaType === "tv" ? "First aired" : "Year"}</Label>
             <Input
               id="edit-year"
               type="number"
               value={form.year}
               onChange={(e) => patch({ year: e.target.value })}
-              placeholder="Year"
+              placeholder={form.mediaType === "tv" ? "Optional" : "Year"}
+              title={form.mediaType === "tv" ? "Only used to find the right poster" : undefined}
             />
           </div>
         </div>
@@ -120,18 +121,29 @@ export function EditEntryModal({
             id="edit-quality"
             value={form.quality}
             onChange={(e) => patch({ quality: e.target.value })}
-            placeholder="Quality (e.g. 1080p)"
+            placeholder={
+              form.mediaType === "music"
+                ? "e.g. FLAC, 320 — empty for any"
+                : form.mediaType === "movie" || form.mediaType === "tv"
+                  ? "e.g. 1080p"
+                  : "e.g. EPUB — empty for any"
+            }
           />
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="edit-season">Season pattern</Label>
-          <Input
-            id="edit-season"
-            value={form.seasonPattern}
-            onChange={(e) => patch({ seasonPattern: e.target.value })}
-            placeholder="e.g. S01 — optional"
-          />
-        </div>
+        {form.mediaType === "tv" && (
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-season">Season</Label>
+            <Input
+              id="edit-season"
+              value={form.seasonPattern}
+              onChange={(e) => patch({ seasonPattern: e.target.value })}
+              placeholder="S14, S14E02 — optional"
+            />
+            <p className="text-2xs text-muted-foreground">
+              Empty keeps grabbing new episodes; a season fulfills once.
+            </p>
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="edit-poster">Poster URL</Label>
           <Input

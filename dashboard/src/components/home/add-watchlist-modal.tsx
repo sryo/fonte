@@ -24,16 +24,35 @@ const MEDIA_TYPES: { value: MediaType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-const QUALITIES = ["720p", "1080p", "4K"];
+// Per-type quality vocabulary; "any" maps to an empty quality (no filter).
+const QUALITY_OPTIONS: Record<MediaType, string[]> = {
+  movie: ["720p", "1080p", "4K"],
+  tv: ["720p", "1080p", "4K"],
+  music: ["FLAC", "320", "V0", "any"],
+  game: ["any"],
+  book: ["EPUB", "PDF", "any"],
+  app: ["any"],
+  other: ["any"],
+};
+const DEFAULT_QUALITY: Record<MediaType, string> = {
+  movie: "1080p",
+  tv: "1080p",
+  music: "FLAC",
+  game: "any",
+  book: "EPUB",
+  app: "any",
+  other: "any",
+};
 
 export function AddWatchlistModal({ open, onClose, onAdded }: {
   open: boolean;
   onClose: () => void;
   onAdded: () => void;
 }) {
-  const [wlForm, setWlForm] = useState({ title: "", mediaType: "movie" as MediaType, year: "", quality: "1080p" });
+  const [wlForm, setWlForm] = useState({ title: "", mediaType: "movie" as MediaType, year: "", quality: "1080p", seasonPattern: "" });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isTv = wlForm.mediaType === "tv";
 
   const handleAdd = async () => {
     if (!wlForm.title.trim() || submitting) return;
@@ -44,9 +63,10 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
         title: wlForm.title.trim(),
         mediaType: wlForm.mediaType,
         year: wlForm.year ? parseInt(wlForm.year) : undefined,
-        quality: wlForm.quality,
+        quality: wlForm.quality === "any" ? "" : wlForm.quality,
+        seasonPattern: isTv ? wlForm.seasonPattern.trim() || undefined : undefined,
       });
-      setWlForm({ title: "", mediaType: "movie", year: "", quality: "1080p" });
+      setWlForm({ title: "", mediaType: "movie", year: "", quality: "1080p", seasonPattern: "" });
       onClose();
       onAdded();
     } catch (err) {
@@ -68,7 +88,9 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
         <div className="grid grid-cols-2 gap-3">
           <Select
             value={wlForm.mediaType}
-            onValueChange={(v) => setWlForm({ ...wlForm, mediaType: v as MediaType })}
+            onValueChange={(v) =>
+              setWlForm({ ...wlForm, mediaType: v as MediaType, quality: DEFAULT_QUALITY[v as MediaType] })
+            }
           >
             <SelectTrigger className="w-full">
               <SelectValue />
@@ -82,12 +104,25 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
             </SelectContent>
           </Select>
           <Input
-            placeholder="Year"
+            placeholder={isTv ? "First aired (optional)" : "Year"}
+            title={isTv ? "Only used to find the right poster" : undefined}
             type="number"
             value={wlForm.year}
             onChange={(e) => setWlForm({ ...wlForm, year: e.target.value })}
           />
         </div>
+        {isTv && (
+          <div className="space-y-1">
+            <Input
+              placeholder="Season (S14, S14E02)"
+              value={wlForm.seasonPattern}
+              onChange={(e) => setWlForm({ ...wlForm, seasonPattern: e.target.value })}
+            />
+            <p className="text-2xs text-muted-foreground">
+              Empty keeps grabbing new episodes; a season fulfills once.
+            </p>
+          </div>
+        )}
         <Select
           value={wlForm.quality}
           onValueChange={(v) => setWlForm({ ...wlForm, quality: v })}
@@ -96,9 +131,9 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {QUALITIES.map((q) => (
+            {QUALITY_OPTIONS[wlForm.mediaType].map((q) => (
               <SelectItem key={q} value={q}>
-                {q}
+                {q === "any" ? "Any quality" : q}
               </SelectItem>
             ))}
           </SelectContent>

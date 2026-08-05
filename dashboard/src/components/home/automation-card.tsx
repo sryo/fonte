@@ -66,7 +66,7 @@ export function AutomationCard({
             label="Delete"
             destructive
             onClick={() => setConfirmOpen(true)}
-            hotkey="⌫"
+           
           />
         </div>
       </div>

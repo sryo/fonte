@@ -216,6 +216,13 @@ export function markWatchlistResultsViewed(id: string): void {
     getDb().prepare('UPDATE watchlist SET results_viewed_at = ? WHERE id = ?').run(Date.now(), id);
 }
 
+/** Drop prior finds after a query/pattern edit; selected ones stay as history. */
+export function deleteUnselectedResults(watchlistId: string): number {
+    return getDb().prepare(
+        'DELETE FROM watchlist_results WHERE watchlist_id = ? AND was_selected = 0'
+    ).run(watchlistId).changes;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function rowToWatchlistRecord(row: any): WatchlistRecord {

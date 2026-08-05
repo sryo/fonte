@@ -81,7 +81,8 @@ export async function runWatchlistCheck(): Promise<void> {
 
             const filtered = filterByTitle(results, {
                 title: entry.title,
-                year: entry.year,
+                // Year narrows everything except episodic TV releases.
+                year: entry.mediaType !== 'tv' ? entry.year ?? undefined : undefined,
                 seasonPattern: entry.seasonPattern,
             });
 
@@ -107,7 +108,11 @@ export async function runWatchlistCheck(): Promise<void> {
 
             let grabbed = false;
             if (autoAdd && filtered.length > 0) {
-                const ranked = rankResults(filtered, preferredQuality);
+                // The entry's own quality drives ranking and the grab gate —
+                // the global preference is a video term ("1080p") that would
+                // block music/book grabs; an empty entry quality means any.
+                const wantedQuality = entry.quality ?? preferredQuality;
+                const ranked = rankResults(filtered, wantedQuality);
                 // Ongoing watches fall through past already-tracked releases —
                 // that's what lets a show keep grabbing new episodes after its
                 // first, higher-ranked grab (a season pack would otherwise pin
@@ -120,7 +125,7 @@ export async function runWatchlistCheck(): Promise<void> {
                 // so a failed add doesn't block the release forever —
                 // addTorrent replaces such rows.
                 const best = pool.find((r) => {
-                    if (r.seeders <= 0 || computeQualityMatch(r.title, preferredQuality) < 0.5) return false;
+                    if (r.seeders <= 0 || computeQualityMatch(r.title, wantedQuality) < 0.5) return false;
                     const infoHash = extractInfoHash(r.magnetUri);
                     const existing = infoHash ? getTorrentByHash(infoHash) : null;
                     return !existing || existing.status === 'removed' || existing.status === 'error';

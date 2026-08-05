@@ -80,12 +80,11 @@ export function TorrentCard({
             icons={{ active: pauseResume.active, map: { pause: Pause, play: Play } }}
             label={pauseResume.label}
             onClick={pauseResume.run}
-            hotkey="P"
           />
         )
       }
       secondaryAction={
-        <CardAction icon={Trash} label="Remove" destructive onClick={onRemoveRequest} hotkey="⌫" />
+        <CardAction icon={Trash} label="Remove" destructive onClick={onRemoveRequest} />
       }
       hotkeys={{
         ...(pauseResume && { p: pauseResume.run }),
