@@ -422,7 +422,7 @@ body {
     linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
           mask-composite: exclude;
-  animation: progress-ring-shine 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation: progress-ring-shine 3s linear infinite;
 }
 .progress-ring--stalled {
   opacity: 0.35;
