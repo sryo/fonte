@@ -93,14 +93,14 @@ export function SubtitleList({
               onChange={(e) => setLang(e.target.value)}
             />
           </div>
-          <div className="flex gap-2 pt-1">
-            <Button type="submit" className="flex-1" disabled={!lang.trim() || translating}>
-              {translating ? "Translating…" : "Translate"}
-              {!translating && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
-            </Button>
+          <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="ghost" onClick={() => setTranslateFor(null)} disabled={translating} className="text-muted-foreground">
               Cancel
               <Kbd className="hidden sm:inline-flex">Esc</Kbd>
+            </Button>
+            <Button type="submit" className="flex-1" disabled={!lang.trim() || translating}>
+              {translating ? "Translating…" : "Translate"}
+              {!translating && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
             </Button>
           </div>
         </div>

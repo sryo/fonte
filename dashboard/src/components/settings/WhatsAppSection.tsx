@@ -196,22 +196,19 @@ export function WhatsAppSection() {
                 {pairingError && (
                   <p className="text-xs text-destructive">{pairingError}</p>
                 )}
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleRequestPairing}
-                    disabled={pairingLoading || !phone.trim()}
-                    className="text-xs"
-                  >
-                    {pairingLoading ? "Requesting..." : "Get pairing code"}
-                  </Button>
+                <div className="flex justify-end gap-2 pt-1">
                   <Button
                     variant="ghost"
-                    size="sm"
                     onClick={() => { setShowPairing(false); setPhone(""); setPairingError(null); }}
-                    className="text-xs text-muted-foreground"
+                    className="text-muted-foreground"
                   >
                     Cancel
+                  </Button>
+                  <Button
+                    onClick={handleRequestPairing}
+                    disabled={pairingLoading || !phone.trim()}
+                  >
+                    {pairingLoading ? "Requesting..." : "Get pairing code"}
                   </Button>
                 </div>
               </>

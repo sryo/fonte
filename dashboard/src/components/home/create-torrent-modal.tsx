@@ -78,17 +78,17 @@ export function CreateTorrentModal({
             {warning ?? "Transmission verified the data and is seeding it. Share this magnet link:"}
           </p>
           <div className="rounded-md bg-muted p-3 font-mono text-2xs break-all">{magnetUri}</div>
-          <div className="flex gap-2 pt-1">
-            <Button type="button" size="sm" onClick={copyMagnet}>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="ghost" onClick={close} className="text-muted-foreground">
+              Done
+              <Kbd className="hidden sm:inline-flex">Esc</Kbd>
+            </Button>
+            <Button type="button" data-autofocus="" className="flex-1" onClick={copyMagnet}>
               <IconSwap
                 active={copied ? "check" : "copy"}
                 icons={{ copy: <Copy className="size-3.5" />, check: <Check className="size-3.5" /> }}
               />
               {copied ? "Copied" : "Copy magnet"}
-            </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={close}>
-              Done
-              <Kbd className="hidden sm:inline-flex">Esc</Kbd>
             </Button>
           </div>
         </div>
@@ -116,15 +116,15 @@ export function CreateTorrentModal({
             />
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
-          <div className="flex gap-2 pt-1">
-            <Button type="submit" size="sm" disabled={!path.trim() || busy}>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="ghost" onClick={close} disabled={busy} className="text-muted-foreground">
+              Cancel
+              <Kbd className="hidden sm:inline-flex">Esc</Kbd>
+            </Button>
+            <Button type="submit" className="flex-1" disabled={!path.trim() || busy}>
               {busy && <Spinner size="xs" />}
               {busy ? "Creating…" : "Create & Seed"}
               {!busy && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
-            </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={close} disabled={busy}>
-              Cancel
-              <Kbd className="hidden sm:inline-flex">Esc</Kbd>
             </Button>
           </div>
         </div>

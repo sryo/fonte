@@ -381,16 +381,16 @@ export function ScheduleFormModal({
           <div className="flex justify-end gap-2 pt-1">
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant="ghost"
               onClick={onClose}
+              className="text-muted-foreground"
             >
               Cancel
               <Kbd className="hidden sm:inline-flex">Esc</Kbd>
             </Button>
             <Button
               type="submit"
-              size="sm"
+              className="flex-1"
               disabled={formSaving || !formMessage.trim() || (formRepeat === "custom" && !formCustomCron.trim()) || (formRepeat === "once" && !formRunAtDate)}
             >
               {formSaving ? <Spinner size="xs" /> : "Save"}

@@ -139,7 +139,11 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
           </SelectContent>
         </Select>
         {error && <p className="text-xs text-destructive">{error}</p>}
-        <div className="flex gap-2 pt-1">
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="ghost" onClick={onClose} className="text-muted-foreground">
+            Cancel
+            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
+          </Button>
           <Button
             type="submit"
             disabled={!wlForm.title.trim() || submitting}
@@ -147,10 +151,6 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
           >
             {submitting ? "Adding..." : "Add"}
             {!submitting && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
-          </Button>
-          <Button type="button" variant="ghost" onClick={onClose} className="text-muted-foreground">
-            Cancel
-            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
           </Button>
         </div>
       </div>

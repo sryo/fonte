@@ -78,21 +78,7 @@ export function ConfirmDialog({
         {typeof message !== "string" && (
           <div className="text-sm text-muted-foreground">{message}</div>
         )}
-        <div className="flex gap-2 pt-1">
-          <Button
-            type={destructive ? "button" : "submit"}
-            variant={destructive ? "destructive" : "default"}
-            className="flex-1"
-            disabled={busy}
-            onClick={destructive ? confirm : undefined}
-          >
-            {busy ? busyLabel || "Working…" : confirmLabel}
-            {!busy && (
-              <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">
-                {destructive ? `${mod}↵` : "↵"}
-              </Kbd>
-            )}
-          </Button>
+        <div className="flex justify-end gap-2 pt-1">
           <Button
             type="button"
             variant="ghost"
@@ -103,6 +89,21 @@ export function ConfirmDialog({
           >
             {cancelLabel}
             <Kbd className="hidden sm:inline-flex">Esc</Kbd>
+          </Button>
+          <Button
+            type={destructive ? "button" : "submit"}
+            variant={destructive ? "destructive" : "default"}
+            className="flex-1"
+            disabled={busy}
+            data-autofocus={destructive ? undefined : ""}
+            onClick={destructive ? confirm : undefined}
+          >
+            {busy ? busyLabel || "Working…" : confirmLabel}
+            {!busy && (
+              <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">
+                {destructive ? `${mod}↵` : "↵"}
+              </Kbd>
+            )}
           </Button>
         </div>
       </div>

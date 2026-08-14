@@ -122,14 +122,7 @@ export function CustomProviderForm({
         />
       </div>
       {error && <p className="text-2xs text-destructive">{error}</p>}
-      <div className="flex items-center gap-2 pt-1">
-        <Button
-          onClick={handleSave}
-          disabled={saving || !form.id || !form.name || !form.base_url || !form.api_key}
-        >
-          {saving && <Spinner size="xs" />}
-          Save
-        </Button>
+      <div className="flex justify-end gap-2 pt-1">
         <Button
           variant="ghost"
           onClick={() => {
@@ -139,6 +132,13 @@ export function CustomProviderForm({
           className="text-muted-foreground"
         >
           Cancel
+        </Button>
+        <Button
+          onClick={handleSave}
+          disabled={saving || !form.id || !form.name || !form.base_url || !form.api_key}
+        >
+          {saving && <Spinner size="xs" />}
+          Save
         </Button>
       </div>
     </div>

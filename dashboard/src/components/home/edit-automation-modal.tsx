@@ -123,7 +123,11 @@ export function EditAutomationModal({
           />
         </div>
         {error && <p className="text-2xs text-destructive">{error}</p>}
-        <div className="flex gap-2 pt-1">
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="ghost" onClick={onClose} className="text-muted-foreground">
+            Cancel
+            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
+          </Button>
           <Button
             type="submit"
             disabled={!form.name.trim() || saving}
@@ -131,10 +135,6 @@ export function EditAutomationModal({
           >
             Save
             {!saving && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
-          </Button>
-          <Button type="button" variant="ghost" onClick={onClose} className="text-muted-foreground">
-            Cancel
-            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
           </Button>
         </div>
 

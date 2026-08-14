@@ -153,7 +153,11 @@ export function EditEntryModal({
             placeholder="Optional"
           />
         </div>
-        <div className="flex gap-2 pt-1">
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="ghost" className="text-muted-foreground" onClick={onClose}>
+            Cancel
+            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
+          </Button>
           <Button
             type="submit"
             className="flex-1"
@@ -161,10 +165,6 @@ export function EditEntryModal({
           >
             {saving ? "Saving…" : "Save"}
             {!saving && <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">↵</Kbd>}
-          </Button>
-          <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
-            Cancel
-            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
           </Button>
         </div>
       </div>

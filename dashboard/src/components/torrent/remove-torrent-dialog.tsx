@@ -58,7 +58,17 @@ export function RemoveTorrentDialog({
             </span>
           </span>
         </label>
-        <div className="flex gap-2 pt-1">
+        <div className="flex justify-end gap-2 pt-1">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            data-autofocus=""
+            className="text-muted-foreground"
+          >
+            Cancel
+            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
+          </Button>
           <Button
             type="button"
             variant="destructive"
@@ -69,16 +79,6 @@ export function RemoveTorrentDialog({
             <Kbd className="hidden sm:inline-flex bg-current/15 text-inherit">
               {mod}↵
             </Kbd>
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onClose}
-            data-autofocus=""
-            className="text-muted-foreground"
-          >
-            Cancel
-            <Kbd className="hidden sm:inline-flex">Esc</Kbd>
           </Button>
         </div>
       </div>

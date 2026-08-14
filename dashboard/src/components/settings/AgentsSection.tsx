@@ -228,20 +228,20 @@ export function AgentsSection() {
             )}
 
             {saveError && <p className="text-xs text-destructive">{saveError}</p>}
-            <div className="flex items-center gap-2 pt-1">
-              <Button
-                onClick={handleSave}
-                disabled={saving || !form.id || !form.name || !form.model}
-              >
-                {saving && <Spinner size="xs" />}
-                Save
-              </Button>
+            <div className="flex justify-end gap-2 pt-1">
               <Button
                 variant="ghost"
                 onClick={() => { setShowAdd(false); setShowAddProvider(false); setForm({ id: "", name: "", provider: "anthropic", model: "sonnet" }); }}
                 className="text-muted-foreground"
               >
                 Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={saving || !form.id || !form.name || !form.model}
+              >
+                {saving && <Spinner size="xs" />}
+                Save
               </Button>
             </div>
           </div>
