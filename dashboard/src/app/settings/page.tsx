@@ -12,8 +12,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { LoadingState, Spinner } from "@/components/ui/feedback";
+import { LoadingState } from "@/components/ui/feedback";
 import { restartService } from "@/lib/api";
+import { SaveFooter } from "@/components/settings/shared";
 import { AgentPersonalitySection } from "@/components/settings/AgentPersonalitySection";
 import { AgentsSection } from "@/components/settings/AgentsSection";
 import { ProvidersSection } from "@/components/settings/ProvidersSection";
@@ -61,21 +62,20 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const [savingSection, setSavingSection] = useState<string | null>(null);
-  const [savedSection, setSavedSection] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [sectionError, setSectionError] = useState<{ section: string; message: string } | null>(null);
+  const [advSaving, setAdvSaving] = useState(false);
+  const [advSaved, setAdvSaved] = useState(false);
+  const [advError, setAdvError] = useState<string | null>(null);
   const rawJsonDirtyRef = useRef(false);
+  const settingsRef = useRef<Settings | null>(null);
   const [torrentLoadFailed, setTorrentLoadFailed] = useState(false);
   const [restartOpen, setRestartOpen] = useState(false);
   const [restarting, setRestarting] = useState(false);
 
-  const errorFor = (section: string) =>
-    sectionError?.section === section ? sectionError.message : undefined;
-
   function loadAll() {
     return Promise.all([getSettings(), getTorrentConfig().catch(() => null)])
       .then(([s, tc]) => {
+        settingsRef.current = s;
         setSettings(s);
         setRawJson(JSON.stringify(redactSecrets(s), null, 2));
         rawJsonDirtyRef.current = false;
@@ -88,58 +88,48 @@ export default function SettingsPage() {
 
   useEffect(() => {
     void loadAll();
-     
+
   }, []);
 
-  const saveTorrentSettings = useCallback(async (updates: Partial<TorrentConfig>) => {
-    setSavingSection("torrent");
-    setSectionError(null);
-    try {
-      const result = await updateTorrentConfig(updates);
-      setTorrentConfig(result.config);
-      setSavedSection("torrent");
-      setTimeout(() => setSavedSection(null), 2000);
-    } catch (err) {
-      setSectionError({ section: "torrent", message: (err as Error).message });
-    } finally {
-      setSavingSection(null);
-    }
+  const saveTorrentField = useCallback(async (patch: Partial<TorrentConfig>) => {
+    const result = await updateTorrentConfig(patch);
+    setTorrentConfig(result.config);
   }, []);
 
-  const saveGeneralSettings = useCallback(async (updates: Partial<Settings>, section: string) => {
-    setSavingSection(section);
-    setSectionError(null);
-    try {
-      const result = await updateSettings(updates);
+  // PUT /api/settings merges top-level keys only, so a field commit must
+  // carry the whole sub-object, composed from the freshest settings.
+  const saveSettingsSection = useCallback(
+    async (section: string, patch: Record<string, unknown>) => {
+      const cur = (settingsRef.current as Record<string, unknown> | null)?.[section];
+      const result = await updateSettings({
+        [section]: { ...(cur && typeof cur === "object" ? cur : {}), ...patch },
+      } as Partial<Settings>);
+      settingsRef.current = result.settings;
       setSettings(result.settings);
       if (!rawJsonDirtyRef.current) {
         setRawJson(JSON.stringify(redactSecrets(result.settings), null, 2));
       }
-      setSavedSection(section);
-      setTimeout(() => setSavedSection(null), 2000);
-    } catch (err) {
-      setSectionError({ section, message: (err as Error).message });
-    } finally {
-      setSavingSection(null);
-    }
-  }, []);
+    },
+    []
+  );
 
   const saveRawJson = useCallback(async () => {
-    setSavingSection("advanced");
-    setSectionError(null);
+    setAdvSaving(true);
+    setAdvError(null);
     try {
       const parsed = JSON.parse(rawJson);
       const restored = restoreSecrets(parsed, settings) as Partial<Settings>;
       const result = await updateSettings(restored);
+      settingsRef.current = result.settings;
       setSettings(result.settings);
       setRawJson(JSON.stringify(redactSecrets(result.settings), null, 2));
       rawJsonDirtyRef.current = false;
-      setSavedSection("advanced");
-      setTimeout(() => setSavedSection(null), 2000);
+      setAdvSaved(true);
+      setTimeout(() => setAdvSaved(false), 2000);
     } catch (err) {
-      setSectionError({ section: "advanced", message: (err as Error).message });
+      setAdvError((err as Error).message);
     } finally {
-      setSavingSection(null);
+      setAdvSaving(false);
     }
   }, [rawJson, settings]);
 
@@ -221,42 +211,27 @@ export default function SettingsPage() {
       )}
 
       {torrentConfig && (
-        <TorrentSettingsCard
-          config={torrentConfig}
-          onSave={saveTorrentSettings}
-          saving={savingSection === "torrent"}
-          saved={savedSection === "torrent"}
-          error={errorFor("torrent")}
-        />
+        <TorrentSettingsCard config={torrentConfig} onSaveField={saveTorrentField} />
       )}
 
       {settings && (
         <WatchlistSettingsCard
           settings={settings}
-          onSave={(updates) => saveGeneralSettings(updates, "watchlist")}
-          saving={savingSection === "watchlist"}
-          saved={savedSection === "watchlist"}
-          error={errorFor("watchlist")}
+          onSaveField={(patch) => saveSettingsSection("watchlist", patch)}
         />
       )}
 
       {settings && (
         <SubtitleSettingsCard
           settings={settings}
-          onSave={(updates) => saveGeneralSettings(updates, "subtitles")}
-          saving={savingSection === "subtitles"}
-          saved={savedSection === "subtitles"}
-          error={errorFor("subtitles")}
+          onSaveField={(patch) => saveSettingsSection("subtitles", patch)}
         />
       )}
 
       {settings && (
         <NotificationSettingsCard
           settings={settings}
-          onSave={(updates) => saveGeneralSettings(updates, "notifications")}
-          saving={savingSection === "notifications"}
-          saved={savedSection === "notifications"}
-          error={errorFor("notifications")}
+          onSaveField={(patch) => saveSettingsSection("notifications", patch)}
         />
       )}
 
@@ -303,23 +278,13 @@ export default function SettingsPage() {
               className="font-mono text-xs leading-relaxed"
               spellCheck={false}
             />
-            <div className="flex items-center gap-3">
-              <Button onClick={saveRawJson} disabled={savingSection === "advanced"}>
-                {savingSection === "advanced" && <Spinner size="xs" />}
-                Save JSON
-              </Button>
-              {errorFor("advanced") && (
-                <span className="text-xs text-destructive">{errorFor("advanced")}</span>
-              )}
-              {savedSection === "advanced" && (
-                <span className="text-sm text-done flex items-center gap-1">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                  </svg>
-                  Saved
-                </span>
-              )}
-            </div>
+            <SaveFooter
+              label="Save JSON"
+              onClick={saveRawJson}
+              saving={advSaving}
+              saved={advSaved}
+              error={advError}
+            />
           </div>
         )}
       </div>

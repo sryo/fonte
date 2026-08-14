@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import { type Settings } from "@/lib/api";
 import { ChatCenteredText } from "@phosphor-icons/react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Section } from "@/components/ui/section";
-import { SettingRow, SectionSaveButton, SecretInput } from "@/components/settings/shared";
+import {
+  SettingRow,
+  SecretInput,
+  useAutoSaveSection,
+  useDraft,
+} from "@/components/settings/shared";
 
 interface SubtitleSettings {
   enabled?: boolean;
@@ -21,85 +25,35 @@ const fromRaw = (r?: SubtitleSettings) => ({
   enabled: r?.enabled ?? false,
   auto_download: r?.auto_download ?? false,
   translate: r?.translate ?? false,
-  target_languages: (r?.target_languages ?? []).join(", "),
+  target_languages: r?.target_languages ?? [],
   tmdb_api_key: r?.tmdb_api_key ?? "",
   opensubtitles_api_key: r?.opensubtitles_api_key ?? "",
 });
 
-const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-
-export function SubtitleSettingsCard({
-  settings,
-  onSave,
-  saving,
-  saved,
-  error,
-}: {
-  settings: Settings;
-  onSave: (updates: Partial<Settings>) => void;
-  saving: boolean;
-  saved: boolean;
-  error?: string | null;
-}) {
-  const raw = (settings as Record<string, unknown>).subtitles as SubtitleSettings | undefined;
-  const seeded = fromRaw(raw);
-  const [enabled, setEnabled] = useState(seeded.enabled);
-  const [autoDownload, setAutoDownload] = useState(seeded.auto_download);
-  const [translate, setTranslate] = useState(seeded.translate);
-  const [targetLanguages, setTargetLanguages] = useState(seeded.target_languages);
-  const [tmdbApiKey, setTmdbApiKey] = useState(seeded.tmdb_api_key);
-  const [opensubtitlesApiKey, setOpensubtitlesApiKey] = useState(seeded.opensubtitles_api_key);
-
-  const current = {
-    enabled,
-    auto_download: autoDownload,
-    translate,
-    target_languages: targetLanguages,
-    tmdb_api_key: tmdbApiKey,
-    opensubtitles_api_key: opensubtitlesApiKey,
-  };
-
-  // Adopt refetched values only while pristine (or when they echo this
-  // card's own save) so sibling saves can't wipe in-progress edits.
-  const [prevRaw, setPrevRaw] = useState(raw);
-  if (prevRaw !== raw) {
-    setPrevRaw(raw);
-    if (eq(current, fromRaw(prevRaw)) || eq(current, seeded)) {
-      setEnabled(seeded.enabled);
-      setAutoDownload(seeded.auto_download);
-      setTranslate(seeded.translate);
-      setTargetLanguages(seeded.target_languages);
-      setTmdbApiKey(seeded.tmdb_api_key);
-      setOpensubtitlesApiKey(seeded.opensubtitles_api_key);
-    }
-  }
-
-  const dirty = !eq(current, seeded);
-
-  const parsedLanguages = targetLanguages
+const parseLanguages = (text: string) =>
+  text
     .split(",")
     .map((l) => l.trim())
     .filter(Boolean);
 
-  const handleSave = () => {
-    const languages = targetLanguages
-      .split(",")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    // Spread the existing sub-object so fields this card doesn't edit
-    // (e.g. opensubtitles_api_key) survive the save.
-    onSave({
-      subtitles: {
-        ...raw,
-        enabled,
-        auto_download: autoDownload,
-        translate,
-        target_languages: languages,
-        tmdb_api_key: tmdbApiKey,
-        opensubtitles_api_key: opensubtitlesApiKey,
-      },
-    } as Partial<Settings>);
-  };
+export function SubtitleSettingsCard({
+  settings,
+  onSaveField,
+}: {
+  settings: Settings;
+  onSaveField: (patch: Record<string, unknown>) => Promise<void>;
+}) {
+  const raw = (settings as Record<string, unknown>).subtitles as SubtitleSettings | undefined;
+  const s = useAutoSaveSection(fromRaw(raw), onSaveField);
+  const languages = useDraft(s.value("target_languages").join(", "), (d) =>
+    s.commit("target_languages", parseLanguages(d))
+  );
+  const tmdbApiKey = useDraft(s.value("tmdb_api_key"), (d) => s.commit("tmdb_api_key", d));
+  const opensubtitlesApiKey = useDraft(s.value("opensubtitles_api_key"), (d) =>
+    s.commit("opensubtitles_api_key", d)
+  );
+
+  const parsedLanguages = parseLanguages(languages.value);
 
   return (
     <Section
@@ -112,26 +66,36 @@ export function SubtitleSettingsCard({
       description="Automatic subtitle fetching and translation"
     >
       <div className="divide-y divide-border/50">
-        <SettingRow label="Enabled" description="Enable subtitle management">
-          <Switch checked={enabled} onCheckedChange={setEnabled} />
+        <SettingRow label="Enabled" description="Enable subtitle management" status={s.statusFor("enabled")}>
+          <Switch checked={s.value("enabled")} onCheckedChange={(v) => s.commit("enabled", v)} />
         </SettingRow>
 
-        <SettingRow label="Auto download" description="Fetch subtitles when torrents complete">
-          <Switch checked={autoDownload} onCheckedChange={setAutoDownload} />
+        <SettingRow
+          label="Auto download"
+          description="Fetch subtitles when torrents complete"
+          status={s.statusFor("auto_download")}
+        >
+          <Switch
+            checked={s.value("auto_download")}
+            onCheckedChange={(v) => s.commit("auto_download", v)}
+          />
         </SettingRow>
 
-        <SettingRow label="Translate" description="Auto-translate subtitles to target languages">
-          <Switch checked={translate} onCheckedChange={setTranslate} />
+        <SettingRow
+          label="Translate"
+          description="Auto-translate subtitles to target languages"
+          status={s.statusFor("translate")}
+        >
+          <Switch checked={s.value("translate")} onCheckedChange={(v) => s.commit("translate", v)} />
         </SettingRow>
 
-        <SettingRow label="Target languages" description="Comma-separated language codes (e.g. es, fr, de)">
+        <SettingRow
+          label="Target languages"
+          description="Comma-separated language codes (e.g. es, fr, de)"
+          status={s.statusFor("target_languages")}
+        >
           <div className="flex flex-col items-end gap-1.5">
-            <Input
-              value={targetLanguages}
-              onChange={(e) => setTargetLanguages(e.target.value)}
-              className="w-60 text-sm"
-              placeholder="es, fr, de"
-            />
+            <Input {...languages} className="w-60 text-sm" placeholder="es, fr, de" />
             {parsedLanguages.length > 0 && (
               <div className="flex flex-wrap justify-end gap-1">
                 {parsedLanguages.map((code) => (
@@ -149,9 +113,10 @@ export function SubtitleSettingsCard({
 
         <SettingRow
           label="TMDB API key"
+          status={s.statusFor("tmdb_api_key")}
           description={
             <>
-              Used for metadata ·{" "}
+              Used for metadata.{" "}
               <a
                 href="https://www.themoviedb.org/settings/api"
                 target="_blank"
@@ -163,19 +128,15 @@ export function SubtitleSettingsCard({
             </>
           }
         >
-          <SecretInput
-            value={tmdbApiKey}
-            onChange={(e) => setTmdbApiKey(e.target.value)}
-            className="w-60"
-            placeholder="Enter API key"
-          />
+          <SecretInput {...tmdbApiKey} className="w-60" placeholder="Enter API key" />
         </SettingRow>
 
         <SettingRow
           label="OpenSubtitles API key"
+          status={s.statusFor("opensubtitles_api_key")}
           description={
             <>
-              Required for subtitle search ·{" "}
+              Required for subtitle search.{" "}
               <a
                 href="https://www.opensubtitles.com/consumers"
                 target="_blank"
@@ -187,22 +148,8 @@ export function SubtitleSettingsCard({
             </>
           }
         >
-          <SecretInput
-            value={opensubtitlesApiKey}
-            onChange={(e) => setOpensubtitlesApiKey(e.target.value)}
-            className="w-60"
-            placeholder="Enter API key"
-          />
+          <SecretInput {...opensubtitlesApiKey} className="w-60" placeholder="Enter API key" />
         </SettingRow>
-
-        <SectionSaveButton
-          onClick={handleSave}
-          saving={saving}
-          saved={saved}
-          disabled={!dirty}
-          error={error}
-          accentClass="bg-subtitle text-subtitle-foreground hover:bg-subtitle/90"
-        />
       </div>
     </Section>
   );

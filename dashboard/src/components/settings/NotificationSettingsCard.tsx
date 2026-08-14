@@ -6,7 +6,7 @@ import { Bell } from "@phosphor-icons/react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Section } from "@/components/ui/section";
-import { SettingRow, SectionSaveButton } from "@/components/settings/shared";
+import { SettingRow, useAutoSaveSection } from "@/components/settings/shared";
 
 interface NotificationSettings {
   enabled?: boolean;
@@ -20,60 +20,17 @@ const fromRaw = (r?: NotificationSettings) => ({
   watchlist_match: r?.watchlist_match ?? false,
 });
 
-const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-
 export function NotificationSettingsCard({
   settings,
-  onSave,
-  saving,
-  saved,
-  error,
+  onSaveField,
 }: {
   settings: Settings;
-  onSave: (updates: Partial<Settings>) => void;
-  saving: boolean;
-  saved: boolean;
-  error?: string | null;
+  onSaveField: (patch: Record<string, unknown>) => Promise<void>;
 }) {
   const raw = (settings as Record<string, unknown>).notifications as NotificationSettings | undefined;
-  const seeded = fromRaw(raw);
-  const [enabled, setEnabled] = useState(seeded.enabled);
-  const [torrentCompleted, setTorrentCompleted] = useState(seeded.torrent_completed);
-  const [watchlistMatch, setWatchlistMatch] = useState(seeded.watchlist_match);
+  const s = useAutoSaveSection(fromRaw(raw), onSaveField);
   const [testing, setTesting] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
-
-  const current = {
-    enabled,
-    torrent_completed: torrentCompleted,
-    watchlist_match: watchlistMatch,
-  };
-
-  // Adopt refetched values only while pristine (or when they echo this
-  // card's own save) so sibling saves can't wipe in-progress edits.
-  const [prevRaw, setPrevRaw] = useState(raw);
-  if (prevRaw !== raw) {
-    setPrevRaw(raw);
-    if (eq(current, fromRaw(prevRaw)) || eq(current, seeded)) {
-      setEnabled(seeded.enabled);
-      setTorrentCompleted(seeded.torrent_completed);
-      setWatchlistMatch(seeded.watchlist_match);
-    }
-  }
-
-  const dirty = !eq(current, seeded);
-
-  const handleSave = () => {
-    // Spread the existing sub-object so fields this card doesn't edit survive the save.
-    onSave({
-      notifications: {
-        ...raw,
-        enabled,
-        torrent_completed: torrentCompleted,
-        watchlist_match: watchlistMatch,
-      },
-    } as Partial<Settings>);
-  };
 
   const handleTest = async () => {
     setTesting(true);
@@ -98,21 +55,41 @@ export function NotificationSettingsCard({
       description="Native macOS notifications from the Fonte daemon"
     >
       <div className="divide-y divide-border/50">
-        <SettingRow label="Enabled" description="Notify even when the dashboard isn't open">
-          <Switch checked={enabled} onCheckedChange={setEnabled} />
+        <SettingRow
+          label="Enabled"
+          description="Notify even when the dashboard isn't open"
+          status={s.statusFor("enabled")}
+        >
+          <Switch checked={s.value("enabled")} onCheckedChange={(v) => s.commit("enabled", v)} />
         </SettingRow>
 
-        <SettingRow label="Download complete" description="When a torrent finishes downloading">
-          <Switch checked={torrentCompleted} onCheckedChange={setTorrentCompleted} disabled={!enabled} />
+        <SettingRow
+          label="Download complete"
+          description="When a torrent finishes downloading"
+          status={s.statusFor("torrent_completed")}
+        >
+          <Switch
+            checked={s.value("torrent_completed")}
+            onCheckedChange={(v) => s.commit("torrent_completed", v)}
+            disabled={!s.value("enabled")}
+          />
         </SettingRow>
 
-        <SettingRow label="Watchlist match" description="When a watched title matches a release">
-          <Switch checked={watchlistMatch} onCheckedChange={setWatchlistMatch} disabled={!enabled} />
+        <SettingRow
+          label="Watchlist match"
+          description="When a watched title matches a release"
+          status={s.statusFor("watchlist_match")}
+        >
+          <Switch
+            checked={s.value("watchlist_match")}
+            onCheckedChange={(v) => s.commit("watchlist_match", v)}
+            disabled={!s.value("enabled")}
+          />
         </SettingRow>
 
         <SettingRow
           label="Test"
-          description="Send a test notification — first use asks for macOS permission (Script Editor)"
+          description="Send a test notification. First use asks for macOS permission (Script Editor)"
         >
           <div className="flex items-center gap-2">
             {testError && <span className="text-2xs text-destructive">{testError}</span>}
@@ -121,8 +98,6 @@ export function NotificationSettingsCard({
             </Button>
           </div>
         </SettingRow>
-
-        <SectionSaveButton onClick={handleSave} saving={saving} saved={saved} disabled={!dirty} error={error} />
       </div>
     </Section>
   );

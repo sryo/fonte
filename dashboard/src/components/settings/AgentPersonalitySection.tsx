@@ -5,7 +5,7 @@ import { getSoul, saveSoul } from "@/lib/api";
 import { Sparkle } from "@phosphor-icons/react";
 import { Textarea } from "@/components/ui/textarea";
 import { Section } from "@/components/ui/section";
-import { SectionSaveButton } from "@/components/settings/shared";
+import { SaveFooter } from "@/components/settings/shared";
 
 export function AgentPersonalitySection() {
   const [content, setContent] = useState("");
@@ -75,15 +75,13 @@ export function AgentPersonalitySection() {
             className="min-h-32 font-mono resize-y"
             placeholder={"# Soul\n\nYou are..."}
           />
-          {saveError && <p className="text-xs text-destructive">{saveError}</p>}
-          <div className="border-t border-border/50">
-            <SectionSaveButton
-              onClick={handleSave}
-              saving={saving}
-              saved={saved}
-              accentClass="bg-agent text-agent-foreground hover:bg-agent/90"
-            />
-          </div>
+          <SaveFooter
+            onClick={handleSave}
+            saving={saving}
+            saved={saved}
+            error={saveError}
+            accentClass="bg-agent text-agent-foreground hover:bg-agent/90"
+          />
         </div>
       )}
     </Section>
