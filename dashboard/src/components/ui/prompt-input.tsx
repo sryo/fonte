@@ -92,7 +92,7 @@ function PromptInput({
         <div
           onClick={handleClick}
           className={cn(
-            "border-input bg-background cursor-text rounded-3xl border p-1.5 shadow-xs",
+            "border-input bg-background cursor-text rounded-xl border p-1.5 shadow-xs",
             disabled && "cursor-not-allowed opacity-60",
             className
           )}
@@ -113,6 +113,7 @@ function PromptInputTextarea({
   className,
   onKeyDown,
   disableAutosize = false,
+  ref,
   ...props
 }: PromptInputTextareaProps) {
   const { value, setValue, maxHeight, onSubmit, disabled, textareaRef } =
@@ -132,6 +133,8 @@ function PromptInputTextarea({
 
   const handleRef = (el: HTMLTextAreaElement | null) => {
     textareaRef.current = el
+    if (typeof ref === "function") ref(el)
+    else if (ref) ref.current = el
     adjustHeight(el)
   }
 

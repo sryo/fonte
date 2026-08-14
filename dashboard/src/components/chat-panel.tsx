@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Dialog } from "radix-ui";
-import { PaperPlaneTilt, PencilSimple, Robot, Stop, X } from "@phosphor-icons/react";
+import { ArrowUp, PencilSimple, Robot, Square, X } from "@phosphor-icons/react";
 import {
   deleteAgentMessagesFrom,
   getAgentMessages,
@@ -13,7 +13,14 @@ import {
 import { groupActivity } from "@/lib/agent-activity";
 import { formatClock } from "@/lib/format";
 import { useAgentRun } from "@/hooks/use-agent-run";
+import { Button } from "@/components/ui/button";
 import { IconSwap } from "@/components/ui/icon-swap";
+import {
+  PromptInput,
+  PromptInputAction,
+  PromptInputActions,
+  PromptInputTextarea,
+} from "@/components/ui/prompt-input";
 import { Markdown } from "@/components/ui/markdown";
 import { SystemNote, ToolActivity } from "@/components/agent/tool-activity";
 import { cn } from "@/lib/utils";
@@ -42,7 +49,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
   const [sending, setSending] = useState(false);
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const { run, stopping, stop } = useAgentRun(AGENT_ID, open);
 
@@ -139,12 +146,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           }}
         >
         <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center h-7 w-7 rounded-md bg-primary/10">
-              <Robot className="h-4 w-4 text-primary" />
-            </div>
-            <Dialog.Title className="text-sm font-semibold">Fonte Agent</Dialog.Title>
-          </div>
+          <Dialog.Title className="text-sm font-semibold">Fonte Agent</Dialog.Title>
           <button
             type="button"
             onClick={onClose}
@@ -235,39 +237,48 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
               </button>
             </div>
           )}
-          <div className="px-4 py-3 flex gap-2">
-            <input
-              type="text"
-              ref={inputRef}
+          <div className="px-4 py-3">
+            <PromptInput
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSend();
-                else if (e.key === "Escape" && editingRowId != null) {
-                  e.stopPropagation();
-                  cancelEditing();
-                }
-              }}
-              placeholder={editingRowId != null ? "Edit your message…" : "Type a message..."}
+              onValueChange={setInput}
+              isLoading={sending}
+              onSubmit={handleSend}
               disabled={sending}
-              className="flex-1 bg-muted/50 rounded-md border px-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-all disabled:opacity-60"
-            />
-            <button
-              type="button"
-              onClick={stopMode ? stop : handleSend}
-              disabled={sending || stopping || (!stopMode && !input.trim())}
-              className="flex items-center justify-center h-9 w-9 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 shrink-0"
-              aria-label={stopMode ? "Stop the agent" : "Send message"}
-              title={stopMode ? "Stop the agent" : undefined}
+              className="flex items-end gap-1"
             >
-              <IconSwap
-                active={stopMode ? "stop" : "send"}
-                icons={{
-                  send: <PaperPlaneTilt className="h-4 w-4" />,
-                  stop: <Stop weight="fill" className="h-4 w-4" />,
+              <PromptInputTextarea
+                ref={inputRef}
+                placeholder={editingRowId != null ? "Edit your message…" : "Type a message..."}
+                className="min-h-0 text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === "Escape" && editingRowId != null) {
+                    e.stopPropagation();
+                    cancelEditing();
+                  }
                 }}
               />
-            </button>
+              <PromptInputActions className="h-9">
+                <PromptInputAction
+                  tooltip={stopMode ? "Stop the agent" : sending ? "Sending..." : "Send message"}
+                >
+                  <Button
+                    variant="default"
+                    size="icon"
+                    className="h-8 w-8 rounded-full"
+                    disabled={stopMode ? stopping : !input.trim() || sending}
+                    onClick={stopMode ? stop : handleSend}
+                  >
+                    <IconSwap
+                      active={stopMode || sending ? "stop" : "send"}
+                      icons={{
+                        send: <ArrowUp className="size-5" />,
+                        stop: <Square className="size-5" weight="fill" />,
+                      }}
+                    />
+                  </Button>
+                </PromptInputAction>
+              </PromptInputActions>
+            </PromptInput>
           </div>
         </div>
         </Dialog.Content>
