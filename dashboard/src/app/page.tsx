@@ -38,6 +38,7 @@ import { useQueueDrag } from "@/hooks/use-queue-drag";
 import {
   applyQueuePositions,
   countTorrentPills,
+  isFailedAdd,
   isFinished,
   moveId,
   queueDropPosition,
@@ -360,10 +361,13 @@ export default function HomePage() {
         .map((id) => laneById.get(id))
         .filter((t): t is TorrentRecord => t !== undefined)
     : shownTorrents;
-  // "Finished" in the user's sense: done downloading, whether still seeding
-  // or stopped. Scoped to the visible cards so Clear never poofs torrents
-  // hidden by the active pill.
-  const finishedClearable = shownTorrents.filter(isFinished);
+  // Clear covers done torrents (still seeding or stopped) plus adds that
+  // failed before fetching anything — other issues keep needing a deliberate
+  // remove. Scoped to the visible cards so Clear never poofs torrents hidden
+  // by the active pill.
+  const clearable = shownTorrents.filter((t) => isFinished(t) || isFailedAdd(t));
+  const clearFinishedCount = clearable.filter(isFinished).length;
+  const clearFailedCount = clearable.length - clearFinishedCount;
 
   // A pill you can't see or that has drained falls back to All — one rule
   // covering both the last-error-resolved case and unchecking the pill
@@ -469,7 +473,7 @@ export default function HomePage() {
           }
           action={
             <div className="flex items-center gap-1">
-              {finishedClearable.length > 0 && (
+              {clearable.length > 0 && (
                 <button
                   onClick={() => setClearOpen(true)}
                   className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
@@ -734,11 +738,17 @@ export default function HomePage() {
 
       <ConfirmDialog
         open={clearOpen}
-        title="Clear finished"
-        message={<>Clear {finishedClearable.length} finished torrent{finishedClearable.length === 1 ? "" : "s"}? Seeding stops; downloaded files stay on disk.</>}
+        title={clearFinishedCount > 0 ? "Clear finished" : "Clear failed adds"}
+        message={<>
+          Clear {[
+            clearFinishedCount > 0 && `${clearFinishedCount} finished torrent${clearFinishedCount === 1 ? "" : "s"}`,
+            clearFailedCount > 0 && `${clearFailedCount} failed add${clearFailedCount === 1 ? "" : "s"}`,
+          ].filter(Boolean).join(" and ")}?
+          {clearFinishedCount > 0 && " Seeding stops; downloaded files stay on disk."}
+        </>}
         confirmLabel="Clear"
         destructive
-        onConfirm={() => poofThenRemove(finishedClearable.map((t) => t.id), removeTorrent)}
+        onConfirm={() => poofThenRemove(clearable.map((t) => t.id), removeTorrent)}
         onClose={() => setClearOpen(false)}
       />
     </div>

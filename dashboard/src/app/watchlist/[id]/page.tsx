@@ -101,14 +101,10 @@ export default function WatchlistDetailPage() {
     }
   };
 
+  // Failures propagate to ReleaseList, which shows them on the clicked row.
   const handleAddResult = async (resultId: number) => {
-    try {
-      await addWatchlistResult(id, resultId);
-      setActionError(null);
-      fetchData();
-    } catch (err) {
-      setActionError((err as Error).message);
-    }
+    await addWatchlistResult(id, resultId);
+    fetchData();
   };
 
   const runAction = async (fn: () => Promise<void>) => {

@@ -36,13 +36,18 @@ export function ReleaseList<T extends ReleaseItem>({
   emptyState?: ReactNode;
 }) {
   const [busyKey, setBusyKey] = useState<string | number | null>(null);
+  const [rowError, setRowError] = useState<{ key: string | number; message: string } | null>(null);
 
   if (results.length === 0) return <>{emptyState}</>;
 
   const act = async (r: T) => {
-    setBusyKey(keyOf(r));
+    const key = keyOf(r);
+    setBusyKey(key);
+    setRowError(null);
     try {
       await onAction(r);
+    } catch (err) {
+      setRowError({ key, message: (err as Error).message });
     } finally {
       setBusyKey(null);
     }
@@ -65,6 +70,9 @@ export function ReleaseList<T extends ReleaseItem>({
                 {r.indexer && <> · {r.indexer}</>}
                 {r.publishDate && <> · {formatShortRelativeTime(r.publishDate)}</>}
               </p>
+              {rowError?.key === key && (
+                <p className="text-xs text-destructive">{rowError.message}</p>
+              )}
             </div>
             {selected ? (
               <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-done">

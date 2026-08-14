@@ -133,7 +133,7 @@ export async function runWatchlistCheck(): Promise<void> {
 
                 if (best) {
                     try {
-                        const torrent = await getTorrentManager().addTorrent(best.magnetUri);
+                        const torrent = await getTorrentManager().addTorrent(best.magnetUri, { name: best.title });
 
                         const selected = getWatchlistResultByMagnet(entry.id, best.magnetUri);
                         if (selected) {

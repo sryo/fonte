@@ -144,8 +144,19 @@ export class TorrentManager {
 
     // ── Public Operations ─────────────────────────────────────────────────────
 
-    async addTorrent(source: string | Buffer, opts: { savePath?: string } = {}): Promise<TorrentRecord> {
+    async addTorrent(source: string | Buffer, opts: { savePath?: string; name?: string } = {}): Promise<TorrentRecord> {
         if (!this.rpc) throw new Error('TorrentManager not started');
+
+        // Resolve indexer links before any DB write: a dead link throws here
+        // and never mints an error row, and a link that redirects to a magnet
+        // gives the duplicate check a real info hash.
+        let torrentFile: Buffer | undefined;
+        if (typeof source === 'string' && !source.startsWith('magnet:')
+            && !/^[a-fA-F0-9]{40}$/.test(source) && !fs.existsSync(source)) {
+            const resolved = await resolveReleaseSource(source);
+            if (typeof resolved === 'string') source = resolved;
+            else torrentFile = resolved;
+        }
 
         const id = genId('tor');
         const savePath = opts.savePath ?? this.config.download_dir;
@@ -171,23 +182,18 @@ export class TorrentManager {
             this.transmissionIds.delete(existing.id);
         }
 
-        insertTorrent({ id, infoHash: tempHash, name: '', magnetUri, status: 'adding', savePath });
+        insertTorrent({ id, infoHash: tempHash, name: opts.name ?? '', magnetUri, status: 'adding', savePath });
 
         try {
             const args: Record<string, any> = { 'download-dir': savePath, paused: false };
 
-            if (typeof source === 'string') {
+            if (torrentFile) {
+                args.metainfo = torrentFile.toString('base64');
+            } else if (typeof source === 'string') {
                 if (source.startsWith('magnet:') || source.match(/^[a-fA-F0-9]{40}$/)) {
                     args.filename = source;
-                } else if (fs.existsSync(source)) {
-                    const fileData = fs.readFileSync(source);
-                    args.metainfo = fileData.toString('base64');
                 } else {
-                    // An HTTP release link: resolve to a magnet or .torrent bytes
-                    // here rather than letting Transmission fetch the indexer.
-                    const resolved = await resolveReleaseSource(source);
-                    if (typeof resolved === 'string') args.filename = resolved;
-                    else args.metainfo = resolved.toString('base64');
+                    args.metainfo = fs.readFileSync(source).toString('base64');
                 }
             } else {
                 args.metainfo = source.toString('base64');

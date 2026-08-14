@@ -1,7 +1,7 @@
 import { existsSync } from 'fs';
 import path from 'path';
 import { Hono } from 'hono';
-import { getTorrentManager, parseTorrentName, searchReleases, computeQualityMatch, resolveReleaseSource } from '@fonte/torrent';
+import { getTorrentManager, parseTorrentName, searchReleases, computeQualityMatch } from '@fonte/torrent';
 import type { TorrentStatus } from '@fonte/torrent';
 import { log, expandHomePath, validateSettings, revealInFinder } from '@fonte/core';
 import { ok, fail } from '../http';
@@ -19,9 +19,8 @@ app.post('/api/torrents', async (c) => {
             return fail(c, 'magnetUri, infoHash, filePath, or metainfo required');
         }
 
-        const source = typeof raw === 'string' ? await resolveReleaseSource(raw) : raw;
         const manager = getTorrentManager();
-        const torrent = await manager.addTorrent(source);
+        const torrent = await manager.addTorrent(raw);
         return ok(c, { torrent });
     } catch (err) {
         const msg = (err as Error).message;
@@ -235,14 +234,13 @@ app.post('/api/torrents/:id/swap', async (c) => {
 
     const manager = getTorrentManager();
     // Try the chosen release first, then fall through to the remaining
-    // alternatives. Resolve each link before adding so a dead indexer link
-    // throws before any DB write — no errored rows litter the Issues list.
+    // alternatives; addTorrent resolves each link before any DB write, so a
+    // dead indexer link throws without littering the Issues list.
     const errors: string[] = [];
     for (const uri of candidates) {
         let created;
         try {
-            const source = await resolveReleaseSource(uri);
-            created = await manager.addTorrent(source);
+            created = await manager.addTorrent(uri);
         } catch (err) {
             errors.push((err as Error).message);
             continue;

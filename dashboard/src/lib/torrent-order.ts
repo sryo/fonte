@@ -14,6 +14,11 @@ export function isFinished(t: TorrentRecord): boolean {
   return t.status === "seeding" || t.status === "completed";
 }
 
+/** An add that failed before any data arrived — nothing on disk to lose. */
+export function isFailedAdd(t: TorrentRecord): boolean {
+  return t.status === "error" && t.progress === 0;
+}
+
 /** Timestamp of the torrent's latest lifecycle event. */
 export function recency(t: TorrentRecord): number {
   return t.completedAt ?? t.addedAt ?? 0;

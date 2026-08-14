@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import type { TorrentRecord, TorrentStatus } from './api-types';
 import {
-    isStalled, isFinished, recency, statusGroupRank, sortTorrents,
+    isStalled, isFinished, isFailedAdd, recency, statusGroupRank, sortTorrents,
     moveId, applyQueuePositions, queueDropPosition,
     TORRENT_PILL_PREDICATES, countTorrentPills,
 } from './torrent-order';
@@ -44,6 +44,12 @@ describe('derived predicates', () => {
         const unfinished = (['adding', 'downloading', 'checking', 'paused', 'error'] as TorrentStatus[]).map(status => makeTorrent({ status }));
         expect(finished.every(isFinished)).toBe(true);
         expect(unfinished.some(isFinished)).toBe(false);
+    });
+
+    it('isFailedAdd requires error with zero progress', () => {
+        expect(isFailedAdd(makeTorrent({ status: 'error', progress: 0 }))).toBe(true);
+        expect(isFailedAdd(makeTorrent({ status: 'error', progress: 0.4 }))).toBe(false);
+        expect(isFailedAdd(makeTorrent({ progress: 0 }))).toBe(false);
     });
 
     it('recency coalesces completedAt over addedAt', () => {
