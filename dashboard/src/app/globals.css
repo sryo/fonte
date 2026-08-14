@@ -409,7 +409,7 @@ body {
     conic-gradient(
       from var(--shine-angle),
       transparent 0%,
-      var(--ring-shine) 6%,
+      var(--ring-shine) 17%,
       transparent 18%
     ),
     conic-gradient(
@@ -438,7 +438,7 @@ body {
   background: conic-gradient(
     from var(--shine-angle),
     transparent 0%,
-    var(--ring-color) 6%,
+    var(--ring-color) 21%,
     transparent 22%
   );
   animation-duration: 1.6s;
@@ -484,7 +484,7 @@ body {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    var(--ring-shine) 50%,
+    var(--ring-shine) 96%,
     transparent 100%
   );
   transform: translateX(-100%);
