@@ -398,6 +398,7 @@ body {
   --ring-thickness: 8px;
   --ring-inset: 0px;
   --ring-color: var(--torrent);
+  --shine-tail: 63deg;
   /* Track for the remaining arc; flips with the theme via muted-foreground. */
   --ring-track: color-mix(in oklab, var(--muted-foreground) 15%, transparent);
   position: absolute;
@@ -405,42 +406,65 @@ body {
   border-radius: calc(var(--radius-xl) - var(--ring-inset));
   padding: var(--ring-thickness);
   pointer-events: none;
-  background:
-    conic-gradient(
-      from var(--shine-angle),
-      transparent 0%,
-      var(--ring-shine) 17%,
-      transparent 18%
-    ),
-    conic-gradient(
-      var(--ring-color) 0,
-      var(--ring-color) calc(var(--progress) * 1turn),
-      var(--ring-track) calc(var(--progress) * 1turn)
-    );
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  animation: progress-ring-shine 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-.progress-ring--stalled {
-  opacity: 0.35;
   background: conic-gradient(
     var(--ring-color) 0,
     var(--ring-color) calc(var(--progress) * 1turn),
     var(--ring-track) calc(var(--progress) * 1turn)
   );
-  animation: none;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+}
+/* The shine rides its own layer so it can be masked to the fill independently
+   of the progress arc. The parent's xor mask still clips it to the band. */
+.progress-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  /* Head at --shine-angle, tail trailing --shine-tail behind it. */
+  background: conic-gradient(
+    from calc(var(--shine-angle) - var(--shine-tail)),
+    transparent 0deg,
+    var(--ring-shine) var(--shine-tail),
+    transparent calc(var(--shine-tail) + 4deg)
+  );
+  /* The shine only travels the filled arc — like the bar, whose shine lives
+     inside the fill. Indeterminate lifts this to sweep the whole ring. */
+  -webkit-mask: conic-gradient(
+    #fff 0,
+    #fff calc(var(--progress) * 1turn),
+    transparent calc(var(--progress) * 1turn)
+  );
+          mask: conic-gradient(
+    #fff 0,
+    #fff calc(var(--progress) * 1turn),
+    transparent calc(var(--progress) * 1turn)
+  );
+  animation: progress-ring-shine 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.progress-ring--stalled {
+  opacity: 0.35;
+}
+.progress-ring--stalled::after {
+  content: none;
 }
 /* Used for "task is running" states (watchlist search, automation run). */
 .progress-ring--indeterminate {
+  background: none;
+}
+.progress-ring--indeterminate::after {
+  --shine-tail: 79deg;
   background: conic-gradient(
-    from var(--shine-angle),
-    transparent 0%,
-    var(--ring-color) 21%,
-    transparent 22%
+    from calc(var(--shine-angle) - var(--shine-tail)),
+    transparent 0deg,
+    var(--ring-color) var(--shine-tail),
+    transparent calc(var(--shine-tail) + 4deg)
   );
+  -webkit-mask: none;
+          mask: none;
   animation-duration: 1.6s;
 }
 /* The ring means live activity (seeding is upload activity); inert
@@ -451,13 +475,8 @@ body {
 }
 /* Full ring for a waiting state (found results): present, not transferring —
    so no shine. */
-.progress-ring--still {
-  background: conic-gradient(
-    var(--ring-color) 0,
-    var(--ring-color) calc(var(--progress) * 1turn),
-    var(--ring-track) calc(var(--progress) * 1turn)
-  );
-  animation: none;
+.progress-ring--still::after {
+  content: none;
 }
 /* Scaled for the 40px mini tiles of collapsed home rows (rounded-md parents). */
 .progress-ring--mini {
@@ -465,11 +484,14 @@ body {
   --ring-inset: 0px;
   border-radius: calc(var(--radius-md) - var(--ring-inset));
 }
+/* Uninterrupted rotation — the rest comes from the fill mask, which keeps the
+   comet dark while it crosses the unfilled arc. A keyframe hold would instead
+   park it lit at the origin, since 360deg lands back inside the fill. */
 @keyframes progress-ring-shine {
   to { --shine-angle: 360deg; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .progress-ring { animation: none; }
+  .progress-ring::after { content: none; }
 }
 
 /* Shares the ring's --ring-shine token. */
