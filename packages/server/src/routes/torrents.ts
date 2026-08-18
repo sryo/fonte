@@ -271,6 +271,15 @@ app.get('/api/torrents/:id/files', (c) => {
     return ok(c, { files });
 });
 
+app.get('/api/torrents/:id/pieces', async (c) => {
+    try {
+        const pieces = await getTorrentManager().getPieces(c.req.param('id'));
+        return ok(c, { pieces });
+    } catch (err) {
+        return fail(c, (err as Error).message, 404);
+    }
+});
+
 app.post('/api/torrents/:id/files/wanted', async (c) => {
     const id = c.req.param('id');
     const manager = getTorrentManager();

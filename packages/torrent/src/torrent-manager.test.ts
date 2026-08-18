@@ -528,3 +528,63 @@ describe('queue and priority', () => {
         expect(db.getTorrent('t1')?.bandwidthPriority).toBe(-1);
     });
 });
+
+describe('getPieces', () => {
+    function piecesManager(response: (method: string, args: any) => any, mapped = true) {
+        const calls: { method: string; args: any }[] = [];
+        const manager = new TM.TorrentManager();
+        (manager as any).rpc = {
+            call: async (method: string, args: any) => {
+                calls.push({ method, args });
+                return response(method, args);
+            },
+        };
+        if (mapped) (manager as any).transmissionIds.set('t1', 1);
+        return { manager, calls };
+    }
+
+    it('fetches the bitfield and piece count for a mapped torrent', async () => {
+        insertBasic('t1');
+        const { manager, calls } = piecesManager(() => ({
+            torrents: [{ pieces: '/wA=', pieceCount: 16 }],
+        }));
+
+        const pieces = await manager.getPieces('t1');
+
+        expect(pieces).toEqual({ bitfield: '/wA=', count: 16 });
+        expect(calls[0]).toEqual({
+            method: 'torrent-get',
+            args: { ids: [1], fields: ['pieces', 'pieceCount'] },
+        });
+    });
+
+    it('returns null when the torrent has no transmission mapping', async () => {
+        insertBasic('t1');
+        const { manager, calls } = piecesManager(() => ({}), false);
+
+        expect(await manager.getPieces('t1')).toBeNull();
+        expect(calls).toHaveLength(0);
+    });
+
+    it('returns null when the RPC call fails', async () => {
+        insertBasic('t1');
+        const { manager } = piecesManager(() => {
+            throw new Error('daemon gone');
+        });
+
+        expect(await manager.getPieces('t1')).toBeNull();
+    });
+
+    it('returns null when Transmission omits the fields', async () => {
+        insertBasic('t1');
+        const { manager } = piecesManager(() => ({ torrents: [{}] }));
+
+        expect(await manager.getPieces('t1')).toBeNull();
+    });
+
+    it('throws for an unknown torrent id', async () => {
+        const { manager } = piecesManager(() => ({}));
+
+        await expect(manager.getPieces('nope')).rejects.toThrow('Torrent not found');
+    });
+});

@@ -148,3 +148,12 @@ export async function translateSubtitleApi(subtitleId: number, language: string)
 export async function deleteSubtitleApi(subtitleId: number): Promise<{ ok: boolean }> {
   return apiFetch(`/api/subtitles/${subtitleId}`, { method: "DELETE" });
 }
+
+export interface PiecesInfo {
+  bitfield: string;
+  count: number;
+}
+
+export async function getTorrentPieces(id: string): Promise<{ ok: boolean; pieces: PiecesInfo | null }> {
+  return apiFetch(`/api/torrents/${encodeURIComponent(id)}/pieces`);
+}

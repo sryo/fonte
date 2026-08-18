@@ -8,9 +8,10 @@ import {
   getTorrent, getTorrentFiles, pauseTorrent, resumeTorrent, removeTorrent,
   verifyTorrent, reannounceTorrent, revealTorrent, searchTorrentAlternatives, swapTorrent,
   getTorrentSubtitles, fetchTorrentSubtitles, setTorrentFilesWanted, setTorrentFilesPriority,
-  type TorrentRecord, type TorrentFileRecord, type SubtitleRecord, type AlternativeResult,
+  getTorrentPieces,
+  type TorrentRecord, type TorrentFileRecord, type SubtitleRecord, type AlternativeResult, type PiecesInfo,
 } from "@/lib/api";
-import { formatBytes, formatSpeed } from "@/lib/format";
+import { formatBytes, formatEta, formatSpeed } from "@/lib/format";
 import { usePollingEffect } from "@/lib/hooks";
 import { PageHeader } from "@/components/ui/page-header";
 import { Section } from "@/components/ui/section";
@@ -21,6 +22,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ProgressBar, toPct } from "@/components/ui/progress-bar";
 import { DetailHero } from "@/components/shared/detail-hero";
+import { PiecesBand } from "@/components/torrent/pieces-band";
 import { FileList, type FileSelectionSummary } from "@/components/torrent/file-list";
 import { SubtitleList } from "@/components/torrent/subtitle-list";
 import { AlternativesModal } from "@/components/torrent/alternatives-modal";
@@ -43,6 +45,7 @@ export default function TorrentDetailPage() {
   const [torrent, setTorrent] = useState<TorrentRecord | null>(null);
   const [files, setFiles] = useState<TorrentFileRecord[]>([]);
   const [subtitles, setSubtitles] = useState<SubtitleRecord[]>([]);
+  const [pieces, setPieces] = useState<PiecesInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -81,14 +84,16 @@ export default function TorrentDetailPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [torrentRes, filesRes, subsRes] = await Promise.all([
+      const [torrentRes, filesRes, subsRes, piecesRes] = await Promise.all([
         getTorrent(id),
         getTorrentFiles(id),
         getTorrentSubtitles(id).catch(() => ({ ok: false, subtitles: [] })),
+        getTorrentPieces(id).catch(() => ({ ok: false, pieces: null })),
       ]);
       setTorrent(torrentRes.torrent);
       if (!filePollPausedRef.current) setFiles(overlayPendingToggles(filesRes.files));
       setSubtitles(subsRes.subtitles || []);
+      setPieces(piecesRes.pieces ?? null);
       setError(null);
     } catch (err) {
       setError((err as Error).message);
@@ -220,6 +225,10 @@ export default function TorrentDetailPage() {
   }
 
   const pct = toPct(torrent.progress);
+  const eta =
+    torrent.status === "downloading"
+      ? formatEta(torrent.size * (1 - torrent.progress), torrent.downloadSpeed)
+      : "";
   const isStopped = torrent.status === "paused" || torrent.status === "completed";
   const isStalled = !!torrent.stalledSince;
   const canPauseResume = ["downloading", "seeding", "paused", "completed"].includes(torrent.status);
@@ -276,12 +285,11 @@ export default function TorrentDetailPage() {
       <DetailHero
         posterUrl={torrent.posterUrl}
         title={torrent.name}
-        badges={<><StatusBadge status={torrent.status} size="sm" /><span className="text-xs font-medium tabular-nums">{pct}%</span></>}
-        meta={`↓ ${formatSpeed(torrent.downloadSpeed)} · ↑ ${formatSpeed(torrent.uploadSpeed)} · ${torrent.numPeers} peers · ${formatBytes(torrent.size)}`}
+        badges={<StatusBadge status={torrent.status} size="sm" />}
         details={
           <dl className="grid grid-cols-1 gap-2 font-mono text-2xs sm:grid-cols-2">
-            <div><dt className="text-muted-foreground">Info Hash</dt><dd className="break-all">{torrent.infoHash}</dd></div>
-            <div><dt className="text-muted-foreground">Save Path</dt><dd className="break-all">{torrent.savePath}</dd></div>
+            <div><dt className="text-muted-foreground">Info hash</dt><dd className="break-all">{torrent.infoHash}</dd></div>
+            <div><dt className="text-muted-foreground">Save path</dt><dd className="break-all">{torrent.savePath}</dd></div>
             <div><dt className="text-muted-foreground">Added</dt><dd>{formatDate(torrent.addedAt)}</dd></div>
             {torrent.completedAt && (
               <div><dt className="text-muted-foreground">Completed</dt><dd>{formatDate(torrent.completedAt)}</dd></div>
@@ -289,18 +297,31 @@ export default function TorrentDetailPage() {
           </dl>
         }
       >
-        <ProgressBar
-          value={torrent.progress}
-          variant="hero"
-          shine={torrent.status === "downloading"}
-          stalled={isStalled}
-          done={torrent.status === "completed" || torrent.status === "seeding"}
-          className="w-full"
-          label={`Download progress: ${pct}%`}
-        />
+        <div className="flex items-baseline gap-2">
+          <span className="text-[28px] font-bold leading-none tabular-nums">{pct}%</span>
+          {eta && <span className="text-xs text-muted-foreground">{eta} left</span>}
+        </div>
         <p className="text-xs text-muted-foreground tabular-nums">
-          {formatBytes(torrent.downloaded)} / {formatBytes(torrent.size)} · Uploaded {formatBytes(torrent.uploaded)}
+          <span className="text-torrent">↓ {formatSpeed(torrent.downloadSpeed)}</span> ↑ {formatSpeed(torrent.uploadSpeed)} · {torrent.numPeers} peers · {formatBytes(torrent.downloaded)} of {formatBytes(torrent.size)} · Uploaded {formatBytes(torrent.uploaded)}
         </p>
+        {pieces ? (
+          <PiecesBand
+            bitfield={pieces.bitfield}
+            count={pieces.count}
+            done={torrent.progress >= 1 || torrent.status === "completed" || torrent.status === "seeding"}
+            label={`Download progress: ${pct}%`}
+          />
+        ) : (
+          <ProgressBar
+            value={torrent.progress}
+            variant="hero"
+            shine={torrent.status === "downloading"}
+            stalled={isStalled}
+            done={torrent.status === "completed" || torrent.status === "seeding"}
+            className="w-full"
+            label={`Download progress: ${pct}%`}
+          />
+        )}
       </DetailHero>
 
       <Section
@@ -366,7 +387,7 @@ export default function TorrentDetailPage() {
         count={subtitles.length}
         action={
           <Button size="sm" variant="secondary" onClick={handleFetchSubtitles} disabled={torrent.status === "adding" || torrent.status === "error"}>
-            Fetch Subtitles
+            Fetch subtitles
           </Button>
         }
       >
