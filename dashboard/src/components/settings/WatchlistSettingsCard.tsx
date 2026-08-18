@@ -76,7 +76,7 @@ export function WatchlistSettingsCard({
     <Section
       title={
         <span className="inline-flex items-center gap-2">
-          <Eye className="h-4 w-4 text-watchlist" weight="bold" />
+          <Eye className="size-5 text-muted-foreground" weight="bold" />
           Watchlist
         </span>
       }

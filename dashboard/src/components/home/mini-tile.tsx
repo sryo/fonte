@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, type CSSProperties, type ElementType, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { FilmStrip, Lightning, Plus, type IconWeight } from "@phosphor-icons/react";
+import { Lightning, Plus, type IconWeight } from "@phosphor-icons/react";
+import { GhostInitial } from "@/components/ui/ghost-initial";
 import { cn } from "@/lib/utils";
 import { poofBurst } from "@/lib/poof-burst";
 import { toPct } from "@/components/ui/progress-bar";
@@ -30,7 +31,7 @@ export function MiniTile({
   title,
   subtitle,
   posterUrl,
-  icon: Icon = FilmStrip,
+  icon: Icon,
   iconClassName = "h-4 w-4 text-muted-foreground/30",
   iconWeight,
   badge,
@@ -94,7 +95,7 @@ export function MiniTile({
                 <img src={posterUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
               ) : (
                 <span className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-                  <Icon className={iconClassName} weight={iconWeight} />
+                  {Icon ? <Icon className={iconClassName} weight={iconWeight} /> : <GhostInitial text={title} className="text-lg" />}
                 </span>
               )}
               {badge}
@@ -199,7 +200,7 @@ export function WatchlistMiniTile({
       }
       badge={
         newCount > 0 ? (
-          <span className="absolute top-0.5 right-0.5 min-w-3.5 h-3.5 px-0.5 rounded-full bg-watchlist text-white text-2xs flex items-center justify-center tabular-nums">
+          <span className="absolute top-0.5 right-0.5 min-w-3.5 h-3.5 px-0.5 rounded-full bg-foreground text-background text-2xs font-bold flex items-center justify-center tabular-nums">
             {newCount}
           </span>
         ) : undefined

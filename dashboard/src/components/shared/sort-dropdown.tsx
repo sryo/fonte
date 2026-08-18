@@ -27,9 +27,9 @@ export function SortDropdown<K extends string>({
       <DropdownMenuTrigger asChild>
         <button
           aria-label={ariaLabel ?? `Sort, currently ${current.label}`}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
+          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-extrabold text-foreground transition-colors hover:bg-muted"
         >
-          <ArrowsDownUp className="h-3.5 w-3.5" />
+          <ArrowsDownUp className="size-4" weight="bold" />
           <span className="hidden sm:inline">{current.label}</span>
         </button>
       </DropdownMenuTrigger>

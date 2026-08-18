@@ -24,9 +24,6 @@ import type {
   IndexerStatus,
 } from "@/lib/api";
 import {
-  DownloadSimple,
-  Eye,
-  Lightning,
   MagnifyingGlass,
   Plus,
   Trash,
@@ -113,7 +110,7 @@ function HeaderChip({
       aria-label={label}
       onClick={onClick}
       className={cn(
-        "rounded-full px-2 py-0.5 text-2xs font-medium tabular-nums transition-opacity hover:opacity-80",
+        "rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums transition-opacity hover:opacity-80",
         className
       )}
     >
@@ -432,7 +429,6 @@ export default function HomePage() {
         <ContentRow
           title="Downloads"
           count={shownTorrents.length}
-          icon={DownloadSimple}
           chips={
             counts.issues > 0 && (
               <HeaderChip
@@ -476,7 +472,7 @@ export default function HomePage() {
               {clearable.length > 0 && (
                 <button
                   onClick={() => setClearOpen(true)}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-extrabold text-foreground transition-colors hover:bg-muted hover:text-destructive"
                 >
                   <Trash className="h-3.5 w-3.5" />
                   Clear
@@ -536,7 +532,6 @@ export default function HomePage() {
         <ContentRow
           title="Watchlist"
           count={watchlist.length}
-          icon={Eye}
           chips={
             foundCount > 0 && (
               <HeaderChip
@@ -552,7 +547,6 @@ export default function HomePage() {
           emptyContent={
             <div className="flex" style={{ viewTransitionName: "hi-add-wl" }}>
               <EmptyRowCard
-                icon={Eye}
                 label="Watch for a release"
                 hint="We'll grab it when it shows up"
                 onClick={() => setShowAddWatchlist(true)}
@@ -588,7 +582,7 @@ export default function HomePage() {
               {fulfilledEntries.length > 0 && (
                 <button
                   onClick={() => setClearFulfilledOpen(true)}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-extrabold text-foreground transition-colors hover:bg-muted hover:text-destructive"
                 >
                   <Trash className="h-3.5 w-3.5" />
                   Clear
@@ -597,14 +591,14 @@ export default function HomePage() {
               <button
                 onClick={searchAllWatchlist}
                 disabled={searchingAll}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted disabled:opacity-60"
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-extrabold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
               >
                 {searchingAll ? <Spinner size="xs" /> : <MagnifyingGlass className="h-3.5 w-3.5" />}
                 Search
               </button>
               <button
                 onClick={() => setShowAddWatchlist(true)}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-extrabold text-foreground transition-colors hover:bg-muted"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add
@@ -628,7 +622,6 @@ export default function HomePage() {
         <ContentRow
           title="Automations"
           count={enabledAutomations.length}
-          icon={Lightning}
           chips={
             runningAutoId != null && (
               <HeaderChip
@@ -644,7 +637,6 @@ export default function HomePage() {
           emptyContent={
             <div className="flex" style={{ viewTransitionName: "hi-add-auto" }}>
               <EmptyRowCard
-                icon={Lightning}
                 label="Create an automation"
                 hint="Run an agent when something happens"
                 onClick={() => setShowAddAutomation(true)}
@@ -675,7 +667,7 @@ export default function HomePage() {
           action={
             <button
               onClick={() => setShowAddAutomation(true)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md px-2.5 py-1.5 hover:bg-muted"
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-extrabold text-foreground transition-colors hover:bg-muted"
             >
               <Plus className="h-3.5 w-3.5" />
               Add

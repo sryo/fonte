@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { GhostCount } from "@/components/ui/ghost-count";
 
 /** Card-vocabulary container for detail-page and settings sections. */
 export function Section({
@@ -21,11 +22,9 @@ export function Section({
     <section className={cn("rounded-xl shadow-card bg-card p-4", className)}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold">
+          <h2 className="flex items-center gap-2 text-2xl font-black tracking-tight">
             {title}
-            {count !== undefined && (
-              <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
-            )}
+            {count !== undefined && <GhostCount count={count} />}
           </h2>
           {description && (
             <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>

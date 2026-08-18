@@ -41,7 +41,7 @@ export default function ControlPlanePage() {
   return (
     <div className="max-w-(--content-max-w) mx-auto px-6 py-6 space-y-6 animate-card-enter">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">System</h1>
+        <h1 className="text-[40px] leading-none font-black tracking-[-0.03em]">System</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Monitor and manage the daemon
         </p>
@@ -151,8 +151,8 @@ function StatsRow() {
 function MiniStat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
   return (
     <div className="rounded-xl bg-card px-4 py-3 shadow-card">
-      <p className="text-2xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
-      <p className={`text-2xl font-bold tabular-nums mt-0.5 ${accent ? "text-torrent" : ""}`}>{value}</p>
+      <p className="text-xs font-bold text-muted-foreground">{label}</p>
+      <p className={`text-2xl font-black tabular-nums mt-0.5 ${value === 0 ? "text-ghost" : accent ? "text-torrent" : ""}`}>{value}</p>
     </div>
   );
 }
@@ -181,13 +181,13 @@ function DaemonSection({ status, refresh }: { status: any; refresh: () => void }
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${status?.ok ? "bg-done" : "bg-destructive"}`} />
             <p className="text-sm font-semibold">Daemon</p>
-            <p className="text-xs text-muted-foreground">
-              {status?.ok
-                ? `Running \u00b7 ${uptimeStr} \u00b7 port ${status.server?.port}`
-                : "Not responding"}
+            <p className={`text-xs font-extrabold ${status?.ok ? "text-done" : "text-destructive"}`}>
+              {status?.ok ? "Running" : "Not responding"}
             </p>
+            {status?.ok && (
+              <p className="text-xs text-muted-foreground">{`${uptimeStr} · port ${status.server?.port}`}</p>
+            )}
           </div>
           <button
             onClick={handleRestart}

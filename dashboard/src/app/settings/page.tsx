@@ -167,7 +167,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-(--content-max-w) mx-auto px-6 py-6 space-y-6 animate-card-enter">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-[40px] leading-none font-black tracking-[-0.03em]">Settings</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Configure downloads, integrations, and agents
         </p>

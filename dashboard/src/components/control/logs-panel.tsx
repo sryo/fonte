@@ -46,7 +46,7 @@ export function LogsPanel() {
     <Section
       title={
         <>
-          <Scroll className="h-3.5 w-3.5" />
+          <Scroll className="size-5 text-muted-foreground" />
           Logs
         </>
       }
@@ -59,7 +59,7 @@ export function LogsPanel() {
               onClick={() => setLevel(f.key)}
               aria-pressed={level === f.key}
               className={cn(
-                "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
+                "rounded-full px-3 py-1 text-xs font-bold transition-colors",
                 level === f.key
                   ? "bg-foreground text-background"
                   : "bg-muted text-muted-foreground hover:bg-muted/80",

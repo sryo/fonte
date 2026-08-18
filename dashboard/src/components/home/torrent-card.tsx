@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { Pause, Play, Trash } from "@phosphor-icons/react";
 import { pauseTorrent, resumeTorrent, type TorrentRecord } from "@/lib/api";
 import { formatSpeed } from "@/lib/format";
-import { statusTone } from "@/lib/status";
 import { toPct } from "@/components/ui/progress-bar";
 import { MediaCard } from "@/components/home/media-card";
 import { CardAction } from "@/components/home/card-action";
@@ -59,14 +58,14 @@ export function TorrentCard({
       busy={torrent.status === "adding"}
       badges={
         <>
-          <PosterBadge tone={stalled ? "warn" : statusTone(torrent.status)}>
+          <PosterBadge tone={stalled ? "warn" : undefined}>
             {torrent.status === "queued"
               ? `Queued #${(torrent.queuePosition ?? 0) + 1}`
               : STATUS_LABEL[torrent.status] ?? `${toPct(torrent.progress)}%`}
           </PosterBadge>
           {queueFlash && torrent.status !== "queued" && (
             <span className={queueFlash.leaving ? "animate-overlay-out" : "animate-overlay-in"}>
-              <PosterBadge tone="active">
+              <PosterBadge>
                 {queueFlash.pos === 0 ? "Next" : `#${queueFlash.pos + 1}`}
               </PosterBadge>
             </span>
@@ -79,12 +78,13 @@ export function TorrentCard({
             variant="primary"
             icons={{ active: pauseResume.active, map: { pause: Pause, play: Play } }}
             label={pauseResume.label}
+            kbd="P"
             onClick={pauseResume.run}
           />
         )
       }
       secondaryAction={
-        <CardAction icon={Trash} label="Remove" destructive onClick={onRemoveRequest} />
+        <CardAction icon={Trash} label="Remove" kbd="⌫" destructive onClick={onRemoveRequest} />
       }
       hotkeys={{
         ...(pauseResume && { p: pauseResume.run }),

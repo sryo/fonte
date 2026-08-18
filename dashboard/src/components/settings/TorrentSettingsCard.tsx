@@ -21,7 +21,7 @@ export function TorrentSettingsCard({
     <Section
       title={
         <span className="inline-flex items-center gap-2">
-          <DownloadSimple className="h-4 w-4 text-torrent" weight="bold" />
+          <DownloadSimple className="size-5 text-muted-foreground" weight="bold" />
           Torrent
         </span>
       }

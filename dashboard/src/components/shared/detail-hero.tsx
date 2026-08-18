@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { FilmStrip } from "@phosphor-icons/react";
+import { GhostInitial } from "@/components/ui/ghost-initial";
 
 /**
  * The detail page's hero: a MediaCard rotated horizontal. Same poster ratio
@@ -32,12 +32,12 @@ export function DetailHero({
           <img src={posterUrl} alt={title} className="aspect-video w-full object-cover sm:aspect-auto sm:h-full" />
         ) : (
           <div className="flex aspect-video w-full items-center justify-center bg-gradient-to-br from-muted to-muted/50 sm:aspect-[2/3] sm:h-full">
-            <FilmStrip className="size-10 text-muted-foreground/30" />
+            <GhostInitial text={title} className="text-5xl" />
           </div>
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2 p-4">
-        <h1 className="text-lg font-semibold leading-tight line-clamp-2" title={title}>
+        <h1 className="text-2xl font-black tracking-tight leading-tight line-clamp-2" title={title}>
           {title}
           {titleSuffix && <span className="ml-1.5 font-normal text-muted-foreground">{titleSuffix}</span>}
         </h1>

@@ -44,12 +44,12 @@ export function WatchlistCard({
       badges={
         <>
           {(entry.newResultsCount ?? 0) > 0 && (
-            <span className="text-2xs font-medium bg-watchlist text-white px-1.5 py-0.5 rounded-full">
+            <span className="text-xs font-bold bg-foreground text-background px-2 py-0.5 rounded-full">
               {entry.newResultsCount} new
             </span>
           )}
-          {entry.status === "paused" && <PosterBadge tone="neutral">Paused</PosterBadge>}
-          {fulfilled && <PosterBadge tone="done">Fulfilled</PosterBadge>}
+          {entry.status === "paused" && <PosterBadge>Paused</PosterBadge>}
+          {fulfilled && <PosterBadge>Fulfilled</PosterBadge>}
           <PosterBadge>{entry.quality}</PosterBadge>
         </>
       }
@@ -58,11 +58,12 @@ export function WatchlistCard({
           variant="primary"
           icon={MagnifyingGlass}
           label={entry.lastCheckedAt ? `Search now\nLast searched: ${formatRelativeTime(entry.lastCheckedAt)}` : "Search now\nNever searched"}
+          kbd="S"
           onClick={onSearch}
         />
       }
       secondaryAction={
-        <CardAction icon={Trash} label="Remove" destructive onClick={() => setConfirmOpen(true)} />
+        <CardAction icon={Trash} label="Remove" kbd="⌫" destructive onClick={() => setConfirmOpen(true)} />
       }
       hotkeys={{
         s: onSearch,

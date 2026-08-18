@@ -44,7 +44,7 @@ export function Modal({
             wide ? "max-w-2xl" : "max-w-md"
           )}
         >
-          <Dialog.Title className="mb-3 text-sm font-semibold">{title}</Dialog.Title>
+          <Dialog.Title className="mb-4 text-2xl font-black tracking-tight">{title}</Dialog.Title>
           {description && (
             <Dialog.Description className="mb-4 text-sm text-muted-foreground">
               {description}

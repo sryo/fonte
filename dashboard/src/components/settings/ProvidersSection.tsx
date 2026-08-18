@@ -45,7 +45,7 @@ export function ProvidersSection() {
     <Section
       title={
         <span className="inline-flex items-center gap-2">
-          <Plug className="h-4 w-4 text-agent" weight="bold" />
+          <Plug className="size-5 text-muted-foreground" weight="bold" />
           Providers
         </span>
       }

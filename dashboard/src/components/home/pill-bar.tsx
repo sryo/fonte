@@ -68,7 +68,7 @@ export function PillBar({
             aria-label={isIssues ? `Issues, ${counts.issues} items` : undefined}
             onClick={() => onSelect(key)}
             className={cn(
-              "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+              "rounded-full px-[18px] py-2 text-sm font-bold transition-colors",
               selected
                 ? "bg-foreground text-background group-data-[sliding]/pills:bg-transparent"
                 : isIssues
@@ -86,7 +86,7 @@ export function PillBar({
           <button
             aria-label="Edit filters"
             title="Edit filters"
-            className="rounded-full p-2 text-sm font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
+            className="rounded-full p-2.5 text-sm font-bold bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
           >
             <Plus className="h-4 w-4" />
           </button>

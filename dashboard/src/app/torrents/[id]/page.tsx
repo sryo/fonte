@@ -298,8 +298,8 @@ export default function TorrentDetailPage() {
         }
       >
         <div className="flex items-baseline gap-2">
-          <span className="text-[28px] font-bold leading-none tabular-nums">{pct}%</span>
-          {eta && <span className="text-xs text-muted-foreground">{eta} left</span>}
+          <span className="text-[40px] font-black leading-none tracking-[-0.03em] tabular-nums">{pct}%</span>
+          {eta && <span className="text-lg font-black text-ghost">{eta} left</span>}
         </div>
         <p className="text-xs text-muted-foreground tabular-nums">
           <span className="text-torrent">↓ {formatSpeed(torrent.downloadSpeed)}</span> ↑ {formatSpeed(torrent.uploadSpeed)} · {torrent.numPeers} peers · {formatBytes(torrent.downloaded)} of {formatBytes(torrent.size)} · Uploaded {formatBytes(torrent.uploaded)}

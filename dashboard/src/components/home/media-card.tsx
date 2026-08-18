@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { FilmStrip } from "@phosphor-icons/react";
+import { GhostInitial } from "@/components/ui/ghost-initial";
 import { poofBurst } from "@/lib/poof-burst";
 import { MiddleTruncate } from "@/components/ui/middle-truncate";
 import { CardResizeHandle } from "./card-resize";
@@ -79,7 +79,7 @@ export function MediaCard({
           <img src={posterUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-            <FilmStrip className="h-10 w-10 text-muted-foreground/30" />
+            <GhostInitial text={title} className="text-5xl" />
           </div>
         )}
         {badges && (

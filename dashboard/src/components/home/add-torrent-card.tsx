@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CaretDown, DownloadSimple, Plus, UploadSimple } from "@phosphor-icons/react";
+import { CaretDown, Plus, UploadSimple } from "@phosphor-icons/react";
 import { addTorrent } from "@/lib/api";
 import { EmptyRowCard } from "./empty-row-card";
 import { CreateTorrentModal } from "./create-torrent-modal";
@@ -105,7 +105,7 @@ export function AddTorrentCard({
         <div className="flex items-center">
           <button
             onClick={() => { if (!busy) inputRef.current?.click(); }}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-l-md pl-2.5 pr-1.5 py-1.5 hover:bg-muted"
+            className="flex items-center gap-1.5 rounded-l-full pl-3 pr-1.5 py-1.5 text-[13px] font-extrabold text-foreground transition-colors hover:bg-muted"
           >
             <Plus className="h-3.5 w-3.5" />
             {busy ? "Adding…" : "Add"}
@@ -114,7 +114,7 @@ export function AddTorrentCard({
             <DropdownMenuTrigger asChild>
               <button
                 aria-label="More add options"
-                className="flex items-center text-muted-foreground hover:text-foreground transition-colors rounded-r-md px-1.5 py-2 hover:bg-muted"
+                className="flex items-center rounded-r-full px-1.5 py-2 text-foreground transition-colors hover:bg-muted"
               >
                 <CaretDown className="h-3 w-3" />
               </button>
@@ -149,7 +149,6 @@ export function AddTorrentCard({
     >
       {input}
       <EmptyRowCard
-        icon={DownloadSimple}
         label="Add a torrent"
         hint={busy ? "Adding…" : error ?? "Drop a .torrent file or click to browse"}
         hintClassName={error && !busy ? "text-destructive" : undefined}

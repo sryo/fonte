@@ -3,10 +3,11 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 import { IconSwap } from "@/components/ui/icon-swap";
+import { Kbd } from "@/components/ui/kbd";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Two-tier hover actions: the contextual verb is prominent, remove/delete recedes.
-export function CardAction({ icon: Icon, icons, label, onClick, destructive, variant = "secondary" }: {
+export function CardAction({ icon: Icon, icons, label, onClick, destructive, variant = "secondary", kbd }: {
   icon?: React.ElementType;
   /** Cross-dissolving icon set for actions whose verb toggles (pause/play). */
   icons?: { active: string; map: Record<string, React.ElementType> };
@@ -14,6 +15,7 @@ export function CardAction({ icon: Icon, icons, label, onClick, destructive, var
   onClick: (e: React.MouseEvent) => void;
   destructive?: boolean;
   variant?: "primary" | "secondary";
+  kbd?: string;
 }) {
   const iconClass =
     variant === "primary"
@@ -53,6 +55,7 @@ export function CardAction({ icon: Icon, icons, label, onClick, destructive, var
         </TooltipTrigger>
         <TooltipContent className="flex items-center gap-1.5">
           <span className="whitespace-pre-line">{label}</span>
+          {kbd && <Kbd>{kbd}</Kbd>}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

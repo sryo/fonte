@@ -91,7 +91,7 @@ export function AgentsSection() {
     <Section
       title={
         <span className="inline-flex items-center gap-2">
-          <Robot className="h-4 w-4 text-agent" weight="bold" />
+          <Robot className="size-5 text-muted-foreground" weight="bold" />
           Agents
         </span>
       }

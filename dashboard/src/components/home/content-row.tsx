@@ -3,11 +3,11 @@
 import React, { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { CaretRight } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { GhostCount } from "@/components/ui/ghost-count";
 
 export function ContentRow({
   title,
   count,
-  icon: Icon,
   children,
   emptyContent,
   isEmpty,
@@ -20,7 +20,6 @@ export function ContentRow({
 }: {
   title: string;
   count: number;
-  icon: React.ElementType;
   children: React.ReactNode;
   emptyContent: React.ReactNode;
   isEmpty: boolean;
@@ -48,11 +47,8 @@ export function ContentRow({
 
   const heading = (
     <>
-      <Icon className="h-5 w-5 text-muted-foreground" weight="bold" />
       {title}
-      {count > 0 && (
-        <span className="text-sm font-normal tabular-nums text-muted-foreground">{count}</span>
-      )}
+      {count > 0 && <GhostCount count={count} />}
     </>
   );
 
@@ -63,7 +59,7 @@ export function ContentRow({
     >
       <div className="flex items-center justify-between">
         {onToggleCollapse ? (
-          <h2 className="flex items-center gap-2 text-lg font-bold">
+          <h2 className="flex items-center gap-3 text-[40px] leading-none font-black tracking-[-0.03em]">
             <button
               type="button"
               onClick={() => {
@@ -75,13 +71,13 @@ export function ContentRow({
               }}
               aria-expanded={!collapsed}
               aria-controls={bodyId}
-              className="group/heading flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="group/heading flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
               {heading}
               <CaretRight
                 weight="bold"
                 className={cn(
-                  "h-3.5 w-3.5 text-muted-foreground transition-[transform,opacity]",
+                  "size-5 text-muted-foreground transition-[transform,opacity]",
                   !collapsed && "rotate-90",
                   !collapsed && !pinCaret &&
                     "opacity-0 group-hover/heading:opacity-100 group-focus-visible/heading:opacity-100"
@@ -98,7 +94,7 @@ export function ContentRow({
             {chips}
           </h2>
         ) : (
-          <h2 className="text-lg font-bold flex items-center gap-2">
+          <h2 className="text-[40px] leading-none font-black tracking-[-0.03em] flex items-center gap-3">
             {heading}
             {chips}
           </h2>

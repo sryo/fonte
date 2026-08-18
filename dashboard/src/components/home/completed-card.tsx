@@ -38,10 +38,10 @@ export function CompletedCard({
       onClick={() => router.push(`/torrents/${torrent.id}`)}
       badges={
         <>
-          <PosterBadge tone="done">{torrent.status === "seeding" ? "Seeding" : "Done"}</PosterBadge>
+          <PosterBadge>{torrent.status === "seeding" ? "Seeding" : "Done"}</PosterBadge>
           {queueFlash && (
             <span className={queueFlash.leaving ? "animate-overlay-out" : "animate-overlay-in"}>
-              <PosterBadge tone="active">
+              <PosterBadge>
                 {queueFlash.pos === 0 ? "Next" : `#${queueFlash.pos + 1}`}
               </PosterBadge>
             </span>
@@ -75,7 +75,7 @@ export function CompletedCard({
     >
       <p className="text-2xs text-muted-foreground">
         {torrent.status === "seeding" && torrent.uploadSpeed > 0 && (
-          <span className="text-green-600 dark:text-green-400">&uarr; {formatSpeed(torrent.uploadSpeed)} &middot; </span>
+          <span className="text-done">&uarr; {formatSpeed(torrent.uploadSpeed)} &middot; </span>
         )}
         {formatBytes(torrent.size)}
         {torrent.completedAt && ` · ${formatShortRelativeTime(torrent.completedAt)}`}
