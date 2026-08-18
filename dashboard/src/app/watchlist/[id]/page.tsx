@@ -8,6 +8,7 @@ import {
   getWatchlistEntry,
   triggerWatchlistSearch,
   addWatchlistResult,
+  setWatchlistResultFeedback,
   updateWatchlistEntry,
   deleteWatchlistEntry,
   markWatchlistResultsViewed,
@@ -16,10 +17,10 @@ import {
   type WatchlistResultRecord,
 } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
-import { sortReleases, RELEASE_SORT_OPTIONS, type ReleaseSortKey } from "@/lib/release-order";
+import { RELEASE_SORT_OPTIONS, type ReleaseSortKey } from "@/lib/release-order";
 import { usePersistedState } from "@/hooks/use-persisted-state";
 import { DetailHero } from "@/components/shared/detail-hero";
-import { ReleaseList } from "@/components/shared/release-list";
+import { ReleaseGroupList } from "@/components/watchlist/release-group-list";
 import { SortDropdown } from "@/components/shared/sort-dropdown";
 import { EditEntryModal, type EditEntryData } from "@/components/watchlist/edit-entry-modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -101,9 +102,14 @@ export default function WatchlistDetailPage() {
     }
   };
 
-  // Failures propagate to ReleaseList, which shows them on the clicked row.
+  // Failures propagate to ReleaseGroupList, which shows them on the clicked row.
   const handleAddResult = async (resultId: number) => {
     await addWatchlistResult(id, resultId);
+    fetchData();
+  };
+
+  const handleFeedback = async (resultId: number, next: "up" | "down" | null) => {
+    await setWatchlistResultFeedback(id, resultId, next);
     fetchData();
   };
 
@@ -173,7 +179,7 @@ export default function WatchlistDetailPage() {
           <>
             <Button size="sm" onClick={handleSearch} disabled={searching}>
               {searching ? <Spinner size="xs" /> : <MagnifyingGlass weight="bold" />}
-              Search Now
+              Search now
             </Button>
             {entry.status !== "fulfilled" && (
               <Button variant="outline" size="sm" onClick={handlePauseResume} disabled={actionLoading}>
@@ -261,7 +267,7 @@ export default function WatchlistDetailPage() {
       />
 
       <Section
-        title="Search Results"
+        title="Search results"
         count={results.length}
         action={
           results.length > 0 && (
@@ -277,14 +283,14 @@ export default function WatchlistDetailPage() {
         {searching ? (
           <LoadingState label="Searching indexers…" />
         ) : (
-          <ReleaseList
-            results={sortReleases(results, resultSort)}
-            actionLabel="Download"
-            keyOf={(r) => r.id}
-            isSelected={(r) => r.wasSelected}
-            onAction={(r) => handleAddResult(r.id)}
+          <ReleaseGroupList
+            results={results}
+            wantedQuality={entry.quality}
+            sortKey={resultSort}
+            onAdd={(rid) => handleAddResult(rid)}
+            onFeedback={(rid, next) => handleFeedback(rid, next)}
             emptyState={
-              <EmptyState icon={MagnifyingGlass} title="No results yet" hint='Click "Search Now" to find matching releases.' />
+              <EmptyState icon={MagnifyingGlass} title="No results yet" hint='Click "Search now" to find matching releases.' />
             }
           />
         )}
