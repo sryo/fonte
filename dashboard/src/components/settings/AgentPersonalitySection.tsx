@@ -55,7 +55,7 @@ export function AgentPersonalitySection() {
       title={
         <span className="inline-flex items-center gap-2">
           <Sparkle className="h-4 w-4 text-agent" weight="bold" />
-          Agent Personality
+          Agent personality
         </span>
       }
       description={<>Define your agent&apos;s communication style. Saved to ~/.fonte/SOUL.md</>}

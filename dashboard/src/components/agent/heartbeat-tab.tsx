@@ -41,13 +41,13 @@ export function HeartbeatTab({
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             <Heartbeat className="h-4 w-4 text-primary" />
-            Heartbeat Monitor
+            Heartbeat monitor
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex items-center justify-between p-3 bg-secondary/50 border">
             <div>
-              <p className="text-sm font-medium">Heartbeat Enabled</p>
+              <p className="text-sm font-medium">Heartbeat enabled</p>
               <p className="text-xs text-muted-foreground">
                 Periodically wake the agent to check tasks and process work
               </p>
@@ -81,7 +81,7 @@ export function HeartbeatTab({
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Heartbeat Prompt
+                    Heartbeat prompt
                   </label>
                   <span className="text-2xs text-muted-foreground">
                     from{" "}

@@ -120,7 +120,7 @@ export function ScheduleFormModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="New Schedule" wide onSubmit={handleCreate}>
+    <Modal open={open} onClose={onClose} title="New schedule" wide onSubmit={handleCreate}>
         <div className="space-y-5">
           <Input
             value={formLabel}

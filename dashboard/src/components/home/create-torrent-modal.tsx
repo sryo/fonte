@@ -71,7 +71,7 @@ export function CreateTorrentModal({
   };
 
   return (
-    <Modal open={open} onClose={close} title={magnetUri ? "Seeding" : "Create Torrent"} onSubmit={submit}>
+    <Modal open={open} onClose={close} title={magnetUri ? "Seeding" : "Create torrent"} onSubmit={submit}>
       {magnetUri ? (
         <div className="space-y-3">
           <p className={warning ? "text-sm text-warning" : "text-sm text-muted-foreground"}>

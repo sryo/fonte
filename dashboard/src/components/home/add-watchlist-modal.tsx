@@ -77,7 +77,7 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Add to Watchlist" onSubmit={handleAdd}>
+    <Modal open={open} onClose={onClose} title="Add to watchlist" onSubmit={handleAdd}>
       <div className="space-y-4">
         <Input
           placeholder="Title"

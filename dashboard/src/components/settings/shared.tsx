@@ -263,8 +263,7 @@ export function NumberInput({
   );
 }
 
-/** Right-aligned footer for the sections that keep an explicit save
-    (free-form text like SOUL.md and the raw JSON editor). */
+/** Right-aligned footer for sections that keep an explicit save. */
 export function SaveFooter({
   onClick,
   saving,

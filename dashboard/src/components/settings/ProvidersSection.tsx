@@ -54,7 +54,7 @@ export function ProvidersSection() {
       action={
         !showAdd ? (
           <Button size="sm" onClick={() => setShowAdd(true)} className="text-xs">
-            Add Custom
+            Add custom
           </Button>
         ) : undefined
       }

@@ -100,7 +100,7 @@ export function AgentsSection() {
       action={
         !showAdd ? (
           <Button size="sm" onClick={() => setShowAdd(true)} className="text-xs">
-            Add Agent
+            Add agent
           </Button>
         ) : undefined
       }
@@ -173,7 +173,7 @@ export function AgentsSection() {
                 <Input
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="My Agent"
+                  placeholder="My agent"
                   className="text-sm"
                 />
               </div>

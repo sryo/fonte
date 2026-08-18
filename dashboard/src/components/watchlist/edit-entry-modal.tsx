@@ -73,7 +73,7 @@ export function EditEntryModal({
   };
 
   return (
-    <Modal open onClose={onClose} title="Edit Watchlist Entry" onSubmit={handleSave}>
+    <Modal open onClose={onClose} title="Edit watchlist entry" onSubmit={handleSave}>
       <div className="space-y-3">
         <div className="space-y-1.5">
           <Label htmlFor="edit-title">Title</Label>

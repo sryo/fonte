@@ -61,7 +61,7 @@ export function AddAutomationModal({ open, onClose, onCreated }: {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Create Automation" onSubmit={handleCreate}>
+    <Modal open={open} onClose={onClose} title="Create automation" onSubmit={handleCreate}>
       <div className="space-y-4">
         <Input
           placeholder="Rule name"

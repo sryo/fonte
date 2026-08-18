@@ -29,7 +29,7 @@ export function SystemPromptTab({
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
-            System Prompt
+            System prompt
             <span className="text-2xs text-muted-foreground font-normal">
               AGENTS.md
             </span>
@@ -55,7 +55,7 @@ export function SystemPromptTab({
           ) : (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">
-                Agent Instructions
+                Agent instructions
               </label>
               <p className="text-2xs text-muted-foreground/70 mb-2">
                 This is the agent&apos;s AGENTS.md file — it defines behavior,

@@ -153,7 +153,7 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
 
               <Button className="w-full gap-2 md:w-auto" onClick={onNewEvent}>
                 <PlusCircle size={16} aria-hidden="true" />
-                <span>{newEventLabel || "New Schedule"}</span>
+                <span>{newEventLabel || "New schedule"}</span>
               </Button>
             </>
           )}

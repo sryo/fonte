@@ -73,7 +73,7 @@ export function CustomProviderForm({
           <Input
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="My Provider"
+            placeholder="My provider"
             className="text-sm"
           />
         </div>

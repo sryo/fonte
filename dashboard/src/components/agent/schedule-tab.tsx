@@ -158,7 +158,7 @@ export function ScheduleTab({ agentId }: { agentId: string }) {
               Schedules send recurring tasks to this agent on a cron interval
             </p>
             <Button size="sm" onClick={() => setShowForm(true)}>
-              Create Schedule
+              Create schedule
             </Button>
           </div>
         </div>

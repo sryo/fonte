@@ -75,7 +75,7 @@ export function EditAutomationModal({
   };
 
   return (
-    <Modal open onClose={onClose} title="Edit Automation" onSubmit={onSave}>
+    <Modal open onClose={onClose} title="Edit automation" onSubmit={onSave}>
       <div className="space-y-4">
         <Input
           placeholder="Rule name"

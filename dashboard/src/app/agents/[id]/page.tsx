@@ -38,7 +38,7 @@ type TabId = "chat" | "schedule" | "system-prompt" | "heartbeat";
 const TABS: { id: TabId; label: string; icon: typeof Robot }[] = [
   { id: "chat", label: "Chat", icon: Robot },
   { id: "schedule", label: "Schedule", icon: CalendarDots },
-  { id: "system-prompt", label: "System Prompt", icon: FileText },
+  { id: "system-prompt", label: "System prompt", icon: FileText },
   { id: "heartbeat", label: "Heartbeat", icon: Heartbeat },
 ];
 
@@ -151,7 +151,7 @@ export default function AgentConfigPage({
             <Link href="/">
               <Button variant="outline" className="mt-4">
                 <ArrowLeft className="h-4 w-4" />
-                Back Home
+                Back home
               </Button>
             </Link>
           </CardContent>
