@@ -59,7 +59,7 @@ export function WatchlistSettingsCard({
     setTesting(true);
     setTestResult(null);
     try {
-      const res = await getIndexerStatus();
+      const res = await getIndexerStatus(true);
       setTestResult(
         res.ok
           ? `Connected — ${res.count} indexer${res.count === 1 ? "" : "s"}`

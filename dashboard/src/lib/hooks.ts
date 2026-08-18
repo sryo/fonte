@@ -72,14 +72,25 @@ export function useSSE(maxEvents = 100): {
           return next.length > maxEvents ? next.slice(0, maxEvents) : next;
         });
       },
-      () => {
-        setConnected(false);
+      {
+        onOpen: () => setConnected(true),
+        onError: () => setConnected(false),
       }
     );
     return unsubscribe;
   }, [maxEvents]);
 
   return { events, connected };
+}
+
+/** Ticking clock for relative timestamps that would otherwise freeze. */
+export function useNow(intervalMs: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
 }
 
 export function timeAgo(ts: number): string {

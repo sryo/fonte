@@ -17,8 +17,8 @@ export interface IndexerStatus {
   reason?: string;
 }
 
-export async function getIndexerStatus(): Promise<IndexerStatus> {
-  return apiFetch(`/api/indexers/status`);
+export async function getIndexerStatus(fresh = false): Promise<IndexerStatus> {
+  return apiFetch(`/api/indexers/status${fresh ? "?fresh=1" : ""}`);
 }
 
 export async function restartJackett(): Promise<{ ok: boolean; restarted?: boolean; error?: string }> {

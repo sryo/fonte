@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePolling, useSSE, timeAgo } from "@/lib/hooks";
+import { usePolling, timeAgo } from "@/lib/hooks";
 import { formatDuration, formatSeconds } from "@/lib/format";
 import {
   getQueueStatus,
@@ -9,24 +9,22 @@ import {
   killAgentSession,
   getSystemStatus,
   restartService,
-  getLogs,
   checkConnection,
   getApiBase,
   setApiBase,
   type QueueStatus,
   type ProcessingMessage,
-  type EventData,
 } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/feedback";
+import { LogsPanel } from "@/components/control/logs-panel";
+import { LiveEventsPanel } from "@/components/control/live-events-panel";
 import {
   Cpu,
   Square,
-  Pulse,
   ArrowsClockwise,
   X,
-  Scroll,
   WifiSlash,
   WifiHigh,
   Pencil,
@@ -57,7 +55,9 @@ export default function ControlPlanePage() {
 
       <AgentSessionsSection />
 
-      <LogsSection />
+      <LogsPanel />
+
+      <LiveEventsPanel />
     </div>
   );
 }
@@ -278,7 +278,7 @@ function AgentSessionsSection() {
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           <Cpu className="h-3.5 w-3.5 text-primary" />
-          Agent Sessions
+          Agent sessions
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -340,126 +340,4 @@ function AgentSessionRow({ msg, onKill }: { msg: ProcessingMessage; onKill: () =
       </div>
     </div>
   );
-}
-
-function LogsSection() {
-  const { data: logs, refresh: refreshLogs } = usePolling<{ lines: string[] }>(
-    () => getLogs(200),
-    5000
-  );
-  const { events } = useSSE(100);
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold flex items-center gap-1.5">
-            <Scroll className="h-3.5 w-3.5" />
-            Queue Logs
-          </p>
-          <button
-            onClick={() => refreshLogs()}
-            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors rounded"
-            title="Refresh"
-          >
-            <ArrowsClockwise className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <Card>
-          <CardContent className="p-0">
-            <div className="max-h-[40vh] overflow-y-auto">
-              {logs && logs.lines.length > 0 ? (
-                <pre className="text-xs font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap p-4">
-                  {logs.lines.map((line, i) => (
-                    <LogLine key={i} line={line} />
-                  ))}
-                </pre>
-              ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">No logs yet</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div>
-        <p className="text-sm font-semibold flex items-center gap-1.5 mb-2">
-          <Pulse className="h-3.5 w-3.5" />
-          Live Events
-          {events.length > 0 && (
-            <span className="text-2xs text-muted-foreground">{events.length}</span>
-          )}
-        </p>
-        <Card>
-          <CardContent className="p-0">
-            <div className="max-h-[40vh] overflow-y-auto">
-              {events.length > 0 ? (
-                <div className="divide-y">
-                  {events.map((event, i) => (
-                    <div
-                      key={`${event.timestamp}-${i}`}
-                      className="flex items-center gap-2.5 px-4 py-2 text-sm"
-                    >
-                      <EventDot type={event.type} />
-                      <span className="font-medium truncate flex-shrink-0 text-xs">
-                        {formatEventType(event.type)}
-                      </span>
-                      <span className="text-muted-foreground truncate flex-1 min-w-0 text-xs">
-                        {formatEventDetail(event)}
-                      </span>
-                      <span className="text-2xs text-muted-foreground whitespace-nowrap flex-shrink-0">
-                        {timeAgo(event.timestamp)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">Waiting for events...</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function LogLine({ line }: { line: string }) {
-  let levelClass = "text-muted-foreground";
-  if (line.includes("[ERROR]")) levelClass = "text-destructive";
-  else if (line.includes("[WARN]")) levelClass = "text-warning";
-  else if (line.includes("[INFO]") && line.includes("\u2713")) levelClass = "text-done";
-
-  return (
-    <div className={`${levelClass} py-0.5 border-b border-border/20`}>
-      {line}
-    </div>
-  );
-}
-
-function EventDot({ type }: { type: string }) {
-  const colors: Record<string, string> = {
-    message_received: "bg-torrent", agent_routed: "bg-primary",
-    chain_step_start: "bg-warning", chain_step_done: "bg-done",
-    response_ready: "bg-done", team_chain_start: "bg-agent",
-    team_chain_end: "bg-agent/60", chain_handoff: "bg-automation",
-    message_enqueued: "bg-torrent/60", processor_start: "bg-primary",
-  };
-  return <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${colors[type] || "bg-muted-foreground"}`} />;
-}
-
-function formatEventType(type: string): string {
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatEventDetail(event: EventData): string {
-  const parts: string[] = [];
-  if (event.agentId) parts.push(`@${event.agentId}`);
-  if (event.agentName) parts.push(`(${event.agentName})`);
-  if (event.channel) parts.push(`[${event.channel}]`);
-  if (event.sender) parts.push(`from ${event.sender}`);
-  if (event.teamId) parts.push(`team:${event.teamId}`);
-  if (event.message) parts.push(String(event.message).substring(0, 60));
-  if (event.responseLength) parts.push(`${event.responseLength} chars`);
-  return parts.join(" ") || event.type;
 }

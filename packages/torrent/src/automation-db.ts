@@ -31,6 +31,24 @@ export interface AutomationLog {
 
 // ── Automation Rules CRUD ───────────────────────────────────────────────────
 
+// The engine consults this on every emitted event, including the 3s torrent:stats
+// tick, so it must not hit the DB per event.
+let enabledTriggerTypes: Set<string> | null = null;
+
+export function getEnabledTriggerTypes(): Set<string> {
+    if (!enabledTriggerTypes) {
+        const rows = getDb().prepare(
+            'SELECT DISTINCT trigger_type FROM automation_rules WHERE enabled = 1'
+        ).all() as { trigger_type: string }[];
+        enabledTriggerTypes = new Set(rows.map(r => r.trigger_type));
+    }
+    return enabledTriggerTypes;
+}
+
+function invalidateTriggerTypes(): void {
+    enabledTriggerTypes = null;
+}
+
 export function insertAutomationRule(rule: {
     id: string;
     name: string;
@@ -51,6 +69,7 @@ export function insertAutomationRule(rule: {
         now,
         now,
     );
+    invalidateTriggerTypes();
 }
 
 export function updateAutomationRule(id: string, fields: Partial<{
@@ -79,6 +98,8 @@ export function updateAutomationRule(id: string, fields: Partial<{
     values.push(id);
 
     getDb().prepare(`UPDATE automation_rules SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+    // Skipped for the engine's own triggerCount/lastTriggeredAt bumps.
+    if (fields.enabled !== undefined || fields.triggerType !== undefined) invalidateTriggerTypes();
 }
 
 export function getAutomationRule(id: string): AutomationRule | undefined {
@@ -112,6 +133,7 @@ export function getAutomationRules(filter?: { enabled?: boolean; triggerType?: s
 
 export function deleteAutomationRule(id: string): void {
     getDb().prepare('DELETE FROM automation_rules WHERE id = ?').run(id);
+    invalidateTriggerTypes();
 }
 
 // ── Automation Logs ─────────────────────────────────────────────────────────

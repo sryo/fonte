@@ -1,5 +1,5 @@
 import { log, emitEvent, onEvent, enqueueMessage } from '@fonte/core';
-import { getAutomationRules, updateAutomationRule, insertAutomationLog } from './automation-db';
+import { getAutomationRules, updateAutomationRule, insertAutomationLog, getEnabledTriggerTypes } from './automation-db';
 import { getTorrent } from './torrent-db';
 import { AUTOMATION_EVENTS } from './automation-events';
 import type { AutomationRule } from './automation-db';
@@ -26,6 +26,7 @@ export class AutomationEngine {
     async evaluateEvent(type: string, data: Record<string, unknown>): Promise<void> {
         if (!this.listening) return;
         if (type.startsWith('automation:')) return;
+        if (!getEnabledTriggerTypes().has(type)) return;
 
         const rules = getAutomationRules({ enabled: true, triggerType: type });
         for (const rule of rules) {
