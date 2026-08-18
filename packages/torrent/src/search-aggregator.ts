@@ -40,6 +40,9 @@ export async function aggregateSearch(queries: string[], opts: AggregateSearchOp
 
     const seenHashes = new Set<string>();
     const all: AggregatedResult[] = [];
+    // bt4g tags releases with its own coarse categories; dropping doc and
+    // audio only makes sense when the search itself is video-scoped.
+    const videoScoped = categories.some(c => (c >= 2000 && c < 3000) || (c >= 5000 && c < 6000));
 
     for (const { query, jackett, bt4g } of await Promise.all(fetches)) {
         if (jackett instanceof Error) {
@@ -57,7 +60,7 @@ export async function aggregateSearch(queries: string[], opts: AggregateSearchOp
         for (const r of bt4g) {
             if (!r.magnetUri) continue;
             const cat = r.category?.toLowerCase();
-            if (cat === 'doc' || cat === 'audio') continue;
+            if (videoScoped && (cat === 'doc' || cat === 'audio')) continue;
             const hash = extractInfoHash(r.magnetUri) || (r.infoHash ? normalizeInfoHash(r.infoHash) : undefined);
             if (hash && seenHashes.has(hash)) continue;
             if (hash) seenHashes.add(hash);

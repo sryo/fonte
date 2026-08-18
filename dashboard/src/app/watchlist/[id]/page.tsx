@@ -286,6 +286,7 @@ export default function WatchlistDetailPage() {
           <ReleaseGroupList
             results={results}
             wantedQuality={entry.quality}
+            kind={entry.mediaType}
             sortKey={resultSort}
             onAdd={(rid) => handleAddResult(rid)}
             onFeedback={(rid, next) => handleFeedback(rid, next)}

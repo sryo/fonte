@@ -327,3 +327,26 @@ describe('feedback and removal blocking', () => {
         expect(eventsOf(WATCHLIST_EVENTS.MATCH)).toHaveLength(1);
     });
 });
+
+describe('search category scoping', () => {
+    it('passes the entry category to the search', async () => {
+        seedEntry();
+        installManager();
+
+        await runner.runWatchlistCheck();
+
+        expect(aggregateSearch.mock.calls[0][1].categories).toEqual([2000]);
+    });
+
+    it('omits the category filter for category-0 entries', async () => {
+        wdb.insertWatchlistEntry({
+            id: 'wl1', title: 'Show', mediaType: 'other',
+            quality: '', searchQuery: 'Show', category: 0,
+        });
+        installManager();
+
+        await runner.runWatchlistCheck();
+
+        expect(aggregateSearch.mock.calls[0][1].categories).toEqual([]);
+    });
+});

@@ -23,7 +23,8 @@ const CATEGORY_MAP: Record<string, number> = {
     game: 4000,
     book: 7000,
     app: 4000,
-    other: 8000,
+    // 0 = no category filter: Other searches every category.
+    other: 0,
 };
 
 const app = new Hono();
@@ -137,7 +138,7 @@ app.post('/api/search', async (c) => {
 
         const quality = body.quality || '1080p';
         const mediaType = body.mediaType || (body.season != null ? 'tv' : 'movie');
-        const category = CATEGORY_MAP[mediaType] || 2000;
+        const category = CATEGORY_MAP[mediaType] ?? 2000;
 
         const results = await multiSearch(query, body.year, quality, category, body.season);
 
@@ -180,7 +181,7 @@ app.post('/api/watchlist', async (c) => {
 
         const searchQuery = buildSearchQuery(body.title, mediaType, year, quality);
 
-        const category = CATEGORY_MAP[mediaType] || 2000;
+        const category = CATEGORY_MAP[mediaType] ?? 2000;
 
         const id = genId('wl');
         insertWatchlistEntry({
@@ -246,11 +247,18 @@ app.put('/api/watchlist/:id', requireEntry, async (c) => {
         const body = await c.req.json();
         updateWatchlistEntry(id, body);
 
-        const updated = getWatchlistEntry(id)!;
+        let updated = getWatchlistEntry(id)!;
         const searchQuery = buildSearchQuery(updated.title, updated.mediaType, updated.year, updated.quality);
         if (searchQuery !== updated.searchQuery) {
             updateWatchlistEntry(id, { searchQuery });
         }
+        // Normalizing on every edit also migrates entries whose stored
+        // category predates a CATEGORY_MAP change.
+        const expectedCategory = CATEGORY_MAP[updated.mediaType] ?? 2000;
+        if (updated.category !== expectedCategory) {
+            updateWatchlistEntry(id, { category: expectedCategory });
+        }
+        updated = getWatchlistEntry(id)!;
 
         // A changed query or season pattern invalidates prior finds — clear
         // the unselected ones so stale titles don't linger as "new".

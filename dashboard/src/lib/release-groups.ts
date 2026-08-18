@@ -3,6 +3,7 @@
 
 import { sortReleases, type ReleaseSortKey, type ReleaseSortable } from "./release-order";
 import { type Tone } from "./status";
+import type { MediaType } from "./api-types";
 
 export interface GroupableRelease extends ReleaseSortable {
   wasSelected: boolean;
@@ -66,8 +67,12 @@ export function partitionRejectedLast<T extends { feedback: -1 | 0 | 1; autoBloc
 export function groupReleases<T extends GroupableRelease>(
   results: T[],
   sortKey: ReleaseSortKey,
+  kind: MediaType,
 ): GroupedReleases<T> {
   const arrange = (rs: T[]) => partitionRejectedLast(sortReleases(rs, sortKey));
+
+  if (kind === "music") return groupByAlbum(results, arrange);
+  if (kind !== "tv") return { mode: "flat", results: arrange(results) };
 
   const episodes = new Map<string, { season: number; episode: number; results: T[] }>();
   const packs: T[] = [];
@@ -135,4 +140,74 @@ export function seederTone(seeders: number): Tone {
   if (seeders >= 50) return "done";
   if (seeders >= 5) return "warn";
   return "error";
+}
+
+const MUSIC_FORMAT_RE = /\b(FLAC|ALAC|APE|320|V0|V2|MP3|AAC)\b/i;
+const MUSIC_PACK_RE = /\b(discography|collection|complete)\b/i;
+
+function albumCut(title: string): string {
+  return title
+    .replace(/^.{1,60}?\s-\s/, "")
+    .replace(/\s*[([]\s*(19|20)\d{2}\b[\s\S]*$/, "")
+    .replace(/\s*[([][^)\]]*\b(FLAC|ALAC|APE|320|V0|V2|MP3|AAC)\b[\s\S]*$/i, "")
+    .replace(/\s+\b(FLAC|ALAC|APE|320|V0|V2|MP3|AAC|WEB|CD|Vinyl)\b[\s\S]*$/i, "")
+    .trim();
+}
+
+const albumKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+function groupByAlbum<T extends GroupableRelease>(
+  results: T[],
+  arrange: (rs: T[]) => T[],
+): GroupedReleases<T> {
+  const albums = new Map<string, { label: string; results: T[] }>();
+  const packs: T[] = [];
+  const other: T[] = [];
+  for (const r of results) {
+    if (MUSIC_PACK_RE.test(r.title)) {
+      packs.push(r);
+      continue;
+    }
+    const label = albumCut(r.title);
+    const key = albumKey(label);
+    if (!key) {
+      other.push(r);
+      continue;
+    }
+    const bucket = albums.get(key) ?? { label, results: [] };
+    bucket.results.push(r);
+    albums.set(key, bucket);
+  }
+
+  if (albums.size < 2) {
+    return { mode: "flat", results: arrange(results) };
+  }
+
+  const toGroup = (key: string, label: string, rs: T[], pack: boolean): ReleaseGroup<T> => {
+    const downloaded = rs.some((r) => r.wasSelected);
+    return { key, label, downloaded, collapsedByDefault: downloaded || pack, results: arrange(rs) };
+  };
+
+  const groups = [...albums.entries()]
+    .sort(([, a], [, b]) => a.label.localeCompare(b.label))
+    .map(([key, bucket]) => toGroup(key, bucket.label, bucket.results, false));
+  if (packs.length > 0) groups.push(toGroup("packs", "Packs", packs, true));
+  if (other.length > 0) groups.push(toGroup("other", "Other", other, false));
+  return { mode: "grouped", groups };
+}
+
+export function formatTag(title: string, kind: MediaType): string | null {
+  if (kind === "movie" || kind === "tv") return resolutionTag(title);
+  if (kind === "music") {
+    const m = MUSIC_FORMAT_RE.exec(title);
+    return m ? m[1].toUpperCase() : null;
+  }
+  return null;
+}
+
+export function formatMatches(tag: string | null, wantedQuality: string, kind: MediaType): boolean {
+  if (tag === null) return false;
+  if (kind === "movie" || kind === "tv") return resolutionMatches(tag as ResolutionLabel, wantedQuality);
+  if (kind === "music") return tag.toLowerCase() === wantedQuality.trim().toLowerCase();
+  return false;
 }

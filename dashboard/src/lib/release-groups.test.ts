@@ -9,6 +9,8 @@ import {
   resolutionMatches,
   resolutionTag,
   seederTone,
+  formatTag,
+  formatMatches,
   type GroupableRelease,
 } from "./release-groups";
 
@@ -66,6 +68,7 @@ describe("groupReleases", () => {
         release("Some unparsable extra"),
       ],
       "seeders",
+      "tv",
     );
     if (grouped.mode !== "grouped") throw new Error("expected grouped");
     expect(grouped.groups.map((g) => g.label)).toEqual(["S14E04", "S14E03", "Season packs", "Other"]);
@@ -76,6 +79,7 @@ describe("groupReleases", () => {
     const grouped = groupReleases(
       [release("Show S13E09"), release("Show S14E01"), release("Show S13E10")],
       "seeders",
+      "tv",
     );
     if (grouped.mode !== "grouped") throw new Error("expected grouped");
     expect(grouped.groups.map((g) => g.label)).toEqual(["S14E01", "S13E10", "S13E09"]);
@@ -85,6 +89,7 @@ describe("groupReleases", () => {
     const grouped = groupReleases(
       [release("The Furious (2025) 1080p"), release("The Furious (2025) 720p")],
       "seeders",
+      "tv",
     );
     expect(grouped.mode).toBe("flat");
   });
@@ -97,6 +102,7 @@ describe("groupReleases", () => {
         release("Show S14 Complete"),
       ],
       "seeders",
+      "tv",
     );
     if (grouped.mode !== "grouped") throw new Error("expected grouped");
     const [e04, e03, packs] = grouped.groups;
@@ -110,7 +116,7 @@ describe("groupReleases", () => {
     const blocked = release("Show S14E04 B", { seeders: 500, autoBlocked: true });
     const weak = release("Show S14E04 C", { seeders: 5 });
     const other = release("Show S14E03 D");
-    const grouped = groupReleases([weak, blocked, strong, other], "seeders");
+    const grouped = groupReleases([weak, blocked, strong, other], "seeders", "tv");
     if (grouped.mode !== "grouped") throw new Error("expected grouped");
     expect(grouped.groups[0].results.map((r) => r.title)).toEqual([
       "Show S14E04 A",
@@ -160,5 +166,72 @@ describe("seederTone", () => {
     expect(seederTone(49)).toBe("warn");
     expect(seederTone(5)).toBe("warn");
     expect(seederTone(4)).toBe("error");
+  });
+});
+
+describe("formatTag", () => {
+  it("keeps resolution tags for video kinds", () => {
+    expect(formatTag("Show S14E04 1080p WEB", "tv")).toBe("1080p");
+    expect(formatTag("Movie 4K Remux", "movie")).toBe("2160p");
+  });
+
+  it("extracts music formats", () => {
+    expect(formatTag("Radiohead - OK Computer (1997) [FLAC]", "music")).toBe("FLAC");
+    expect(formatTag("Radiohead - OK Computer MP3 320", "music")).toBe("MP3");
+    expect(formatTag("Radiohead - OK Computer (1997)", "music")).toBeNull();
+  });
+
+  it("returns null for other and legacy kinds", () => {
+    expect(formatTag("ubuntu-24.04.1-desktop-amd64.iso", "other")).toBeNull();
+    expect(formatTag("Frankenstein EPUB", "book")).toBeNull();
+  });
+});
+
+describe("formatMatches", () => {
+  it("matches music formats case-insensitively", () => {
+    expect(formatMatches("FLAC", "flac", "music")).toBe(true);
+    expect(formatMatches("320", "FLAC", "music")).toBe(false);
+  });
+
+  it("keeps the video 4K alias", () => {
+    expect(formatMatches("2160p", "4K", "movie")).toBe(true);
+  });
+
+  it("never matches a null tag", () => {
+    expect(formatMatches(null, "1080p", "other")).toBe(false);
+  });
+});
+
+describe("groupReleases by kind", () => {
+  it("groups music by album with packs collapsed", () => {
+    const grouped = groupReleases(
+      [
+        release("Radiohead - OK Computer (1997) [FLAC]"),
+        release("Radiohead - OK Computer (1997) MP3 320"),
+        release("Radiohead - In Rainbows (2007) FLAC"),
+        release("Radiohead Discography 1993-2016 FLAC"),
+      ],
+      "seeders",
+      "music",
+    );
+    if (grouped.mode !== "grouped") throw new Error("expected grouped");
+    expect(grouped.groups.map((g) => g.label)).toEqual(["In Rainbows", "OK Computer", "Packs"]);
+    expect(grouped.groups[1].results).toHaveLength(2);
+    expect(grouped.groups[2].collapsedByDefault).toBe(true);
+  });
+
+  it("falls back to flat for a single album", () => {
+    const grouped = groupReleases(
+      [release("Radiohead - OK Computer (1997) [FLAC]"), release("Radiohead - OK Computer V0")],
+      "seeders",
+      "music",
+    );
+    expect(grouped.mode).toBe("flat");
+  });
+
+  it("keeps movie and other kinds flat even with episode-looking titles", () => {
+    const rows = [release("Show S14E04 1080p"), release("Show S14E03 1080p")];
+    expect(groupReleases(rows, "seeders", "movie").mode).toBe("flat");
+    expect(groupReleases(rows, "seeders", "other").mode).toBe("flat");
   });
 });

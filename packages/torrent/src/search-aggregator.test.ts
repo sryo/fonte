@@ -315,3 +315,32 @@ describe('aggregateSearch info-hash dedup', () => {
         expect(out[0].title).toBe('From Jackett');
     });
 });
+
+describe('bt4g category scoping', () => {
+    const bt4gRow = (category: string) => ({
+        title: 'Nine Inch Nails - Ghosts I-IV FLAC',
+        magnetUri: 'magnet:?xt=urn:btih:aaaabbbbccccddddeeeeffff0000111122223333',
+        size: '743 MB',
+        category,
+    });
+
+    beforeEach(() => {
+        vi.mocked(searchBt4g).mockReset();
+    });
+
+    it('keeps audio results for music and category-less searches', async () => {
+        vi.mocked(searchBt4g).mockResolvedValue([bt4gRow('audio')] as any);
+        const music = await aggregateSearch(['nin'], { categories: [3000] });
+        expect(music).toHaveLength(1);
+
+        vi.mocked(searchBt4g).mockResolvedValue([bt4gRow('audio')] as any);
+        const anyCat = await aggregateSearch(['nin'], { categories: [] });
+        expect(anyCat).toHaveLength(1);
+    });
+
+    it('drops audio and doc results for video-scoped searches', async () => {
+        vi.mocked(searchBt4g).mockResolvedValue([bt4gRow('audio'), bt4gRow('doc')] as any);
+        const video = await aggregateSearch(['show'], { categories: [2000] });
+        expect(video).toHaveLength(0);
+    });
+});

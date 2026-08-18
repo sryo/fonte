@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
+import { Segmented } from "@/components/ui/segmented";
 import {
   Select,
   SelectContent,
@@ -17,13 +18,13 @@ import { type MediaType, type WatchlistRecord } from "@/lib/api";
 
 const MEDIA_TYPES: { value: MediaType; label: string }[] = [
   { value: "movie", label: "Movie" },
-  { value: "tv", label: "TV Show" },
+  { value: "tv", label: "TV" },
   { value: "music", label: "Music" },
-  { value: "game", label: "Game" },
-  { value: "book", label: "Book" },
-  { value: "app", label: "App" },
   { value: "other", label: "Other" },
 ];
+
+// Legacy kinds stay editable on entries that already carry them.
+const LEGACY_LABELS: Partial<Record<MediaType, string>> = { game: "Game", book: "Book", app: "App" };
 
 export interface EditEntryData {
   title: string;
@@ -66,7 +67,7 @@ export function EditEntryModal({
       title: form.title.trim(),
       mediaType: form.mediaType,
       year: form.year ? parseInt(form.year) : null,
-      quality: form.quality,
+      quality: form.mediaType === "other" ? "" : form.quality,
       seasonPattern: form.mediaType === "tv" ? form.seasonPattern.trim() || null : null,
       posterUrl: form.posterUrl.trim() || null,
     });
@@ -86,22 +87,16 @@ export function EditEntryModal({
         </div>
         <div className="flex gap-2">
           <div className="flex-1 space-y-1.5">
-            <Label>Media type</Label>
-            <Select
+            <Label>Kind</Label>
+            <Segmented
               value={form.mediaType}
-              onValueChange={(v) => patch({ mediaType: v as MediaType })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MEDIA_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onChange={(v) => patch({ mediaType: v })}
+              options={
+                LEGACY_LABELS[entry.mediaType]
+                  ? [...MEDIA_TYPES, { value: entry.mediaType, label: LEGACY_LABELS[entry.mediaType]! }]
+                  : MEDIA_TYPES
+              }
+            />
           </div>
           <div className="w-24 space-y-1.5">
             <Label htmlFor="edit-year">{form.mediaType === "tv" ? "First aired" : "Year"}</Label>
@@ -115,21 +110,23 @@ export function EditEntryModal({
             />
           </div>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="edit-quality">Quality</Label>
-          <Input
-            id="edit-quality"
-            value={form.quality}
-            onChange={(e) => patch({ quality: e.target.value })}
-            placeholder={
-              form.mediaType === "music"
-                ? "e.g. FLAC, 320 — empty for any"
-                : form.mediaType === "movie" || form.mediaType === "tv"
-                  ? "e.g. 1080p"
-                  : "e.g. EPUB — empty for any"
-            }
-          />
-        </div>
+        {form.mediaType !== "other" && (
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-quality">Quality</Label>
+            <Input
+              id="edit-quality"
+              value={form.quality}
+              onChange={(e) => patch({ quality: e.target.value })}
+              placeholder={
+                form.mediaType === "music"
+                  ? "e.g. FLAC, 320. Empty for any"
+                  : form.mediaType === "movie" || form.mediaType === "tv"
+                    ? "e.g. 1080p"
+                    : "e.g. EPUB. Empty for any"
+              }
+            />
+          </div>
+        )}
         {form.mediaType === "tv" && (
           <div className="space-y-1.5">
             <Label htmlFor="edit-season">Season</Label>

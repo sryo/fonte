@@ -1,24 +1,26 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { CaretDown, CaretRight, Check, DownloadSimple, ThumbsDown, ThumbsUp } from "@phosphor-icons/react";
-import type { WatchlistResultRecord } from "@/lib/api";
+import { CaretDown, CaretRight, Check, ThumbsDown, ThumbsUp } from "@phosphor-icons/react";
+import type { MediaType, WatchlistResultRecord } from "@/lib/api";
 import { formatBytes, formatShortRelativeTime } from "@/lib/format";
 import {
+  formatMatches,
+  formatTag,
   groupReleases,
-  resolutionMatches,
-  resolutionTag,
   seederTone,
   type ReleaseGroup,
 } from "@/lib/release-groups";
 import type { ReleaseSortKey } from "@/lib/release-order";
-import { TONE_DOT } from "@/lib/status";
+import { TONE_TEXT } from "@/lib/status";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/feedback";
+import { GhostCount } from "@/components/ui/ghost-count";
 
 export function ReleaseGroupList({
   results,
   wantedQuality,
+  kind,
   sortKey,
   onAdd,
   onFeedback,
@@ -26,12 +28,13 @@ export function ReleaseGroupList({
 }: {
   results: WatchlistResultRecord[];
   wantedQuality: string;
+  kind: MediaType;
   sortKey: ReleaseSortKey;
   onAdd: (resultId: number) => Promise<void>;
   onFeedback: (resultId: number, next: "up" | "down" | null) => Promise<void>;
   emptyState?: ReactNode;
 }) {
-  const grouped = useMemo(() => groupReleases(results, sortKey), [results, sortKey]);
+  const grouped = useMemo(() => groupReleases(results, sortKey, kind), [results, sortKey, kind]);
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const [busyKey, setBusyKey] = useState<number | null>(null);
   const [rowError, setRowError] = useState<{ key: number; message: string } | null>(null);
@@ -51,7 +54,7 @@ export function ReleaseGroupList({
   };
 
   const row = (r: WatchlistResultRecord) => {
-    const tag = resolutionTag(r.title);
+    const tag = formatTag(r.title, kind);
     const blocked = r.feedback === -1 || r.autoBlocked;
     const busy = busyKey === r.id;
     const vote = (dir: "up" | "down") => {
@@ -66,10 +69,10 @@ export function ReleaseGroupList({
             "rounded p-1 transition-all focus-visible:opacity-100 group-hover:opacity-100",
             active
               ? cn("opacity-100", dir === "up" ? "text-done" : "text-destructive")
-              : "opacity-0 text-muted-foreground hover:text-foreground",
+              : "opacity-0 text-foreground group-hover:opacity-50 hover:opacity-100",
           )}
         >
-          <Icon className="size-3.5" weight={active ? "fill" : "regular"} />
+          <Icon className="size-4.5" weight={active ? "fill" : "regular"} />
         </button>
       );
     };
@@ -81,16 +84,18 @@ export function ReleaseGroupList({
           blocked && "opacity-55",
         )}
       >
-        <span
-          className={cn(
-            "w-11 shrink-0 rounded px-1 py-0.5 text-center text-[11px] font-semibold tabular-nums",
-            resolutionMatches(tag, wantedQuality)
-              ? "bg-done/15 text-done"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          {tag}
-        </span>
+        {tag && (
+          <span
+            className={cn(
+              "w-11 shrink-0 text-center text-[11px] tabular-nums",
+              formatMatches(tag, wantedQuality, kind)
+                ? "font-extrabold text-foreground"
+                : "font-bold text-ghost-dim",
+            )}
+          >
+            {tag}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium" title={r.indexer ? `${r.title} · ${r.indexer}` : r.title}>
             {r.title}
@@ -109,17 +114,15 @@ export function ReleaseGroupList({
             </span>
           ) : (
             <button
-              title="Download"
               disabled={busyKey !== null}
               onClick={() => run(r.id, () => onAdd(r.id))}
-              className="rounded p-1 text-muted-foreground opacity-0 transition-all hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+              className="ml-1 flex h-6 items-center rounded-full bg-foreground px-2.5 text-xs font-extrabold text-background transition-opacity hover:opacity-85 disabled:opacity-40"
             >
-              {busy ? <Spinner size="xs" /> : <DownloadSimple className="size-3.5" />}
+              {busy ? <Spinner size="xs" /> : "Get"}
             </button>
           )}
         </div>
-        <span className="flex w-14 shrink-0 items-center justify-end gap-1 text-xs tabular-nums">
-          <span className={cn("size-1.5 rounded-full", TONE_DOT[seederTone(r.seeders)])} />
+        <span className={cn("w-14 shrink-0 text-right text-xs font-extrabold tabular-nums", TONE_TEXT[seederTone(r.seeders)])}>
           {r.seeders}
         </span>
         <span className="w-17 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
@@ -145,12 +148,10 @@ export function ReleaseGroupList({
       <span className="text-muted-foreground">
         {expanded ? <CaretDown className="size-3" /> : <CaretRight className="size-3" />}
       </span>
-      <span className="text-xs font-semibold">{g.label}</span>
-      <span className="text-2xs text-muted-foreground tabular-nums">{g.results.length} {g.results.length === 1 ? "release" : "releases"}</span>
+      <span className="text-base font-black">{g.label}</span>
+      <GhostCount count={g.results.length} className="text-base" />
       {g.downloaded && (
-        <span className="flex items-center gap-1 rounded-full bg-done/15 px-1.5 py-px text-[11px] font-medium text-done">
-          <Check className="size-3" /> Downloaded
-        </span>
+        <span className="text-xs font-extrabold text-done">Downloaded</span>
       )}
     </button>
   );

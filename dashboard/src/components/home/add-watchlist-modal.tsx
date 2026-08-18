@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Modal } from "@/components/ui/modal";
+import { Segmented } from "@/components/ui/segmented";
 import {
   Select,
   SelectContent,
@@ -14,34 +15,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// Only optimized-for kinds get a segment; everything else is Other, which
+// searches every category and matches on the title alone.
 const MEDIA_TYPES: { value: MediaType; label: string }[] = [
   { value: "movie", label: "Movie" },
-  { value: "tv", label: "TV Show" },
+  { value: "tv", label: "TV" },
   { value: "music", label: "Music" },
-  { value: "game", label: "Game" },
-  { value: "book", label: "Book" },
-  { value: "app", label: "App" },
   { value: "other", label: "Other" },
 ];
 
 // Per-type quality vocabulary; "any" maps to an empty quality (no filter).
-const QUALITY_OPTIONS: Record<MediaType, string[]> = {
+const QUALITY_OPTIONS: Partial<Record<MediaType, string[]>> = {
   movie: ["720p", "1080p", "4K"],
   tv: ["720p", "1080p", "4K"],
   music: ["FLAC", "320", "V0", "any"],
-  game: ["any"],
-  book: ["EPUB", "PDF", "any"],
-  app: ["any"],
-  other: ["any"],
 };
-const DEFAULT_QUALITY: Record<MediaType, string> = {
+const DEFAULT_QUALITY: Partial<Record<MediaType, string>> = {
   movie: "1080p",
   tv: "1080p",
   music: "FLAC",
-  game: "any",
-  book: "EPUB",
-  app: "any",
-  other: "any",
 };
 
 export function AddWatchlistModal({ open, onClose, onAdded }: {
@@ -85,24 +77,12 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
           onChange={(e) => setWlForm({ ...wlForm, title: e.target.value })}
           autoFocus
         />
+        <Segmented
+          value={wlForm.mediaType}
+          onChange={(v) => setWlForm({ ...wlForm, mediaType: v, quality: DEFAULT_QUALITY[v] ?? "" })}
+          options={MEDIA_TYPES}
+        />
         <div className="grid grid-cols-2 gap-3">
-          <Select
-            value={wlForm.mediaType}
-            onValueChange={(v) =>
-              setWlForm({ ...wlForm, mediaType: v as MediaType, quality: DEFAULT_QUALITY[v as MediaType] })
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MEDIA_TYPES.map((t) => (
-                <SelectItem key={t.value} value={t.value}>
-                  {t.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Input
             placeholder={isTv ? "First aired (optional)" : "Year"}
             title={isTv ? "Only used to find the right poster" : undefined}
@@ -123,21 +103,23 @@ export function AddWatchlistModal({ open, onClose, onAdded }: {
             </p>
           </div>
         )}
-        <Select
-          value={wlForm.quality}
-          onValueChange={(v) => setWlForm({ ...wlForm, quality: v })}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {QUALITY_OPTIONS[wlForm.mediaType].map((q) => (
-              <SelectItem key={q} value={q}>
-                {q === "any" ? "Any quality" : q}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {QUALITY_OPTIONS[wlForm.mediaType] && (
+          <Select
+            value={wlForm.quality}
+            onValueChange={(v) => setWlForm({ ...wlForm, quality: v })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {QUALITY_OPTIONS[wlForm.mediaType]!.map((q) => (
+                <SelectItem key={q} value={q}>
+                  {q === "any" ? "Any quality" : q}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onClose} className="text-muted-foreground">

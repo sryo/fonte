@@ -68,7 +68,7 @@ export async function runWatchlistCheck(): Promise<void> {
     for (const entry of entries) {
         try {
             const results = await aggregateSearch([entry.searchQuery], {
-                categories: [entry.category],
+                categories: entry.category ? [entry.category] : [],
                 jackettUrl,
                 apiKey,
                 jackettErrors: 'throw',
