@@ -127,8 +127,11 @@
   --ring: #d4d4d4;
 }
 
-* {
-  border-color: var(--border);
+/* Must stay in @layer base: unlayered, it outranks every border-color utility. */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 }
 
 body {
@@ -417,8 +420,6 @@ body {
   -webkit-mask-composite: xor;
           mask-composite: exclude;
 }
-/* The shine rides its own layer so it can be masked to the fill independently
-   of the progress arc. The parent's xor mask still clips it to the band. */
 .progress-ring::after {
   content: "";
   position: absolute;
@@ -431,8 +432,6 @@ body {
     var(--ring-shine) var(--shine-tail),
     transparent calc(var(--shine-tail) + 4deg)
   );
-  /* The shine only travels the filled arc — like the bar, whose shine lives
-     inside the fill. Indeterminate lifts this to sweep the whole ring. */
   -webkit-mask: conic-gradient(
     #fff 0,
     #fff calc(var(--progress) * 1turn),
@@ -484,9 +483,6 @@ body {
   --ring-inset: 0px;
   border-radius: calc(var(--radius-md) - var(--ring-inset));
 }
-/* Uninterrupted rotation — the rest comes from the fill mask, which keeps the
-   comet dark while it crosses the unfilled arc. A keyframe hold would instead
-   park it lit at the origin, since 360deg lands back inside the fill. */
 @keyframes progress-ring-shine {
   to { --shine-angle: 360deg; }
 }
