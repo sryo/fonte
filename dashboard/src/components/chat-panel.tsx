@@ -146,7 +146,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
           }}
         >
         <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
-          <Dialog.Title className="text-sm font-semibold">Fonte Agent</Dialog.Title>
+          <Dialog.Title className="text-2xl font-black tracking-tight">Fonte Agent</Dialog.Title>
           <button
             type="button"
             onClick={onClose}
@@ -195,16 +195,16 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
                     onClick={() => startEditing(msg)}
                     aria-label="Edit and rerun"
                     title="Edit and rerun"
-                    className="mb-1 rounded p-1 text-muted-foreground opacity-0 transition-all hover:text-foreground focus-visible:opacity-100 group-hover/bubble:opacity-100"
+                    className="mb-1 rounded p-1 text-foreground opacity-0 transition-all group-hover/bubble:opacity-50 hover:opacity-100 focus-visible:opacity-100"
                   >
-                    <PencilSimple className="h-3.5 w-3.5" />
+                    <PencilSimple className="size-4" />
                   </button>
                 )}
                 <div
                   className={cn(
                     "px-3 py-2 text-sm max-w-[80%] break-words",
                     msg.role === "user"
-                      ? "bg-muted rounded-xl rounded-br-sm whitespace-pre-wrap"
+                      ? "bg-muted font-medium rounded-xl rounded-br-sm whitespace-pre-wrap"
                       : "bg-card border rounded-xl rounded-bl-sm prose prose-sm dark:prose-invert max-w-none",
                     editingRowId === msg.id && "ring-2 ring-ring/50"
                   )}
@@ -220,14 +220,16 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
 
         <div className="border-t shrink-0">
           {run && (
-            <div className="flex items-center gap-2 px-4 pt-2 text-xs">
-              <span className="shimmer-text" data-text="Working…">Working…</span>
-              <Elapsed since={run.startedAt} />
+            <div className="flex items-baseline gap-2.5 px-4 pt-2 text-xs">
+              <span className="shimmer-text font-extrabold" data-text="Working…">Working…</span>
+              <span className="font-black text-ghost tabular-nums">
+                <Elapsed since={run.startedAt} />
+              </span>
             </div>
           )}
           {editingRowId != null && (
             <div className="flex items-center justify-between px-4 pt-2 text-xs text-muted-foreground">
-              <span>Editing — reruns from here</span>
+              <span>Editing. Reruns from here</span>
               <button
                 type="button"
                 onClick={cancelEditing}
@@ -244,7 +246,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
               isLoading={sending}
               onSubmit={handleSend}
               disabled={sending}
-              className="flex items-end gap-1"
+              className="flex items-end gap-2 border-0 bg-muted shadow-none p-1.5 pl-3.5"
             >
               <PromptInputTextarea
                 ref={inputRef}
@@ -264,7 +266,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
                   <Button
                     variant="default"
                     size="icon"
-                    className="h-8 w-8 rounded-full"
+                    className="h-9 w-9 rounded-full"
                     disabled={stopMode ? stopping : !input.trim() || sending}
                     onClick={stopMode ? stop : handleSend}
                   >

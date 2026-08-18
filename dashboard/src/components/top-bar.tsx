@@ -14,7 +14,6 @@ import {
   Robot,
   MagnifyingGlass,
   PaperPlaneTilt,
-  Plus,
   Check,
   SpinnerGap,
 } from "@phosphor-icons/react";
@@ -231,7 +230,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         <span
           ref={navIndicatorRef}
           aria-hidden
-          className="absolute left-0 top-0 rounded-md bg-primary/10 opacity-0 transition-[transform,width,height] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
+          className="absolute left-0 top-0 rounded-[10px] bg-foreground opacity-0 transition-[transform,width,height] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
         />
         <TooltipProvider>
           {NAV_ITEMS.map(({ href, label, icon: Icon, seq }) => {
@@ -245,9 +244,9 @@ export function TopBar({ onOpenChat }: TopBarProps) {
                     data-indicator-key={href}
                     aria-label={label}
                     className={cn(
-                      "relative h-9 w-9 rounded-md flex items-center justify-center transition-colors",
+                      "relative h-10 w-10 rounded-[10px] flex items-center justify-center transition-colors",
                       active
-                        ? "bg-primary/10 text-foreground group-data-[sliding]/nav:bg-transparent"
+                        ? "bg-foreground text-background group-data-[sliding]/nav:bg-transparent"
                         : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     )}
                   >
@@ -269,12 +268,12 @@ export function TopBar({ onOpenChat }: TopBarProps) {
       </nav>
 
       <div className="flex-1 relative" ref={searchWrapperRef}>
-        <div className="flex items-center gap-2 rounded-md border bg-background h-9 px-3 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all">
+        <div className="flex items-center gap-2.5 rounded-xl bg-muted h-11 px-3.5 focus-within:ring-2 focus-within:ring-ring/30 transition-all">
           <IconSwap
             active={loading ? "spinner" : "search"}
             className="shrink-0"
             icons={{
-              search: <MagnifyingGlass className="h-[18px] w-[18px] text-muted-foreground" weight="bold" />,
+              search: <MagnifyingGlass className="h-[18px] w-[18px]" weight="bold" />,
               spinner: <SpinnerGap className="h-[18px] w-[18px] text-muted-foreground animate-spin" />,
             }}
           />
@@ -313,7 +312,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
             }}
             placeholder="Search, paste a magnet link, or ask anything…"
             disabled={loading}
-            className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground disabled:opacity-60"
+            className="flex-1 bg-transparent border-none outline-none text-sm font-medium placeholder:text-muted-foreground disabled:opacity-60"
           />
 
           {/* Shortcut hint — swaps for the submit button once there's input */}
@@ -325,7 +324,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 shrink-0"
+              className="flex items-center justify-center h-8 w-8 rounded-full bg-foreground text-background transition-opacity hover:opacity-85 disabled:opacity-50 shrink-0"
               aria-label="Submit"
             >
               <PaperPlaneTilt className="h-4 w-4" />
@@ -349,7 +348,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
             )}
             {jumpOpen && jumpMatches.length > 0 && (
               <div className="border-b last:border-b-0">
-                <p className="px-4 pt-2 pb-1 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+                <p className="px-4 pt-2 pb-1 text-xs font-extrabold text-muted-foreground">
                   Jump to
                 </p>
                 {jumpMatches.map((item, idx) => (
@@ -377,8 +376,8 @@ export function TopBar({ onOpenChat }: TopBarProps) {
                   <MiddleTruncate text={result.title} className="text-sm font-medium" />
                   <div className="flex items-center gap-2 mt-0.5">
                     {result.seeders !== undefined && (
-                      <span className="inline-flex items-center rounded-full bg-done/10 px-2 py-0.5 text-xs font-medium text-done">
-                        {result.seeders} seeders
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        <span className="font-extrabold text-done">{result.seeders}</span> seeders
                       </span>
                     )}
                     {result.size !== undefined && result.size > 0 && (
@@ -391,11 +390,10 @@ export function TopBar({ onOpenChat }: TopBarProps) {
 
                 <button
                   onClick={() => handleAddResult(result)}
-                  className="flex items-center gap-1.5 shrink-0 rounded-md bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium hover:bg-primary/20 transition-colors"
-                  aria-label={`Add ${result.title}`}
+                  className="flex h-6 shrink-0 items-center rounded-full bg-foreground px-2.5 text-xs font-extrabold text-background transition-opacity hover:opacity-85"
+                  aria-label={`Get ${result.title}`}
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add
+                  Get
                 </button>
               </div>
             ))}
@@ -408,7 +406,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
           onClick={() =>
             setTheme(resolvedTheme === "dark" ? "light" : "dark")
           }
-          className="h-9 w-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="h-10 w-10 rounded-[10px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label={
             mounted && resolvedTheme === "dark" ? "Light mode" : "Dark mode"
           }
@@ -422,7 +420,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
 
         <button
           onClick={onOpenChat}
-          className="h-9 w-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="h-10 w-10 rounded-[10px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label="Open chat"
         >
           <Robot className="h-[18px] w-[18px]" weight="bold" />
