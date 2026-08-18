@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fonte - A Torrent Client Run by Agents</title>
+  <meta name="description" content="Say what you want. The agents search, rank, download, subtitle and file it.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f5;
+      --text-primary: #222;
+      --text-secondary: #666;
+      --accent: #4285F4;
+      --border: #e0e0e0;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1e1e1e;
+        --bg-secondary: #2a2a2a;
+        --text-primary: #f0f0f0;
+        --text-secondary: #a0a0a0;
+        --border: #3a3a3a;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    .container { max-width: 720px; margin: 0 auto; padding: 0 1.5rem; }
+
+    /* Hero */
+    .hero { padding: 140px 2rem 40px; text-align: center; }
+    .hero h1 {
+      font-size: 3.5rem;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      animation: fadeInUp 0.8s ease;
+    }
+    .hero h2 {
+      font-size: 1.35rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 1.5rem;
+      line-height: 1.7;
+    }
+    .hero__cta a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+    .hero__cta a:hover { text-decoration: underline; }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Demo: say what you want, watch the agents work. */
+    .chat {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg-secondary);
+      padding: 16px;
+      margin: 3rem 0 1rem;
+      min-height: 330px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .msg {
+      align-self: flex-end;
+      background: var(--accent);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 16px 16px 4px 16px;
+      font-size: 0.92rem;
+      max-width: 80%;
+    }
+
+    .work { display: flex; flex-direction: column; gap: 7px; }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      font-size: 0.88rem;
+      opacity: 0;
+      transform: translateY(4px);
+      animation: rise 0.35s ease forwards;
+    }
+    @keyframes rise { to { opacity: 1; transform: none; } }
+
+    .step .tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      border-radius: 999px;
+      padding: 1px 8px;
+      flex: none;
+      margin-top: 2px;
+    }
+    .step .said { color: var(--text-secondary); }
+    .step .said b { color: var(--text-primary); font-weight: 500; }
+
+    .step code {
+      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      font-size: 0.85em;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+
+    .asks { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 2rem; }
+    .ask {
+      font: inherit;
+      font-size: 0.85rem;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 13px;
+      cursor: pointer;
+    }
+    .ask:hover { border-color: var(--accent); color: var(--accent); }
+
+    section { padding: 20px 0; }
+    h2.section { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; }
+    section p { color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.8rem; }
+    section a { color: var(--accent); text-decoration: none; }
+    section a:hover { text-decoration: underline; }
+
+    pre {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      font-size: 0.85rem;
+      line-height: 1.55;
+    }
+
+    /* FAQ */
+    .faq-section { max-width: 640px; margin: 0 auto; padding: 40px 24px 60px; }
+    .faq-section h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem; }
+    details { background: var(--bg-primary); border-bottom: 1px solid var(--border); }
+    details:first-of-type { border-top: 1px solid var(--border); }
+    summary {
+      padding: 16px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after {
+      content: '+';
+      font-size: 1.25rem;
+      font-weight: 400;
+      color: var(--text-secondary);
+    }
+    details[open] summary::after { content: '−'; }
+    details p {
+      padding: 0 16px 16px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0;
+    }
+    details code {
+      background: var(--bg-secondary);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.9em;
+      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    }
+
+    /* Footer */
+    .footer { padding: 40px 2rem; text-align: center; }
+    .footer__bottom {
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    @media (max-width: 600px) {
+      .hero { padding: 80px 1.5rem 30px; }
+      .hero h1 { font-size: 2.5rem; }
+      .hero h2 { font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <section class="hero">
+    <h1>Fonte</h1>
+    <h2>A torrent client run by agents</h2>
+    <p class="hero__cta"><a href="https://github.com/sryo/fonte">View on GitHub</a></p>
+  </section>
+
+  <div class="container">
+    <div class="chat" id="chat"></div>
+    <div class="asks" id="asks"></div>
+
+    <section>
+      <h2 class="section">Install</h2>
+      <pre>git clone https://github.com/sryo/fonte
+cd fonte && ./install-app.sh</pre>
+    </section>
+  </div>
+
+  <section class="faq-section">
+    <h2>FAQ</h2>
+
+    <details>
+      <summary>What's actually downloading?</summary>
+      <p>
+        Transmission moves the bytes and Jackett aggregates your indexers. Fonte is the part
+        that decides what to fetch and where it goes.
+      </p>
+    </details>
+
+    <details>
+      <summary>What if it isn't out yet?</summary>
+      <p>
+        It goes on the watchlist, which checks your indexers on an interval and grabs a
+        release when one turns up at the quality you asked for.
+      </p>
+    </details>
+
+    <details>
+      <summary>Can I automate it?</summary>
+      <p>
+        Automations are rules: pick when they fire, when a torrent finishes or errors or
+        stalls, when the watchlist finds a match, or on a schedule, then write what the agent
+        should do about it in a sentence.
+      </p>
+    </details>
+
+    <details>
+      <summary>Do I have to talk to it?</summary>
+      <p>
+        No. Click a magnet link or open a <code>.torrent</code> and it lands in Fonte like any
+        other client. The chat is there for when describing what you want is faster than
+        going to find it.
+      </p>
+    </details>
+
+    <details>
+      <summary>Can I use it from my phone?</summary>
+      <p>
+        It talks over WhatsApp, so you can ask from anywhere and it answers in the thread.
+        Pairing is a QR scan, like WhatsApp Web.
+      </p>
+    </details>
+
+    <details>
+      <summary>What do I need to run it?</summary>
+      <p>A Mac. The installer brings the rest.</p>
+    </details>
+
+    <details>
+      <summary>Is it free?</summary>
+      <p>Yes, open source and free to use.</p>
+    </details>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__bottom">© 2026 sryo</div>
+    </div>
+  </footer>
+
+  <script>
+    // Each ask replays the agents named in the README: search, watch, retry,
+    // subtitle, organize, notify.
+    const ASKS = [
+      {
+        say: 'Night of the Living Dead in 4K',
+        steps: [
+          ['search', 'Jackett and DHT in parallel, <b>12 releases</b>, deduped by info hash'],
+          ['search', 'ranked by seeders and quality, took the <b>2160p</b> restoration'],
+          ['queue', 'downloading, <b>18 MB/s</b>'],
+          ['subtitle', 'grabbed the Spanish track from OpenSubtitles'],
+          ['organize', 'renamed and filed'],
+        ],
+        done: 'Movies/Night of the Living Dead (1968)/NightOfTheLivingDead.1968.2160p.mkv',
+      },
+      {
+        say: 'that silent vampire movie',
+        steps: [
+          ['search', 'read that as <b>Nosferatu (1922)</b>'],
+          ['search', '<b>9 releases</b>, best seeded is the restored 1080p'],
+          ['queue', 'downloading'],
+          ['organize', 'filed under Movies'],
+        ],
+        done: 'Movies/Nosferatu (1922)/Nosferatu.1922.1080p.mkv',
+      },
+      {
+        say: 'tell me if a 4K Metropolis shows up',
+        steps: [
+          ['watch', 'nothing above 1080p out there yet, added to the watchlist'],
+          ['watch', 'checking the indexers on a schedule'],
+        ],
+        done: 'watchlist: Metropolis (1927) 2160p — waiting',
+      },
+      {
+        say: 'why is The General stuck?',
+        steps: [
+          ['retry', 'that release stalled at <b>3%</b> for 20 minutes, 1 seeder left'],
+          ['retry', 'switched to the next ranked release'],
+          ['queue', 'moving again, <b>44 MB/s</b>'],
+        ],
+        done: 'Movies/The General (1926)/ — 12% and climbing',
+      },
+    ];
+
+    const chat = document.getElementById('chat');
+    const asks = document.getElementById('asks');
+    let timers = [];
+
+    function play(ask) {
+      timers.forEach(clearTimeout);
+      timers = [];
+      chat.innerHTML = `<div class="msg">${ask.say}</div><div class="work"></div>`;
+      const work = chat.querySelector('.work');
+      ask.steps.forEach((step, i) => {
+        timers.push(setTimeout(() => {
+          const row = document.createElement('div');
+          row.className = 'step';
+          row.innerHTML = `<span class="tag">${step[0]}</span><span class="said">${step[1]}</span>`;
+          work.appendChild(row);
+        }, 380 * (i + 1)));
+      });
+      timers.push(setTimeout(() => {
+        const row = document.createElement('div');
+        row.className = 'step';
+        row.innerHTML = `<span class="tag">notify</span>
+          <span class="said"><code>${ask.done}</code></span>`;
+        work.appendChild(row);
+      }, 380 * (ask.steps.length + 1)));
+    }
+
+    asks.innerHTML = ASKS.map((a, i) => `<button class="ask" data-i="${i}">${a.say}</button>`).join('');
+    asks.querySelectorAll('.ask').forEach((b) => {
+      b.addEventListener('click', () => play(ASKS[+b.dataset.i]));
+    });
+
+    play(ASKS[0]);
+  </script>
+</body>
+</html>
