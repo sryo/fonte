@@ -8,6 +8,15 @@
   box-shadow: var(--shadow-card);
 }
 
+/* Ghost ink: counts, zero-valued stats, initials, etas. Dim variant for
+   functional columns where 22% is illegibly faint. */
+@utility text-ghost {
+  color: color-mix(in oklab, var(--foreground) 22%, transparent);
+}
+@utility text-ghost-dim {
+  color: color-mix(in oklab, var(--foreground) 35%, transparent);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -28,7 +37,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
   --radius-sm: 6px;
   --radius-md: 8px;

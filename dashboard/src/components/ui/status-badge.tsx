@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { statusTone, TONE_BADGE } from "@/lib/status";
+import { statusTone, TONE_TEXT } from "@/lib/status";
 
 export function StatusBadge({
   status,
@@ -17,9 +17,9 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "font-medium rounded-md capitalize",
-        size === "xs" ? "text-2xs px-1.5 py-0.5" : "text-xs px-2 py-0.5",
-        TONE_BADGE[statusTone(status)],
+        "font-extrabold capitalize",
+        size === "xs" ? "text-2xs" : "text-xs",
+        TONE_TEXT[statusTone(status)],
         className
       )}
     >
