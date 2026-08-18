@@ -188,26 +188,26 @@ describe('watchlist auto-add duplicate handling', () => {
     });
 });
 
+// Echoes the added magnet's own hash back, so tests can add releases with
+// different hashes without colliding on installManager's fixed HEX.
+function installEchoManager() {
+    const manager = TM.createTorrentManager();
+    (manager as any).rpc = {
+        call: async (method: string, args: any) => {
+            if (method === 'torrent-add') {
+                const hash = /btih:([a-fA-F0-9]{40})/.exec(args.filename)?.[1] ?? HEX;
+                return { 'torrent-added': { id: 7, hashString: hash, name: 'Show Release' } };
+            }
+            if (method === 'torrent-get') return { torrents: [] };
+            return {};
+        },
+    };
+    return manager;
+}
+
 describe('ongoing-watch fall-through', () => {
     const HEX2 = '0123456789abcdef0123456789abcdef01234567';
     const MAGNET2 = `magnet:?xt=urn:btih:${HEX2}&dn=Show+S01E05+1080p`;
-
-    // Echoes the added magnet's own hash back, so tests can add releases with
-    // different hashes without colliding on installManager's fixed HEX.
-    function installEchoManager() {
-        const manager = TM.createTorrentManager();
-        (manager as any).rpc = {
-            call: async (method: string, args: any) => {
-                if (method === 'torrent-add') {
-                    const hash = /btih:([a-fA-F0-9]{40})/.exec(args.filename)?.[1] ?? HEX;
-                    return { 'torrent-added': { id: 7, hashString: hash, name: 'Show Release' } };
-                }
-                if (method === 'torrent-get') return { torrents: [] };
-                return {};
-            },
-        };
-        return manager;
-    }
 
     it('an ongoing watch falls through a tracked top release to the next episode', async () => {
         wdb.insertWatchlistEntry({
@@ -243,5 +243,87 @@ describe('ongoing-watch fall-through', () => {
 
         expect(db.getTorrentByHash(HEX2)).toBeUndefined();
         expect(eventsOf(WATCHLIST_EVENTS.MATCH)).toHaveLength(0);
+    });
+});
+
+describe('feedback and removal blocking', () => {
+    function seedResult(magnetUri: string, title = 'Show S01 1080p WEB-DL'): number {
+        return wdb.insertWatchlistResult({
+            watchlistId: 'wl1', title, magnetUri,
+            seeders: 12, leechers: 3, size: 5_000_000_000, qualityMatch: 1,
+        }).id;
+    }
+
+    it('never auto-adds a downvoted release', async () => {
+        seedEntry();
+        wdb.setResultFeedback(seedResult(MAGNET), -1);
+        aggregateSearch.mockResolvedValue([searchResult()]);
+        const manager = installManager();
+        const addSpy = vi.spyOn(manager, 'addTorrent');
+
+        await runner.runWatchlistCheck();
+
+        expect(addSpy).not.toHaveBeenCalled();
+        expect(db.getTorrentByHash(HEX)).toBeUndefined();
+        expect(eventsOf(WATCHLIST_EVENTS.MATCH)).toHaveLength(0);
+        expect(wdb.getWatchlistEntry('wl1')?.status).toBe('watching');
+    });
+
+    it('blocks by magnet URI when the hash is unparseable', async () => {
+        const rawMagnet = 'magnet:?xt=urn:btih:aaa&dn=Show+S01+1080p';
+        seedEntry();
+        wdb.setResultFeedback(seedResult(rawMagnet), -1);
+        aggregateSearch.mockResolvedValue([{ ...searchResult(), magnetUri: rawMagnet }]);
+        const manager = installManager();
+        const addSpy = vi.spyOn(manager, 'addTorrent');
+
+        await runner.runWatchlistCheck();
+
+        expect(addSpy).not.toHaveBeenCalled();
+        expect(eventsOf(WATCHLIST_EVENTS.MATCH)).toHaveLength(0);
+    });
+
+    it('does not re-add a release the user removed', async () => {
+        seedEntry();
+        aggregateSearch.mockResolvedValue([searchResult()]);
+        const manager = installManager();
+
+        await runner.runWatchlistCheck();
+        const added = db.getTorrentByHash(HEX);
+        expect(added?.status).toBe('downloading');
+
+        await manager.removeTorrent(added!.id);
+        expect(db.getTorrentByHash(HEX)?.status).toBe('removed');
+        wdb.updateWatchlistEntry('wl1', { status: 'watching' });
+        const addSpy = vi.spyOn(manager, 'addTorrent');
+
+        await runner.runWatchlistCheck();
+
+        expect(addSpy).not.toHaveBeenCalled();
+        expect(db.getTorrentByHash(HEX)?.status).toBe('removed');
+        expect(eventsOf(WATCHLIST_EVENTS.MATCH)).toHaveLength(1);
+    });
+
+    it('affinity steers the pick away from downvoted traits', async () => {
+        const HEX2 = '0123456789abcdef0123456789abcdef01234567';
+        const MAGNET2 = `magnet:?xt=urn:btih:${HEX2}&dn=Show+1080p`;
+        const HEX3 = 'aaaabbbbccccddddeeeeffff0000111122223333';
+
+        seedEntry();
+        wdb.setResultFeedback(
+            seedResult(`magnet:?xt=urn:btih:${HEX3}&dn=Show`, 'Show 1080p WEBRip AV1 CHINESE-AnimeLand'), -1);
+        // Without affinity the 50-seeder sibling of the downvoted release
+        // outranks the clean 10-seeder one and would be the auto-add pick.
+        aggregateSearch.mockResolvedValue([
+            { ...searchResult(), title: 'Show 1080p WEBRip AV1 CHINESE-AnimeLand', magnetUri: MAGNET2, seeders: 50 },
+            { ...searchResult(), title: 'Show 1080p WEB-DL x265-Good', magnetUri: MAGNET, seeders: 10 },
+        ]);
+        installEchoManager();
+
+        await runner.runWatchlistCheck();
+
+        expect(db.getTorrentByHash(HEX)?.status).toBe('downloading');
+        expect(db.getTorrentByHash(HEX2)).toBeUndefined();
+        expect(eventsOf(WATCHLIST_EVENTS.MATCH)).toHaveLength(1);
     });
 });

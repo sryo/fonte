@@ -142,6 +142,36 @@ describe('computeScore / rankResults', () => {
         ], '1080p');
         expect(ranked[0].title).toBe('X 1080p');
     });
+
+    it('scores identically without an affinity argument', () => {
+        const r = { title: 'X 1080p', seeders: 50 };
+        expect(computeScore(r, '1080p', undefined)).toBe(computeScore(r, '1080p'));
+    });
+
+    it('reorders equal-quality equal-seeder results by affinity', () => {
+        const affinity = (title: string) => (title.includes('WEB-DL') ? 0.5 : -0.5);
+        const ranked = rankResults([
+            { title: 'X 1080p WEBRip', seeders: 50 },
+            { title: 'X 1080p WEB-DL', seeders: 50 },
+        ], '1080p', affinity);
+        expect(ranked[0].title).toBe('X 1080p WEB-DL');
+    });
+
+    it('a liked wrong-tier release cannot beat a neutral right-tier one', () => {
+        const ranked = rankResults([
+            { title: 'X 720p', seeders: 50 },
+            { title: 'X 1080p', seeders: 50 },
+        ], '1080p', (title) => (title.includes('720p') ? 1 : 0));
+        expect(ranked[0].title).toBe('X 1080p');
+    });
+
+    it('a fully disliked right-tier release loses to a liked adjacent one', () => {
+        const ranked = rankResults([
+            { title: 'X 720p', seeders: 50 },
+            { title: 'X 1080p', seeders: 50 },
+        ], '1080p', (title) => (title.includes('720p') ? 1 : -1));
+        expect(ranked[0].title).toBe('X 720p');
+    });
 });
 
 describe('sortBySeedersThenSize', () => {

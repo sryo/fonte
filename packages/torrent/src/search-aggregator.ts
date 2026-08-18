@@ -159,23 +159,27 @@ export function sortBySeedersThenSize<T extends { seeders?: number; size?: numbe
 // ── Quality Ranking ───────────────────────────────────────────────────────────
 
 export function rankResults<T extends { title: string; seeders: number; publishDate?: number; size?: number }>(
-    results: T[], preferredQuality: string): T[] {
+    results: T[], preferredQuality: string, affinity?: (title: string) => number): T[] {
     return [...results].sort((a, b) => {
-        const scoreA = computeScore(a, preferredQuality);
-        const scoreB = computeScore(b, preferredQuality);
+        const scoreA = computeScore(a, preferredQuality, affinity);
+        const scoreB = computeScore(b, preferredQuality, affinity);
         return (scoreB - scoreA)
             || (b.seeders - a.seeders)
             || ((b.size || 0) - (a.size || 0));
     });
 }
 
-export function computeScore(r: { title: string; seeders: number; publishDate?: number }, preferredQuality: string): number {
+// The 0.25 affinity coefficient keeps a one-sided taste signal (±0.25)
+// below the 0.3 quality gap between exact and adjacent tiers: a liked
+// wrong-tier release never beats a neutral right-tier one. Only when the
+// right-tier candidate is itself fully disliked can taste flip the tiers.
+export function computeScore(r: { title: string; seeders: number; publishDate?: number }, preferredQuality: string, affinity?: (title: string) => number): number {
     const qm = computeQualityMatch(r.title, preferredQuality);
     const seederScore = Math.min(r.seeders, 100) / 100;
     const recencyScore = r.publishDate
         ? Math.max(0, 1 - (Date.now() - r.publishDate) / (7 * 24 * 60 * 60 * 1000))
         : 0;
-    return (qm * 0.6) + (seederScore * 0.3) + (recencyScore * 0.1);
+    return (qm * 0.6) + (seederScore * 0.3) + (recencyScore * 0.1) + ((affinity?.(r.title) ?? 0) * 0.25);
 }
 
 export function computeQualityMatch(title: string, preferred: string): number {

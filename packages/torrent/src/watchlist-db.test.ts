@@ -93,6 +93,88 @@ describe('insertWatchlistResult upsert', () => {
     });
 });
 
+const HEX = 'fedcba9876543210fedcba9876543210fedcba98';
+const HEX_MAGNET = `magnet:?xt=urn:btih:${HEX}&dn=Some+Release`;
+
+describe('result feedback and blocking', () => {
+    it('re-finding a magnet preserves feedback and auto_blocked, and sets info_hash', () => {
+        insertEntry('wl1');
+        const rid = insertResult('wl1', HEX_MAGNET);
+        wdb.setResultFeedback(rid, -1);
+        conn.getDb().prepare('UPDATE watchlist_results SET auto_blocked = 1 WHERE id = ?').run(rid);
+
+        const again = insertResult('wl1', HEX_MAGNET, { seeders: 99 });
+        expect(again).toBe(rid);
+
+        const row = conn.getDb().prepare(
+            'SELECT feedback, auto_blocked, info_hash FROM watchlist_results WHERE id = ?'
+        ).get(rid) as { feedback: number; auto_blocked: number; info_hash: string };
+        expect(row.feedback).toBe(-1);
+        expect(row.auto_blocked).toBe(1);
+        expect(row.info_hash).toBe(HEX);
+    });
+
+    it('deleteUnselectedResults keeps voted and blocked rows', () => {
+        insertEntry('wl1');
+        const plain = insertResult('wl1', 'magnet:?xt=urn:btih:aaa');
+        const voted = insertResult('wl1', 'magnet:?xt=urn:btih:bbb');
+        const blocked = insertResult('wl1', 'magnet:?xt=urn:btih:ccc');
+        wdb.setResultFeedback(voted, 1);
+        conn.getDb().prepare('UPDATE watchlist_results SET auto_blocked = 1 WHERE id = ?').run(blocked);
+
+        expect(wdb.deleteUnselectedResults('wl1')).toBe(1);
+        const remaining = wdb.getWatchlistResults('wl1').map(r => r.id).sort();
+        expect(remaining).toEqual([voted, blocked].sort());
+        expect(remaining).not.toContain(plain);
+    });
+
+    it('blockResultsByInfoHash blocks matching rows across entries, case-insensitively', () => {
+        insertEntry('wl1');
+        insertEntry('wl2');
+        const a = insertResult('wl1', HEX_MAGNET);
+        const b = insertResult('wl2', `magnet:?xt=urn:btih:${HEX.toUpperCase()}&dn=Other+Copy`);
+        const other = insertResult('wl1', 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567');
+
+        expect(wdb.blockResultsByInfoHash(HEX.toUpperCase())).toBe(2);
+        const blocked = (rid: number) => !!(conn.getDb().prepare(
+            'SELECT auto_blocked FROM watchlist_results WHERE id = ?'
+        ).get(rid) as { auto_blocked: number }).auto_blocked;
+        expect(blocked(a)).toBe(true);
+        expect(blocked(b)).toBe(true);
+        expect(blocked(other)).toBe(false);
+    });
+
+    it('getBlockedResultKeys covers downvoted and auto-blocked rows, magnet-only when the hash is unparseable', () => {
+        insertEntry('wl1');
+        const voted = insertResult('wl1', HEX_MAGNET);
+        const unparseable = insertResult('wl1', 'magnet:?xt=urn:btih:aaa');
+        insertResult('wl1', 'magnet:?xt=urn:btih:bbb');
+        wdb.setResultFeedback(voted, -1);
+        conn.getDb().prepare('UPDATE watchlist_results SET auto_blocked = 1 WHERE id = ?').run(unparseable);
+
+        const keys = wdb.getBlockedResultKeys('wl1');
+        expect(keys.infoHashes).toEqual(new Set([HEX]));
+        expect(keys.magnetUris).toEqual(new Set([HEX_MAGNET, 'magnet:?xt=urn:btih:aaa']));
+    });
+
+    it('clearResultBlock clears the block and a downvote but keeps an upvote', () => {
+        insertEntry('wl1');
+        const down = insertResult('wl1', 'magnet:?xt=urn:btih:aaa');
+        const up = insertResult('wl1', 'magnet:?xt=urn:btih:bbb');
+        wdb.setResultFeedback(down, -1);
+        wdb.setResultFeedback(up, 1);
+        conn.getDb().exec('UPDATE watchlist_results SET auto_blocked = 1');
+
+        wdb.clearResultBlock(down);
+        wdb.clearResultBlock(up);
+
+        const rows = wdb.getWatchlistResults('wl1');
+        const byId = new Map(rows.map(r => [r.id, r]));
+        expect(byId.get(down)).toMatchObject({ feedback: 0, autoBlocked: false });
+        expect(byId.get(up)).toMatchObject({ feedback: 1, autoBlocked: false });
+    });
+});
+
 describe('new result counts', () => {
     it('counts unselected results first found after the last view', () => {
         insertEntry('wl1');
@@ -118,6 +200,16 @@ describe('new result counts', () => {
         const rid = insertResult('wl1', 'magnet:?xt=urn:btih:aaa');
         wdb.markResultSelected(rid);
         expect(wdb.getNewResultCounts()).toEqual({});
+    });
+
+    it('excludes downvoted and auto-blocked results', () => {
+        insertEntry('wl1');
+        const down = insertResult('wl1', 'magnet:?xt=urn:btih:aaa');
+        const blocked = insertResult('wl1', 'magnet:?xt=urn:btih:bbb');
+        insertResult('wl1', 'magnet:?xt=urn:btih:ccc');
+        wdb.setResultFeedback(down, -1);
+        conn.getDb().prepare('UPDATE watchlist_results SET auto_blocked = 1 WHERE id = ?').run(blocked);
+        expect(wdb.getNewResultCounts()).toEqual({ wl1: 1 });
     });
 
     it('groups per entry', () => {

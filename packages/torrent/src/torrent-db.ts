@@ -1,5 +1,6 @@
 import { TorrentStatus, TorrentRecord, TorrentFileRecord } from './types';
 import { initDb, getDb, closeDb } from './db-connection';
+import { extractInfoHash } from './search-aggregator';
 
 export function initTorrentDb(): void {
     const db = initDb();
@@ -142,6 +143,25 @@ export function initTorrentDb(): void {
         db.exec('ALTER TABLE watchlist_results ADD COLUMN first_found_at INTEGER');
         db.exec('UPDATE watchlist_results SET first_found_at = found_at WHERE first_found_at IS NULL');
     }
+
+    if (!wlResultCols.some(c => c.name === 'feedback')) {
+        db.exec('ALTER TABLE watchlist_results ADD COLUMN feedback INTEGER NOT NULL DEFAULT 0');
+    }
+
+    if (!wlResultCols.some(c => c.name === 'auto_blocked')) {
+        db.exec('ALTER TABLE watchlist_results ADD COLUMN auto_blocked INTEGER NOT NULL DEFAULT 0');
+    }
+
+    if (!wlResultCols.some(c => c.name === 'info_hash')) {
+        db.exec('ALTER TABLE watchlist_results ADD COLUMN info_hash TEXT');
+        const rows = db.prepare('SELECT id, magnet_uri FROM watchlist_results').all() as { id: number; magnet_uri: string }[];
+        const setHash = db.prepare('UPDATE watchlist_results SET info_hash = ? WHERE id = ?');
+        for (const row of rows) {
+            const hash = extractInfoHash(row.magnet_uri);
+            if (hash) setHash.run(hash, row.id);
+        }
+    }
+    db.exec('CREATE INDEX IF NOT EXISTS idx_wl_results_hash ON watchlist_results(info_hash)');
 
     const torrentCols = db.prepare("PRAGMA table_info(torrents)").all() as { name: string }[];
     if (!torrentCols.some(c => c.name === 'poster_url')) {

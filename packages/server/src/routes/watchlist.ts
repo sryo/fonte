@@ -3,6 +3,7 @@ import {
     insertWatchlistEntry, updateWatchlistEntry, getWatchlistEntry,
     getWatchlistEntries, deleteWatchlistEntry,
     getWatchlistResults, insertWatchlistResult, markResultSelected, deleteUnselectedResults,
+    setResultFeedback, clearResultBlock,
     getNewResultCounts, markWatchlistResultsViewed, isOngoingWatch,
     getTorrentManager,
     runWatchlistCheck,
@@ -316,6 +317,7 @@ app.post('/api/watchlist/:id/results/:rid/add', requireEntry, async (c) => {
     try {
         const torrent = await getTorrentManager().addTorrent(result.magnetUri, { name: result.title });
         markResultSelected(rid);
+        clearResultBlock(rid);
         updateWatchlistEntry(id, {
             lastMatchAt: Date.now(),
             matchedTorrentId: torrent.id,
@@ -327,6 +329,23 @@ app.post('/api/watchlist/:id/results/:rid/add', requireEntry, async (c) => {
     } catch (err) {
         return fail(c, (err as Error).message);
     }
+});
+
+app.post('/api/watchlist/:id/results/:rid/feedback', requireEntry, async (c) => {
+    const id = c.req.param('id');
+    const rid = parseInt(c.req.param('rid'), 10);
+    const body = await c.req.json() as { feedback?: 'up' | 'down' | null };
+    if (body.feedback !== 'up' && body.feedback !== 'down' && body.feedback !== null) {
+        return fail(c, 'feedback must be "up", "down", or null');
+    }
+
+    const result = getWatchlistResults(id).find(r => r.id === rid);
+    if (!result) {
+        return fail(c, 'Result not found', 404);
+    }
+
+    setResultFeedback(rid, body.feedback === 'up' ? 1 : body.feedback === 'down' ? -1 : 0);
+    return ok(c);
 });
 
 app.post('/api/watchlist/:id/results/viewed', requireEntry, (c) => {

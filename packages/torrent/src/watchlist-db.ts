@@ -1,5 +1,6 @@
 import { getDb } from './db-connection';
 import { WatchlistRecord, WatchlistResultRecord, WatchlistStatus, MediaType } from './types';
+import { extractInfoHash } from './search-aggregator';
 
 // ── Watchlist CRUD ───────────────────────────────────────────────────────────
 
@@ -130,6 +131,7 @@ export function insertWatchlistResult(result: {
     indexer?: string;
 }): { id: number; created: boolean } {
     const now = Date.now();
+    const infoHash = extractInfoHash(result.magnetUri) ?? null;
     const existing = getDb().prepare(
         'SELECT id FROM watchlist_results WHERE watchlist_id = ? AND magnet_uri = ?'
     ).get(result.watchlistId, result.magnetUri) as { id: number } | undefined;
@@ -137,7 +139,7 @@ export function insertWatchlistResult(result: {
     if (existing) {
         getDb().prepare(`
             UPDATE watchlist_results
-            SET title = ?, seeders = ?, leechers = ?, size = ?, quality_match = ?, publish_date = ?, indexer = ?, found_at = ?
+            SET title = ?, seeders = ?, leechers = ?, size = ?, quality_match = ?, publish_date = ?, indexer = ?, info_hash = ?, found_at = ?
             WHERE id = ?
         `).run(
             result.title,
@@ -147,6 +149,7 @@ export function insertWatchlistResult(result: {
             result.qualityMatch,
             result.publishDate ?? null,
             result.indexer ?? null,
+            infoHash,
             now,
             existing.id,
         );
@@ -154,8 +157,8 @@ export function insertWatchlistResult(result: {
     }
 
     const info = getDb().prepare(`
-        INSERT INTO watchlist_results (watchlist_id, title, magnet_uri, seeders, leechers, size, quality_match, publish_date, indexer, found_at, first_found_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO watchlist_results (watchlist_id, title, magnet_uri, seeders, leechers, size, quality_match, publish_date, indexer, info_hash, found_at, first_found_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
         result.watchlistId,
         result.title,
@@ -166,6 +169,7 @@ export function insertWatchlistResult(result: {
         result.qualityMatch,
         result.publishDate ?? null,
         result.indexer ?? null,
+        infoHash,
         now,
         now,
     );
@@ -196,6 +200,40 @@ export function markResultSelected(resultId: number): void {
     getDb().prepare('UPDATE watchlist_results SET was_selected = 1 WHERE id = ?').run(resultId);
 }
 
+export function setResultFeedback(resultId: number, feedback: -1 | 0 | 1): void {
+    getDb().prepare('UPDATE watchlist_results SET feedback = ? WHERE id = ?').run(feedback, resultId);
+}
+
+/** Releases the auto-add gate must skip: downvoted or blocked by a removal. */
+export function getBlockedResultKeys(watchlistId: string): { infoHashes: Set<string>; magnetUris: Set<string> } {
+    const rows = getDb().prepare(
+        'SELECT info_hash, magnet_uri FROM watchlist_results WHERE watchlist_id = ? AND (feedback = -1 OR auto_blocked = 1)'
+    ).all(watchlistId) as { info_hash: string | null; magnet_uri: string }[];
+    return {
+        infoHashes: new Set(rows.map(r => r.info_hash).filter((h): h is string => !!h)),
+        magnetUris: new Set(rows.map(r => r.magnet_uri)),
+    };
+}
+
+export function getFeedbackTitles(watchlistId: string): { title: string; feedback: number }[] {
+    return getDb().prepare(
+        'SELECT title, feedback FROM watchlist_results WHERE watchlist_id = ? AND feedback != 0'
+    ).all(watchlistId) as { title: string; feedback: number }[];
+}
+
+export function blockResultsByInfoHash(infoHash: string): number {
+    return getDb().prepare(
+        'UPDATE watchlist_results SET auto_blocked = 1 WHERE info_hash = lower(?)'
+    ).run(infoHash).changes;
+}
+
+/** A manual add contradicts a downvote but not an upvote. */
+export function clearResultBlock(resultId: number): void {
+    getDb().prepare(
+        'UPDATE watchlist_results SET auto_blocked = 0, feedback = CASE WHEN feedback = -1 THEN 0 ELSE feedback END WHERE id = ?'
+    ).run(resultId);
+}
+
 /** Per-entry count of unselected results first found after the entry was last viewed. */
 export function getNewResultCounts(): Record<string, number> {
     const rows = getDb().prepare(`
@@ -204,6 +242,8 @@ export function getNewResultCounts(): Record<string, number> {
         JOIN watchlist_results r
           ON r.watchlist_id = w.id
          AND r.was_selected = 0
+         AND r.feedback != -1
+         AND r.auto_blocked = 0
          AND r.first_found_at > COALESCE(w.results_viewed_at, 0)
         GROUP BY w.id
     `).all() as { id: string; n: number }[];
@@ -216,10 +256,10 @@ export function markWatchlistResultsViewed(id: string): void {
     getDb().prepare('UPDATE watchlist SET results_viewed_at = ? WHERE id = ?').run(Date.now(), id);
 }
 
-/** Drop prior finds after a query/pattern edit; selected ones stay as history. */
+/** Drop prior finds after a query/pattern edit; selected and voted/blocked ones stay as history. */
 export function deleteUnselectedResults(watchlistId: string): number {
     return getDb().prepare(
-        'DELETE FROM watchlist_results WHERE watchlist_id = ? AND was_selected = 0'
+        'DELETE FROM watchlist_results WHERE watchlist_id = ? AND was_selected = 0 AND feedback = 0 AND auto_blocked = 0'
     ).run(watchlistId).changes;
 }
 
@@ -260,6 +300,8 @@ function rowToResultRecord(row: any): WatchlistResultRecord {
         publishDate: row.publish_date ?? undefined,
         indexer: row.indexer ?? undefined,
         wasSelected: !!row.was_selected,
+        feedback: (row.feedback ?? 0) as -1 | 0 | 1,
+        autoBlocked: !!row.auto_blocked,
         foundAt: row.found_at,
     };
 }

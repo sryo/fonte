@@ -74,11 +74,15 @@ POST   /api/watchlist                     Add: {"title": "...", "year": 2025, "m
 GET    /api/watchlist                     List (entries carry newResultsCount)
 POST   /api/watchlist/:id/search          Trigger search now
 POST   /api/watchlist/:id/results/viewed  Reset the entry's newResultsCount
+POST   /api/watchlist/:id/results/:rid/add       Download a specific result
+POST   /api/watchlist/:id/results/:rid/feedback  Rate a result: {"feedback": "up" | "down" | null}
 POST   /api/watchlist/check               Check all entries now
 DELETE /api/watchlist/:id                 Remove
 ```
 
 Grabbing a result from an ongoing watch (tv/music with no seasonPattern) keeps the entry `watching`; movies and season-pattern entries become `fulfilled`.
+
+Thumbs-down on a result, or deleting a torrent the watchlist grabbed, permanently stops that release from being auto-added again; only thumbs feed the ranking preferences the cron learns from. Adding a result via `/add` clears its block.
 
 ## Subtitles
 

@@ -89,6 +89,8 @@ export interface WatchlistResultRecord {
     publishDate?: number;
     indexer?: string;
     wasSelected: boolean;
+    feedback: -1 | 0 | 1;
+    autoBlocked: boolean;
     foundAt: number;
 }
 

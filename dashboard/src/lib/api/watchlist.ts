@@ -45,6 +45,10 @@ export async function addWatchlistResult(watchlistId: string, resultId: number):
   return apiFetch(`/api/watchlist/${encodeURIComponent(watchlistId)}/results/${resultId}/add`, { method: "POST" });
 }
 
+export async function setWatchlistResultFeedback(watchlistId: string, resultId: number, feedback: "up" | "down" | null): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/watchlist/${encodeURIComponent(watchlistId)}/results/${resultId}/feedback`, { method: "POST", body: JSON.stringify({ feedback }) });
+}
+
 export async function markWatchlistResultsViewed(id: string): Promise<{ ok: boolean }> {
   return apiFetch(`/api/watchlist/${encodeURIComponent(id)}/results/viewed`, { method: "POST" });
 }

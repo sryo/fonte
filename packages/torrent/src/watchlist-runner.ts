@@ -4,8 +4,9 @@ import { aggregateSearch, filterByTitle, rankResults, computeQualityMatch, extra
 import {
     getWatchlistEntries, updateWatchlistEntry,
     insertWatchlistResult, getWatchlistResultByMagnet, markResultSelected,
-    isOngoingWatch,
+    getFeedbackTitles, getBlockedResultKeys, isOngoingWatch,
 } from './watchlist-db';
+import { buildAffinity } from './release-affinity';
 import { getTorrentManager } from './torrent-manager';
 import { getTorrentByHash } from './torrent-db';
 import { backfillPosters } from './poster-manager';
@@ -112,7 +113,13 @@ export async function runWatchlistCheck(): Promise<void> {
                 // the global preference is a video term ("1080p") that would
                 // block music/book grabs; an empty entry quality means any.
                 const wantedQuality = entry.quality ?? preferredQuality;
-                const ranked = rankResults(filtered, wantedQuality);
+                const votes = getFeedbackTitles(entry.id);
+                const affinity = votes.length > 0
+                    ? buildAffinity(
+                        votes.filter(v => v.feedback > 0).map(v => v.title),
+                        votes.filter(v => v.feedback < 0).map(v => v.title))
+                    : undefined;
+                const ranked = rankResults(filtered, wantedQuality, affinity);
                 // Ongoing watches fall through past already-tracked releases —
                 // that's what lets a show keep grabbing new episodes after its
                 // first, higher-ranked grab (a season pack would otherwise pin
@@ -123,10 +130,13 @@ export async function runWatchlistCheck(): Promise<void> {
                 // A release already tracked by a live torrent row doesn't
                 // count as addable; 'removed' tombstones and 'error' rows do,
                 // so a failed add doesn't block the release forever —
-                // addTorrent replaces such rows.
+                // addTorrent replaces such rows. Downvoted and removal-blocked
+                // releases are the exception: those never come back.
+                const blocked = getBlockedResultKeys(entry.id);
                 const best = pool.find((r) => {
                     if (r.seeders <= 0 || computeQualityMatch(r.title, wantedQuality) < 0.5) return false;
                     const infoHash = extractInfoHash(r.magnetUri);
+                    if ((infoHash && blocked.infoHashes.has(infoHash)) || blocked.magnetUris.has(r.magnetUri)) return false;
                     const existing = infoHash ? getTorrentByHash(infoHash) : null;
                     return !existing || existing.status === 'removed' || existing.status === 'error';
                 });

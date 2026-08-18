@@ -14,6 +14,7 @@ import {
     decodeTorrentName,
 } from './torrent-db';
 import { fetchTorrentPoster } from './poster-manager';
+import { blockResultsByInfoHash } from './watchlist-db';
 import { extractInfoHash } from './search-aggregator';
 import { resolveReleaseSource } from './release-source';
 import { getSubtitlesByTorrent } from './subtitle-db';
@@ -244,8 +245,9 @@ export class TorrentManager {
             throw err;
         }
 
-        emitEvent(TORRENT_EVENTS.ADDED, { id, infoHash: tempHash, magnetUri });
-        return getTorrent(id)!;
+        const record = getTorrent(id)!;
+        emitEvent(TORRENT_EVENTS.ADDED, { id, infoHash: tempHash, magnetUri, name: record.name });
+        return record;
     }
 
     /**
@@ -380,6 +382,11 @@ export class TorrentManager {
             updateTorrent(id, { status: 'removed', downloadSpeed: 0, uploadSpeed: 0, stalledSince: null });
         }
 
+        // A removal means "don't bring this back": stop the watchlist from
+        // auto-re-adding the same release. It carries no taste signal — the
+        // user may simply be done with a good grab.
+        blockResultsByInfoHash(record.infoHash);
+
         emitEvent(TORRENT_EVENTS.REMOVED, { id, name: record.name, filesDeleted: deleteFiles });
         log('INFO', `Removed torrent: ${record.name || id} (files ${deleteFiles ? 'moved to Trash' : 'kept'})`);
     }
@@ -403,6 +410,20 @@ export class TorrentManager {
         }
         emitEvent(TORRENT_EVENTS.REANNOUNCED, { id, name: record.name });
         log('INFO', `Reannounced trackers: ${record.name || id}`);
+    }
+
+    async getPieces(id: string): Promise<{ bitfield: string; count: number } | null> {
+        this.getRequiredTorrent(id);
+        const tId = this.transmissionIds.get(id);
+        if (tId === undefined || !this.rpc) return null;
+        try {
+            const res = await this.rpc.call('torrent-get', { ids: [tId], fields: ['pieces', 'pieceCount'] });
+            const t = res?.torrents?.[0];
+            if (!t || typeof t.pieces !== 'string' || typeof t.pieceCount !== 'number') return null;
+            return { bitfield: t.pieces, count: t.pieceCount };
+        } catch {
+            return null;
+        }
     }
 
     // ── Queries ────────────────────────────────────────────────────────────────
