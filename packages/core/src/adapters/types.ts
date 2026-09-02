@@ -11,7 +11,9 @@ export interface InvokeOptions {
     envOverrides: Record<string, string>;
     onEvent?: (text: string) => void;
     /** Structured tool-use events; adapters without one keep stringifying into onEvent. */
-    onTool?: (name: string, input: unknown) => void;
+    onTool?: (name: string, input: unknown, toolUseId?: string) => void;
+    /** A tool call settled; `isError` when the tool itself reported failure. */
+    onToolResult?: (toolUseId: string, isError: boolean) => void;
     /** Provider conversation id, when the stream announces one. */
     onSessionId?: (sessionId: string) => void;
     /** Fork from this provider session instead of continuing the last one. */

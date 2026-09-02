@@ -1,13 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useRef } from "react";
 import { IconSwap } from "@/components/ui/icon-swap";
-import { usePolling, timeAgo } from "@/lib/hooks";
-import {
-  getAgentMessages,
-  sendMessage,
-  type AgentMessage,
-} from "@/lib/api";
+import { timeAgo } from "@/lib/hooks";
 import { Button } from "@/components/ui/button";
 import {
   ChatContainerRoot,
@@ -21,45 +16,18 @@ import {
   PromptInputTextarea,
 } from "@/components/ui/prompt-input";
 import { Markdown } from "@/components/ui/markdown";
-import { Robot, ArrowUp, Square } from "@phosphor-icons/react";
+import { Robot, ArrowUp, PencilSimple, Square } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { agentColor } from "@/lib/agent-colors";
-import { groupActivity } from "@/lib/agent-activity";
-import { useAgentRun } from "@/hooks/use-agent-run";
-import { SystemNote, ToolActivity } from "@/components/agent/tool-activity";
-
-interface AgentChatItem {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  created_at: number;
-  sender?: string;
-  message_id?: string;
-  kind?: string;
-}
-
-function stripAgentPrefix(content: string, agentId: string): string {
-  const spaced = `@${agentId} `;
-  if (content.startsWith(spaced)) return content.slice(spaced.length);
-  const newline = `@${agentId}\n`;
-  if (content.startsWith(newline)) return content.slice(newline.length);
-  return content;
-}
-
-function normalizeMessage(message: AgentMessage, agentId: string): AgentChatItem {
-  const content = message.role === "user"
-    ? stripAgentPrefix(message.content, agentId)
-    : message.content;
-  return {
-    id: `db-${message.id}`,
-    role: message.role,
-    content,
-    created_at: message.created_at,
-    sender: message.sender,
-    message_id: message.message_id,
-    kind: message.kind,
-  };
-}
+import { parseEventRow } from "@/lib/agent-activity";
+import { useAgentChat, type ChatMessage } from "@/hooks/use-agent-chat";
+import {
+  EventNote,
+  QueuedRow,
+  SendStatus,
+  SystemNote,
+  ToolActivity,
+} from "@/components/agent/tool-activity";
 
 export function AgentChatView({
   agentId,
@@ -68,82 +36,51 @@ export function AgentChatView({
   agentId: string;
   agentName: string;
 }) {
-  const [messages, setMessages] = useState<AgentChatItem[]>([]);
   const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const { run, stopping, stop } = useAgentRun(agentId, true);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const {
+    messages,
+    items,
+    run,
+    stopping,
+    stop,
+    queued,
+    cancellingId,
+    cancelQueued,
+    send,
+    retry,
+    discard,
+    sending,
+    editingRowId,
+    editableRowId,
+    startEditing,
+    cancelEditing,
+    error: pollError,
+  } = useAgentChat(agentId, { active: true, limit: 200 });
 
-  const fetchMessages = useCallback(async () => {
-    return getAgentMessages(agentId, 200, 0);
-  }, [agentId]);
+  const beginEdit = useCallback(
+    (msg: ChatMessage) => {
+      if (typeof msg.id !== "number") return;
+      startEditing(msg.id);
+      setInput(msg.content);
+      inputRef.current?.focus();
+    },
+    [startEditing]
+  );
 
-  const { data: polledMessages, error: pollError } =
-    usePolling<AgentMessage[]>(fetchMessages, 2000, [agentId]);
+  const endEdit = useCallback(() => {
+    cancelEditing();
+    setInput("");
+  }, [cancelEditing]);
 
-  useEffect(() => {
-    if (!polledMessages) return;
-    const normalized = polledMessages.map((row) => normalizeMessage(row, agentId));
-    setMessages((prev) => {
-      const presentIds = new Set(
-        normalized.map((msg) => msg.message_id).filter(Boolean)
-      );
-      const seen = new Set(normalized.map((msg) => `${msg.role}:${msg.content}`));
-      const combined = [...normalized];
-      for (const msg of prev) {
-        const key = `${msg.role}:${msg.content}`;
-        const hasId = msg.message_id && presentIds.has(msg.message_id);
-        if (hasId || seen.has(key)) continue;
-        combined.push(msg);
-      }
-      combined.sort((a, b) => {
-        if (a.created_at !== b.created_at) return a.created_at - b.created_at;
-        return a.id.localeCompare(b.id);
-      });
-      return combined.length > 300 ? combined.slice(-300) : combined;
-    });
-  }, [polledMessages, agentId]);
+  const handleSend = useCallback(() => {
+    const value = input.trim();
+    if (!value || sending) return;
+    setInput("");
+    void send(value);
+  }, [input, sending, send]);
 
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || sending) return;
-    setSending(true);
-    const outbound = input.trim();
-    const pendingId = `local-${Date.now()}`;
-    const createdAt = Date.now();
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: pendingId,
-        role: "user",
-        content: outbound,
-        created_at: createdAt,
-        sender: "You",
-      },
-    ]);
-    try {
-      const result = await sendMessage({
-        message: `@${agentId} ${outbound}`,
-        agent: agentId,
-        sender: "Web",
-        channel: "web",
-      });
-
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === pendingId
-            ? { ...msg, message_id: result.messageId }
-            : msg
-        )
-      );
-
-      setInput("");
-    } catch {
-    } finally {
-      setSending(false);
-    }
-  }, [input, sending, agentId]);
-
-  const chatItems = useMemo(() => groupActivity(messages), [messages]);
-  const lastChatItem = chatItems[chatItems.length - 1];
+  const lastChatItem = items[items.length - 1];
   const stopMode = run != null && !input.trim();
 
   return (
@@ -165,7 +102,7 @@ export function AgentChatView({
       ) : (
         <ChatContainerRoot className="flex-1">
           <ChatContainerContent className="space-y-3 px-6 pt-4 pb-28">
-            {chatItems.map((item) => {
+            {items.map((item) => {
               if (item.type === "tools") {
                 return (
                   <div key={item.key} className="pl-11">
@@ -176,12 +113,27 @@ export function AgentChatView({
               if (item.type === "system") {
                 return <SystemNote key={item.row.id}>{item.row.content}</SystemNote>;
               }
+              if (item.type === "event") {
+                const event = parseEventRow(item.row);
+                return event ? (
+                  <EventNote key={item.row.id} event={event} />
+                ) : (
+                  <SystemNote key={item.row.id}>{item.row.content}</SystemNote>
+                );
+              }
               const msg = item.row;
               const isUser = msg.role === "user";
               const label = isUser ? "You" : agentName;
               const initials = label.slice(0, 2).toUpperCase();
               return (
-                <div key={msg.id} className="flex items-start gap-3">
+                <div
+                  key={msg.id}
+                  className={cn(
+                    "group/bubble flex items-start gap-3",
+                    msg.local?.phase === "pending" && "opacity-60",
+                    editingRowId === msg.id && "ring-2 ring-ring/50 rounded-md -mx-2 px-2 py-1"
+                  )}
+                >
                   <div
                     className={cn(
                       "flex h-8 w-8 items-center justify-center text-2xs font-bold uppercase shrink-0",
@@ -196,10 +148,30 @@ export function AgentChatView({
                       <span className="text-2xs text-muted-foreground">
                         {timeAgo(msg.created_at)}
                       </span>
+                      {isUser && msg.id === editableRowId && (
+                        <button
+                          type="button"
+                          onClick={() => beginEdit(msg)}
+                          aria-label="Edit and rerun"
+                          title="Edit and rerun"
+                          className="rounded p-0.5 text-foreground opacity-0 transition-all group-hover/bubble:opacity-50 hover:opacity-100 focus-visible:opacity-100"
+                        >
+                          <PencilSimple className="size-3.5" />
+                        </button>
+                      )}
                     </div>
                     <Markdown className="prose prose-sm dark:prose-invert mt-0.5 max-w-none break-words text-foreground/90">
                       {msg.content}
                     </Markdown>
+                    {msg.local && msg.local.phase !== "queued" && msg.message_id && (
+                      <SendStatus
+                        phase={msg.local.phase}
+                        error={msg.local.error}
+                        onRetry={() => retry(msg.message_id!)}
+                        onDiscard={() => discard(msg.message_id!)}
+                        className="mt-1"
+                      />
+                    )}
                   </div>
                 </div>
               );
@@ -209,15 +181,37 @@ export function AgentChatView({
         </ChatContainerRoot>
       )}
 
-      <div className="absolute bottom-4 left-6 right-6 z-10">
+      <div className="absolute bottom-4 left-6 right-6 z-10 space-y-2">
+        {editingRowId != null && (
+          <div className="flex items-center justify-between px-1 text-xs text-muted-foreground">
+            <span>Editing. Reruns from here</span>
+            <button
+              type="button"
+              onClick={endEdit}
+              className="rounded px-1.5 py-0.5 hover:bg-muted hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
         <PromptInput
           value={input}
           onValueChange={setInput}
           isLoading={sending}
           onSubmit={handleSend}
-          className="relative w-full shadow-lg"
+          className="relative w-full shadow-md"
         >
-          <PromptInputTextarea placeholder={`Message ${agentName}...`} className="min-h-[70px]" />
+          <PromptInputTextarea
+            ref={inputRef}
+            placeholder={editingRowId != null ? "Edit your message…" : `Message ${agentName}...`}
+            className="min-h-[70px]"
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && editingRowId != null) {
+                e.stopPropagation();
+                endEdit();
+              }
+            }}
+          />
           <PromptInputActions className="absolute bottom-2 right-2">
             <PromptInputAction
               tooltip={stopMode ? "Stop the agent" : sending ? "Sending..." : "Send message"}
@@ -240,6 +234,18 @@ export function AgentChatView({
             </PromptInputAction>
           </PromptInputActions>
         </PromptInput>
+        {queued.length > 0 && (
+          <div className="space-y-1 rounded-md border bg-card px-3 py-2">
+            {queued.map((q) => (
+              <QueuedRow
+                key={q.key}
+                content={q.content}
+                onCancel={q.queueId != null ? () => cancelQueued(q.queueId!) : undefined}
+                cancelling={q.queueId != null && cancellingId === q.queueId}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

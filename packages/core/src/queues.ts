@@ -73,6 +73,12 @@ export function initQueueDb(): void {
     if (!msgCols.some(c => c.name === 'resume_session_id')) {
         db.exec('ALTER TABLE messages ADD COLUMN resume_session_id TEXT');
     }
+    if (!msgCols.some(c => c.name === 'lane')) {
+        db.exec("ALTER TABLE messages ADD COLUMN lane TEXT NOT NULL DEFAULT 'user'");
+    }
+    if (!msgCols.some(c => c.name === 'recovery')) {
+        db.exec('ALTER TABLE messages ADD COLUMN recovery INTEGER NOT NULL DEFAULT 0');
+    }
     const amCols = db.prepare("PRAGMA table_info(agent_messages)").all() as { name: string }[];
     if (!amCols.some(c => c.name === 'kind')) {
         db.exec("ALTER TABLE agent_messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'");
@@ -90,10 +96,10 @@ export function enqueueMessage(data: MessageJobData): number | null {
     const now = Date.now();
     try {
         const r = getDb().prepare(
-            `INSERT INTO messages (message_id,channel,sender,sender_id,message,agent,from_agent,resume_session_id,status,created_at,updated_at)
-             VALUES (?,?,?,?,?,?,?,?,'pending',?,?)`
+            `INSERT INTO messages (message_id,channel,sender,sender_id,message,agent,from_agent,resume_session_id,lane,status,created_at,updated_at)
+             VALUES (?,?,?,?,?,?,?,?,?,'pending',?,?)`
         ).run(data.messageId, data.channel, data.sender, data.senderId ?? null, data.message,
-            data.agent ?? null, data.fromAgent ?? null, data.resumeSessionId ?? null, now, now);
+            data.agent ?? null, data.fromAgent ?? null, data.resumeSessionId ?? null, data.lane ?? 'user', now, now);
         queueEvents.emit('message:enqueued', { id: r.lastInsertRowid, agent: data.agent });
         return r.lastInsertRowid as number;
     } catch (err: any) {
@@ -108,6 +114,30 @@ export function getPendingAgents(): string[] {
     return (getDb().prepare(
         `SELECT DISTINCT COALESCE(agent,'default') as agent FROM messages WHERE status='pending'`
     ).all() as { agent: string }[]).map(r => r.agent);
+}
+
+/**
+ * Claim the next pending message for an agent: user-lane rows first, then by
+ * arrival, so a person typing never waits behind a queue of background wakes.
+ */
+export function claimNextPendingMessage(agentId: string): any | null {
+    const d = getDb();
+    return d.transaction(() => {
+        const row = d.prepare(
+            `SELECT * FROM messages WHERE status='pending' AND (agent=? OR (agent IS NULL AND ?='default'))
+             ORDER BY CASE lane WHEN 'user' THEN 0 ELSE 1 END, created_at LIMIT 1`
+        ).get(agentId, agentId) as any;
+        if (!row) return null;
+        d.prepare(`UPDATE messages SET status='queued',updated_at=? WHERE id=?`).run(Date.now(), row.id);
+        return { ...row, status: 'queued' };
+    }).immediate();
+}
+
+export function oldestPendingUserMessageAge(agentId: string): number | null {
+    const row = getDb().prepare(
+        `SELECT MIN(created_at) AS oldest FROM messages WHERE status='pending' AND lane='user' AND (agent=? OR (agent IS NULL AND ?='default'))`
+    ).get(agentId, agentId) as { oldest: number | null };
+    return row?.oldest == null ? null : Date.now() - row.oldest;
 }
 
 export function claimAllPendingMessages(agentId: string): any[] {
@@ -134,18 +164,30 @@ export function completeMessage(rowId: number): void {
     getDb().prepare(`UPDATE messages SET status='completed',updated_at=? WHERE id=? AND status='processing'`).run(Date.now(), rowId);
 }
 
-export function failMessage(rowId: number, error: string): void {
+/** Returns the row's new status: pending (will retry) or dead (retries exhausted). */
+export function failMessage(rowId: number, error: string): 'pending' | 'dead' | null {
     const d = getDb();
     const msg = d.prepare('SELECT retry_count FROM messages WHERE id=?').get(rowId) as { retry_count: number } | undefined;
-    if (!msg) return;
+    if (!msg) return null;
     const newStatus = msg.retry_count + 1 >= MAX_RETRIES ? 'dead' : 'pending';
     d.prepare(`UPDATE messages SET status=?,retry_count=?,last_error=?,updated_at=? WHERE id=? AND status!='cancelled'`)
         .run(newStatus, msg.retry_count + 1, error, Date.now(), rowId);
+    return newStatus;
 }
 
 export function getMessageStatus(rowId: number): string | null {
     const row = getDb().prepare('SELECT status FROM messages WHERE id=?').get(rowId) as { status: string } | undefined;
     return row?.status ?? null;
+}
+
+/**
+ * Watchdog pause: a processing row goes back to pending, retry count untouched,
+ * so it re-runs after the user-lane message that displaced it.
+ */
+export function interruptMessage(rowId: number): boolean {
+    return getDb().prepare(
+        `UPDATE messages SET status='pending',updated_at=? WHERE id=? AND status='processing'`
+    ).run(Date.now(), rowId).changes > 0;
 }
 
 /** User-initiated stop: terminal, no retry. Returns false if the row already settled. */
@@ -159,17 +201,31 @@ export function setMessageSessionId(rowId: number, sessionId: string): void {
     getDb().prepare(`UPDATE messages SET session_id=? WHERE id=?`).run(sessionId, rowId);
 }
 
+/** Rows that are waiting or running, in queue order: running first, then by lane and arrival. */
 export function getProcessingMessages(): any[] {
-    return getDb().prepare(`SELECT * FROM messages WHERE status IN ('queued','processing') ORDER BY updated_at`).all();
+    return getDb().prepare(
+        `SELECT * FROM messages WHERE status IN ('pending','queued','processing')
+         ORDER BY CASE status WHEN 'processing' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, CASE lane WHEN 'user' THEN 0 ELSE 1 END, created_at`
+    ).all();
 }
 
 export function getProcessingMessage(rowId: number): any | null {
-    return getDb().prepare(`SELECT * FROM messages WHERE id=? AND status IN ('queued','processing')`).get(rowId) ?? null;
+    return getDb().prepare(`SELECT * FROM messages WHERE id=? AND status IN ('pending','queued','processing')`).get(rowId) ?? null;
 }
 
+export const MAX_RECOVERIES = 3;
+
+/**
+ * Rows left in flight by a crashed or restarted daemon go back to pending with
+ * their recovery count bumped; a row that keeps dying is parked as dead.
+ */
 export function recoverStaleMessages(thresholdMs = 10 * 60 * 1000): number {
-    return getDb().prepare(`UPDATE messages SET status='pending',updated_at=? WHERE status IN ('processing','queued') AND updated_at<?`)
-        .run(Date.now(), Date.now() - thresholdMs).changes;
+    const d = getDb();
+    const cutoff = Date.now() - thresholdMs;
+    d.prepare(`UPDATE messages SET status='dead',last_error='Interrupted repeatedly',updated_at=? WHERE status IN ('processing','queued') AND updated_at<? AND recovery>=?`)
+        .run(Date.now(), cutoff, MAX_RECOVERIES - 1);
+    return d.prepare(`UPDATE messages SET status='pending',recovery=recovery+1,updated_at=? WHERE status IN ('processing','queued') AND updated_at<?`)
+        .run(Date.now(), cutoff).changes;
 }
 
 // ── Responses ───────────────────────────────────────────────────────────────
@@ -257,15 +313,35 @@ export function deleteAgentMessagesFrom(agentId: string, fromRowId: number): num
     ).run(agentId, fromRowId).changes;
 }
 
-export function getAgentMessages(agentId: string, limit = 100): any[] {
+export function getAgentMessages(agentId: string, limit = 100, sinceId = 0): any[] {
     // sessionId rides along for edit-and-rerun; it goes null once the source
     // messages row is pruned.
     return getDb().prepare(
         `SELECT am.*, m.session_id AS sessionId
          FROM agent_messages am
          LEFT JOIN messages m ON m.message_id = am.message_id
-         WHERE am.agent_id=? ORDER BY am.created_at DESC LIMIT ?`
-    ).all(agentId, limit);
+         WHERE am.agent_id=? AND am.id>? ORDER BY am.created_at DESC LIMIT ?`
+    ).all(agentId, sinceId, limit);
+}
+
+export function deleteAgentMessagesByMessageId(agentId: string, messageId: string, role?: 'user' | 'assistant'): number {
+    return role
+        ? getDb().prepare(`DELETE FROM agent_messages WHERE agent_id=? AND message_id=? AND role=?`).run(agentId, messageId, role).changes
+        : getDb().prepare(`DELETE FROM agent_messages WHERE agent_id=? AND message_id=?`).run(agentId, messageId).changes;
+}
+
+/** Marks a stored tool row settled; the row is found by the tool-use id inside its JSON. */
+export function updateAgentToolMessage(agentId: string, messageId: string, toolUseId: string, patch: Record<string, unknown>): boolean {
+    const d = getDb();
+    const row = d.prepare(
+        `SELECT id, content FROM agent_messages WHERE agent_id=? AND message_id=? AND kind='tool' AND content LIKE ? ORDER BY id DESC LIMIT 1`
+    ).get(agentId, messageId, `%${JSON.stringify(toolUseId)}%`) as { id: number; content: string } | undefined;
+    if (!row) return false;
+    let parsed: Record<string, unknown>;
+    try { parsed = JSON.parse(row.content); } catch { return false; }
+    if (parsed.toolUseId !== toolUseId) return false;
+    d.prepare(`UPDATE agent_messages SET content=? WHERE id=?`).run(JSON.stringify({ ...parsed, ...patch }), row.id);
+    return true;
 }
 
 export function getLastAssistantMessageByMessageIdPrefix(prefix: string): any | null {

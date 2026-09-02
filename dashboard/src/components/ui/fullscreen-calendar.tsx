@@ -115,10 +115,10 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
         </div>
 
         <div className="flex flex-col items-center gap-4 md:flex-row md:gap-6">
-          <div className="inline-flex w-full -space-x-px rounded-md shadow-sm shadow-black/5 md:w-auto rtl:space-x-reverse">
+          <div className="inline-flex w-full -space-x-px rounded-md md:w-auto rtl:space-x-reverse">
             <Button
               onClick={previousMonth}
-              className="rounded-none shadow-none first:rounded-s-md last:rounded-e-md focus-visible:z-10"
+              className="rounded-none first:rounded-s-md last:rounded-e-md focus-visible:z-10"
               variant="outline"
               size="icon"
               aria-label="Navigate to previous month"
@@ -127,14 +127,14 @@ export function FullScreenCalendar({ data, onNewEvent, newEventLabel }: FullScre
             </Button>
             <Button
               onClick={goToToday}
-              className="w-full rounded-none shadow-none first:rounded-s-md last:rounded-e-md focus-visible:z-10 md:w-auto"
+              className="w-full rounded-none first:rounded-s-md last:rounded-e-md focus-visible:z-10 md:w-auto"
               variant="outline"
             >
               Today
             </Button>
             <Button
               onClick={nextMonth}
-              className="rounded-none shadow-none first:rounded-s-md last:rounded-e-md focus-visible:z-10"
+              className="rounded-none first:rounded-s-md last:rounded-e-md focus-visible:z-10"
               variant="outline"
               size="icon"
               aria-label="Navigate to next month"

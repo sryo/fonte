@@ -1,56 +1,82 @@
 "use client";
 
 import { useState } from "react";
-import { createAutomation } from "@/lib/api";
+import { createAutomation, type AutomationTrigger } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  TriggerEditor,
+  defaultMember,
+  membersFromTrigger,
+  membersToTrigger,
+  type TriggerMemberForm,
+} from "@/components/home/trigger-editor";
 
-// Shared with EditAutomationModal so the two pickers can't drift.
-export const TRIGGER_TYPES: { value: string; label: string }[] = [
-  { value: "torrent:completed", label: "Torrent completes" },
-  { value: "torrent:added", label: "Torrent added" },
-  { value: "torrent:error", label: "Torrent error" },
-  { value: "torrent:stalled", label: "Torrent stalled" },
-  { value: "torrent:removed", label: "Torrent removed" },
-  { value: "watchlist:match", label: "Watchlist match found" },
-  { value: "schedule", label: "On a schedule" },
-];
+export interface AutomationDraft {
+  name?: string;
+  prompt?: string;
+  trigger?: AutomationTrigger;
+}
 
-export function AddAutomationModal({ open, onClose, onCreated }: {
+export function AddAutomationModal({
+  open,
+  onClose,
+  onCreated,
+  agentId,
+  initial,
+  title = "Create automation",
+}: {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  /** Rule owner; the daemon's default agent when omitted. */
+  agentId?: string;
+  /** Pre-filled fields, e.g. a schedule from the agent page. */
+  initial?: AutomationDraft;
+  title?: string;
 }) {
-  const [autoForm, setAutoForm] = useState({
-    name: "",
-    triggerType: "torrent:completed",
-    prompt: "",
-  });
+  // Modal unmounts its content when closed, so the form mounts fresh from
+  // `initial` on every open without any state syncing.
+  return (
+    <Modal open={open} onClose={onClose} title={title}>
+      <AutomationForm onClose={onClose} onCreated={onCreated} agentId={agentId} initial={initial} />
+    </Modal>
+  );
+}
+
+function AutomationForm({
+  onClose,
+  onCreated,
+  agentId,
+  initial,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+  agentId?: string;
+  initial?: AutomationDraft;
+}) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [prompt, setPrompt] = useState(initial?.prompt ?? "");
+  const [members, setMembers] = useState<TriggerMemberForm[]>(
+    initial?.trigger ? membersFromTrigger(initial.trigger) : [defaultMember("event")],
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleCreate = async () => {
-    if (!autoForm.name.trim() || submitting) return;
+  const trigger = membersToTrigger(members);
+  const canSubmit = !!name.trim() && !!prompt.trim() && trigger !== null && !submitting;
+
+  const handleCreate = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!canSubmit || !trigger) return;
     setSubmitting(true);
     setError(null);
     try {
-      await createAutomation({
-        name: autoForm.name.trim(),
-        prompt: autoForm.prompt.trim(),
-        triggerType: autoForm.triggerType,
-      });
-      setAutoForm({ name: "", triggerType: "torrent:completed", prompt: "" });
+      await createAutomation({ name: name.trim(), prompt: prompt.trim(), trigger, agent: agentId });
       onClose();
       onCreated();
     } catch (err) {
@@ -61,38 +87,24 @@ export function AddAutomationModal({ open, onClose, onCreated }: {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Create automation" onSubmit={handleCreate}>
+    <form onSubmit={handleCreate}>
       <div className="space-y-4">
         <Input
           placeholder="Rule name"
-          value={autoForm.name}
-          onChange={(e) => setAutoForm({ ...autoForm, name: e.target.value })}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
           autoFocus
         />
         <div className="space-y-1.5">
-          <Label>When this happens...</Label>
-          <Select
-            value={autoForm.triggerType}
-            onValueChange={(v) => setAutoForm({ ...autoForm, triggerType: v })}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TRIGGER_TYPES.map((t) => (
-                <SelectItem key={t.value} value={t.value}>
-                  {t.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label>When</Label>
+          <TriggerEditor members={members} onChange={setMembers} />
         </div>
         <div className="space-y-1.5">
-          <Label>Describe what should happen...</Label>
+          <Label>What should happen</Label>
           <Textarea
-            placeholder="e.g., Fetch subtitles in the original language, translate to Spanish, clean up the file name, and move to the right folder based on type."
-            value={autoForm.prompt}
-            onChange={(e) => setAutoForm({ ...autoForm, prompt: e.target.value })}
+            placeholder="e.g. Fetch subtitles in the original language, translate to Spanish, clean up the file name, and move it to the right folder. Stay quiet if there is nothing to do."
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
             rows={4}
             className="resize-y"
           />
@@ -105,7 +117,7 @@ export function AddAutomationModal({ open, onClose, onCreated }: {
           </Button>
           <Button
             type="submit"
-            disabled={!autoForm.name.trim() || submitting}
+            disabled={!canSubmit}
             className="flex-1 bg-automation text-automation-foreground hover:bg-automation/90"
           >
             {submitting ? "Creating..." : "Create"}
@@ -113,6 +125,6 @@ export function AddAutomationModal({ open, onClose, onCreated }: {
           </Button>
         </div>
       </div>
-    </Modal>
+    </form>
   );
 }

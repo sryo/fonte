@@ -24,6 +24,8 @@ import type {
   IndexerStatus,
 } from "@/lib/api";
 import {
+  Eye,
+  Lightning,
   MagnifyingGlass,
   Plus,
   Trash,
@@ -161,6 +163,10 @@ export default function HomePage() {
   const [showAddWatchlist, setShowAddWatchlist] = useState(false);
   const [showAddAutomation, setShowAddAutomation] = useState(false);
   const [editAutoRule, setEditAutoRule] = useState<AutomationRule | null>(null);
+  // Chat event notes deep-link here with ?automation=<id>.
+  const [requestedAutomationId, setRequestedAutomationId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("automation"),
+  );
   const [removeTarget, setRemoveTarget] = useState<TorrentRecord | null>(null);
   const [clearOpen, setClearOpen] = useState(false);
   const [clearFulfilledOpen, setClearFulfilledOpen] = useState(false);
@@ -284,6 +290,21 @@ export default function HomePage() {
     catch {}
     setRunningAutoId(null);
   };
+
+  const requestedRule = requestedAutomationId
+    ? automations.find((a) => a.id === requestedAutomationId) ?? null
+    : null;
+  const openAutoRule = editAutoRule ?? requestedRule;
+  const closeAutoRule = () => {
+    setEditAutoRule(null);
+    if (requestedAutomationId) {
+      setRequestedAutomationId(null);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  };
+
+  const isAutomationRunning = (rule: AutomationRule) =>
+    runningAutoId === rule.id || rule.lastRun?.status === "running";
 
   const deleteAutomationRule = async (rule: AutomationRule) => {
     await deleteAutomation(rule.id);
@@ -547,6 +568,7 @@ export default function HomePage() {
           emptyContent={
             <div className="flex" style={{ viewTransitionName: "hi-add-wl" }}>
               <EmptyRowCard
+                icon={Eye}
                 label="Watch for a release"
                 hint="We'll grab it when it shows up"
                 onClick={() => setShowAddWatchlist(true)}
@@ -623,7 +645,7 @@ export default function HomePage() {
           title="Automations"
           count={enabledAutomations.length}
           chips={
-            runningAutoId != null && (
+            automations.some(isAutomationRunning) && (
               <HeaderChip
                 className="bg-automation/15 text-automation"
                 label="An automation is running"
@@ -637,6 +659,7 @@ export default function HomePage() {
           emptyContent={
             <div className="flex" style={{ viewTransitionName: "hi-add-auto" }}>
               <EmptyRowCard
+                icon={Lightning}
                 label="Create an automation"
                 hint="Run an agent when something happens"
                 onClick={() => setShowAddAutomation(true)}
@@ -658,7 +681,7 @@ export default function HomePage() {
                 <AutomationMiniTile
                   key={rule.id}
                   rule={rule}
-                  running={runningAutoId === rule.id}
+                  running={isAutomationRunning(rule)}
                   onClick={() => setEditAutoRule(rule)}
                 />
               ))
@@ -678,7 +701,7 @@ export default function HomePage() {
             <div key={rule.id} className="flex" style={{ viewTransitionName: vtName("a", rule.id) }}>
               <AutomationCard
                 rule={rule}
-                running={runningAutoId === rule.id}
+                running={isAutomationRunning(rule)}
                 onRun={() => runAutomation(rule)}
                 onEdit={() => setEditAutoRule(rule)}
                 onDelete={() => deleteAutomationRule(rule)}
@@ -688,11 +711,9 @@ export default function HomePage() {
         </ContentRow>
       )}
 
-      <AddWatchlistModal
-        open={showAddWatchlist}
-        onClose={() => setShowAddWatchlist(false)}
-        onAdded={fetchAll}
-      />
+      {showAddWatchlist && (
+        <AddWatchlistModal onClose={() => setShowAddWatchlist(false)} onAdded={fetchAll} />
+      )}
 
       <AddAutomationModal
         open={showAddAutomation}
@@ -700,10 +721,11 @@ export default function HomePage() {
         onCreated={fetchAll}
       />
 
-      {editAutoRule && (
+      {openAutoRule && (
         <EditAutomationModal
-          rule={editAutoRule}
-          onClose={() => setEditAutoRule(null)}
+          key={openAutoRule.id}
+          rule={openAutoRule}
+          onClose={closeAutoRule}
           onSaved={fetchAll}
         />
       )}

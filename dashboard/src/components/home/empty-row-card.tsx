@@ -2,15 +2,16 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
-import { GhostInitial } from "@/components/ui/ghost-initial";
 
 export function EmptyRowCard({
+  icon: Icon,
   label,
   hint,
   hintClassName,
   active,
   onClick,
 }: {
+  icon: React.ElementType;
   label: string;
   hint?: string;
   hintClassName?: string;
@@ -32,7 +33,7 @@ export function EmptyRowCard({
       )}
     >
       <div className="aspect-[2/3] w-full flex items-center justify-center bg-gradient-to-br from-muted/30 to-transparent">
-        <GhostInitial text={label} className="text-6xl" />
+        <Icon className="size-14 text-ghost" weight="bold" />
       </div>
       <div className="p-4 space-y-1">
         <p className="text-sm font-medium leading-tight text-muted-foreground">{label}</p>

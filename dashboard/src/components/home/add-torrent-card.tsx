@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CaretDown, Plus, UploadSimple } from "@phosphor-icons/react";
+import { CaretDown, DownloadSimple, Plus, UploadSimple } from "@phosphor-icons/react";
 import { addTorrent } from "@/lib/api";
 import { EmptyRowCard } from "./empty-row-card";
 import { CreateTorrentModal } from "./create-torrent-modal";
@@ -149,6 +149,7 @@ export function AddTorrentCard({
     >
       {input}
       <EmptyRowCard
+        icon={DownloadSimple}
         label="Add a torrent"
         hint={busy ? "Adding…" : error ?? "Drop a .torrent file or click to browse"}
         hintClassName={error && !busy ? "text-destructive" : undefined}

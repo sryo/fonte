@@ -68,8 +68,6 @@ export default function AgentConfigPage({
   const [heartbeatPath, setHeartbeatPath] = useState<string>("");
   const [heartbeatLoaded, setHeartbeatLoaded] = useState(false);
 
-  const [heartbeatInterval, setHeartbeatInterval] = useState("300");
-  const [heartbeatEnabled, setHeartbeatEnabled] = useState(true);
 
   const agent = agents?.[agentId];
 
@@ -88,10 +86,6 @@ export default function AgentConfigPage({
       .then((data) => {
         setHeartbeatContent(data.content);
         setHeartbeatPath(data.path);
-        setHeartbeatEnabled(data.enabled);
-        if (data.interval != null) {
-          setHeartbeatInterval(String(data.interval));
-        }
         setHeartbeatLoaded(true);
       })
       .catch(() => setHeartbeatLoaded(true));
@@ -114,18 +108,14 @@ export default function AgentConfigPage({
     if (!agent) return;
     setHbSaving(true);
     try {
-      await saveAgentHeartbeat(agentId, {
-        content: heartbeatContent,
-        enabled: heartbeatEnabled,
-        interval: parseInt(heartbeatInterval) || 300,
-      });
+      await saveAgentHeartbeat(agentId, { content: heartbeatContent });
       setHbSaved(true);
       setTimeout(() => setHbSaved(false), 2000);
     } catch {
     } finally {
       setHbSaving(false);
     }
-  }, [agent, agentId, heartbeatContent, heartbeatEnabled, heartbeatInterval]);
+  }, [agent, agentId, heartbeatContent]);
 
   if (!agents) {
     return (
@@ -238,14 +228,11 @@ export default function AgentConfigPage({
         )}
         {activeTab === "heartbeat" && (
           <HeartbeatTab
+            agentId={agentId}
             content={heartbeatContent}
             filePath={heartbeatPath}
             loaded={heartbeatLoaded}
             onChange={setHeartbeatContent}
-            enabled={heartbeatEnabled}
-            onToggle={() => setHeartbeatEnabled(!heartbeatEnabled)}
-            interval={heartbeatInterval}
-            onIntervalChange={setHeartbeatInterval}
             onSave={handleSaveHeartbeat}
             saving={hbSaving}
             saved={hbSaved}

@@ -5,6 +5,16 @@ import { extractInfoHash } from './search-aggregator';
 // ── Watchlist CRUD ───────────────────────────────────────────────────────────
 
 /**
+ * The year a search may carry. Episodic TV is named by season and episode, and
+ * Other covers releases that follow no naming convention at all. For both, a
+ * year reaches filterByTitle and drops every result whose title omits it.
+ */
+export function searchYear(mediaType: MediaType, year?: number | null): number | undefined {
+    if (mediaType === 'tv' || mediaType === 'other') return undefined;
+    return year ?? undefined;
+}
+
+/**
  * An ongoing watch keeps matching new releases (episodes, tracks) after a
  * grab; a bounded one (movie, or a specific season pattern) is fulfilled by
  * its first match.

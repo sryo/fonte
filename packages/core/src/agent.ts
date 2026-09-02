@@ -26,6 +26,18 @@ const BUILTIN_AGENT_INSTRUCTIONS_HASH = crypto
 type PromptCacheEntry = { hash: string; prompt: string };
 const systemPromptCache = new Map<string, PromptCacheEntry>();
 
+type PromptSection = (agentId: string) => string | null;
+const promptSections = new Map<string, PromptSection>();
+
+/**
+ * Packages that core cannot import (the torrent package owns automations) add
+ * their live state to the system prompt here. Sections render on every build
+ * and take part in the cache hash.
+ */
+export function registerSystemPromptSection(name: string, section: PromptSection): void {
+    promptSections.set(name, section);
+}
+
 function hashString(value: string): string {
     return crypto.createHash('sha256').update(value).digest('hex');
 }
@@ -233,38 +245,48 @@ curl http://localhost:3777/api/torrents
 When users ask to download something, help them find the magnet link and add it via the API.
 When they ask about download status, query the torrent list and report progress.
 
-## Automations API
+## Automations
 
-Automations are rules that trigger AI actions when something happens (a torrent finishes, a watchlist match, on a schedule, etc.). Each rule has a \`triggerType\`, a free-text \`prompt\` (what to do when fired), an optional \`triggerConfig\` object, and a human-readable \`name\`.
+Automations are your standing rules: a saved prompt plus a trigger. A trigger is an event, a cron schedule, a one-time run, or a group of those (any member fires the same prompt). They run whether or not the user is around, on the agent named in the rule (you, unless you pass \`agent\`). When one fires you receive a hidden message that opens with \`[automation]\` and names the rule: that is your own rule firing, never the user typing. Carry out the saved prompt and reply normally. If the saved prompt says to stay quiet when there is nothing to report, reply with exactly \`[quiet]\` and nothing else; that reply is not delivered anywhere.
 
-**Valid triggerType values:**
-\`torrent:completed\` | \`torrent:added\` | \`torrent:error\` | \`torrent:stalled\` | \`torrent:removed\` | \`watchlist:match\` | \`schedule\`
+Be proactive about them. "Let me know when X", "keep an eye on Y", "every morning", "remind me", a digest, a monitor: create a rule instead of doing the thing once or promising to remember. Make finite watches self-expiring: delete the rule after the matching event, or put a deadline in the prompt and delete it when a run finds the deadline passed. Prefer an event trigger over a cron when the event exists. Default cron rules to weekday waking hours (for example \`0 8 * * 1-5\`) unless the user asks for more. Confirm a created rule by quoting its id.
 
-**Create an automation:**
+Trigger shapes:
+- \`{"type": "event", "event": "<name>"}\` where name is one of: torrent:completed, torrent:added, torrent:error, torrent:stalled, torrent:removed, watchlist:match, watchlist:search, watchlist:results, subtitle:downloaded, subtitle:translated
+- \`{"type": "cron", "schedule": "0 8 * * 1-5"}\`: 5-field cron in the user's local time
+- \`{"type": "once", "runAt": "2026-09-03T09:00:00"}\`: fires once, then the rule disables itself
+- \`{"type": "group", "members": [ ...any of the above... ]}\`
+
+Endpoints:
 \`\`\`
-curl -X POST http://localhost:3777/api/automations \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "name": "Notify when download finishes",
-    "triggerType": "torrent:completed",
-    "prompt": "Send a notification: download of {{name}} is complete."
-  }'
+POST   /api/automations                {"name": "...", "prompt": "...", "trigger": {...}, "agent"?: "fonte", "enabled"?: true}
+GET    /api/automations                List (optional ?enabled=true&agent=fonte&event=torrent:completed); each rule carries lastRun
+GET    /api/automations/:id            Rule plus its last 20 runs (status running | ok | error | interrupted | skipped)
+PUT    /api/automations/:id            Any of name, prompt, trigger, agent, enabled
+POST   /api/automations/:id/pause      Disarm without deleting (also /resume)
+POST   /api/automations/:id/trigger    Run it now
+DELETE /api/automations/:id            Remove
 \`\`\`
 
-**For \`schedule\` triggers**, include \`triggerConfig\` with a \`cron\` string:
+Example:
 \`\`\`
-{"name": "Nightly check", "triggerType": "schedule", "triggerConfig": {"cron": "0 3 * * *"}, "prompt": "Check watchlist for new matches."}
+curl -X POST http://localhost:3777/api/automations -H "Content-Type: application/json" \\
+  -d '{"name": "Subtitles for new episodes", "trigger": {"type": "event", "event": "torrent:completed"}, "prompt": "Fetch English subtitles for the completed torrent. Stay quiet if none are needed."}'
 \`\`\`
-
-**Other endpoints:**
-- \`GET /api/automations\` — list all rules (optional \`?enabled=true&trigger=…\`)
-- \`GET /api/automations/:id\` — rule + recent logs
-- \`PUT /api/automations/:id\` — update fields
-- \`DELETE /api/automations/:id\` — remove
-- \`POST /api/automations/:id/run\` — fire manually for testing
-
-When the user asks you to create one or more automations, call POST /api/automations once per rule and confirm by including the returned \`id\` in your reply. Don't suggest "I'll create one" without actually calling the API.
 `;
+
+    const sectionOutputs: Record<string, string> = {};
+    for (const [name, section] of promptSections) {
+        try {
+            const rendered = section(agentId);
+            if (rendered) {
+                sectionOutputs[name] = rendered;
+                prompt += '\n\n' + rendered;
+            }
+        } catch (err) {
+            log('ERROR', `System prompt section '${name}' failed: ${(err as Error).message}`);
+        }
+    }
 
     const userAgentsMd = path.join(agentDir, 'AGENTS.md');
     let userContent = '';
@@ -302,6 +324,7 @@ When the user asks you to create one or more automations, call POST /api/automat
         teammateBlock: block,
         memoryTree,
         soulContent: soulCacheContent,
+        sectionOutputs,
         userContent,
         promptFileContent,
         configSystemPrompt: configSystemPrompt || '',

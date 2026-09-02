@@ -333,7 +333,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
         </div>
 
         {(notice || (jumpOpen && jumpMatches.length > 0) || results.length > 0) && (
-          <div className="absolute w-full bg-card rounded-xl shadow-card mt-1 max-h-72 overflow-y-auto z-40">
+          <div className="absolute w-full bg-card rounded-xl border shadow-md mt-1 max-h-72 overflow-y-auto z-40">
             {notice && (
               <div
                 className={cn(

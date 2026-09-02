@@ -7,24 +7,10 @@ import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
 import { Segmented } from "@/components/ui/segmented";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { type MediaType, type WatchlistRecord } from "@/lib/api";
-
-const MEDIA_TYPES: { value: MediaType; label: string }[] = [
-  { value: "movie", label: "Movie" },
-  { value: "tv", label: "TV" },
-  { value: "music", label: "Music" },
-  { value: "other", label: "Other" },
-];
-
-// Legacy kinds stay editable on entries that already carry them.
-const LEGACY_LABELS: Partial<Record<MediaType, string>> = { game: "Game", book: "Book", app: "App" };
+import { QUALITY_SUGGESTIONS } from "@/lib/release-groups";
+import { LEGACY_LABELS, MEDIA_TYPES, kindHasQuality, kindUsesYear } from "@/lib/media-kinds";
 
 export interface EditEntryData {
   title: string;
@@ -66,8 +52,8 @@ export function EditEntryModal({
     onSave({
       title: form.title.trim(),
       mediaType: form.mediaType,
-      year: form.year ? parseInt(form.year) : null,
-      quality: form.mediaType === "other" ? "" : form.quality,
+      year: kindUsesYear(form.mediaType) && form.year ? parseInt(form.year, 10) : null,
+      quality: kindHasQuality(form.mediaType) ? form.quality : "",
       seasonPattern: form.mediaType === "tv" ? form.seasonPattern.trim() || null : null,
       posterUrl: form.posterUrl.trim() || null,
     });
@@ -98,33 +84,35 @@ export function EditEntryModal({
               }
             />
           </div>
-          <div className="w-24 space-y-1.5">
-            <Label htmlFor="edit-year">{form.mediaType === "tv" ? "First aired" : "Year"}</Label>
-            <Input
-              id="edit-year"
-              type="number"
-              value={form.year}
-              onChange={(e) => patch({ year: e.target.value })}
-              placeholder={form.mediaType === "tv" ? "Optional" : "Year"}
-              title={form.mediaType === "tv" ? "Only used to find the right poster" : undefined}
-            />
-          </div>
+          {kindUsesYear(form.mediaType) && (
+            <div className="w-28 space-y-1.5">
+              <Label htmlFor="edit-year">{form.mediaType === "tv" ? "First aired" : "Year"}</Label>
+              <Input
+                id="edit-year"
+                type="number"
+                min={1900}
+                max={2100}
+                value={form.year}
+                onChange={(e) => patch({ year: e.target.value })}
+                placeholder={form.mediaType === "tv" ? "Optional" : "Year"}
+              />
+            </div>
+          )}
         </div>
-        {form.mediaType !== "other" && (
+        {form.mediaType === "tv" && (
+          <p className="text-2xs text-muted-foreground">The year only helps find the right poster.</p>
+        )}
+        {kindHasQuality(form.mediaType) && (
           <div className="space-y-1.5">
             <Label htmlFor="edit-quality">Quality</Label>
-            <Input
+            <Combobox
               id="edit-quality"
+              placeholder="Any"
               value={form.quality}
-              onChange={(e) => patch({ quality: e.target.value })}
-              placeholder={
-                form.mediaType === "music"
-                  ? "e.g. FLAC, 320. Empty for any"
-                  : form.mediaType === "movie" || form.mediaType === "tv"
-                    ? "e.g. 1080p"
-                    : "e.g. EPUB. Empty for any"
-              }
+              onValueChange={(v) => patch({ quality: v })}
+              options={QUALITY_SUGGESTIONS[form.mediaType] ?? []}
             />
+            <p className="text-2xs text-muted-foreground">Empty matches any quality.</p>
           </div>
         )}
         {form.mediaType === "tv" && (

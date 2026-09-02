@@ -94,6 +94,13 @@ export interface WatchlistResultRecord {
     foundAt: number;
 }
 
+/** A title-ahead candidate offered while composing a watchlist entry. */
+export interface WatchlistSuggestion {
+    title: string;
+    year?: number;
+    mediaType: 'movie' | 'tv';
+}
+
 export type SubtitleStatus = 'pending' | 'downloading' | 'downloaded' | 'translating' | 'translated' | 'error';
 
 export interface SubtitleRecord {

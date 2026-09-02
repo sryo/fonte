@@ -81,6 +81,7 @@ export interface Settings {
         enabled?: boolean;
         torrent_completed?: boolean;
         watchlist_match?: boolean;
+        automation_failed?: boolean;
     };
     libraries?: Record<string, string>;  // type → folder path, e.g. { "Movies": "/media/Movies", "TV": "/media/TV", "Music": "/media/Music" }
     whatsapp?: {
@@ -129,20 +130,6 @@ export const MODEL_ALIASES: Record<string, Record<string, string>> = {
     },
 };
 
-// Schedule types
-export interface Schedule {
-    id: string;
-    label: string;
-    cron: string;           // 5-field cron expression (empty for one-time)
-    agentId: string;
-    message: string;
-    channel: string;        // default "schedule"
-    sender: string;         // default "Scheduler"
-    enabled: boolean;
-    createdAt: number;      // epoch ms
-    runAt?: string;         // ISO date string for one-time schedules
-}
-
 // Queue job data types
 export interface MessageJobData {
     channel: string;
@@ -154,7 +141,11 @@ export interface MessageJobData {
     fromAgent?: string;
     /** Fork the provider conversation from this session (edit-and-rerun). */
     resumeSessionId?: string;
+    /** 'user' (default) runs before 'background' (automations) in the agent's queue. */
+    lane?: MessageLane;
 }
+
+export type MessageLane = 'user' | 'background';
 
 export interface ResponseJobData {
     channel: string;

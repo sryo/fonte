@@ -1,5 +1,8 @@
 import { TorrentStatus, TorrentRecord, TorrentFileRecord } from './types';
+import path from 'path';
+import { FONTE_HOME } from '@fonte/core';
 import { initDb, getDb, closeDb } from './db-connection';
+import { DEFAULT_AUTOMATION_AGENT, backfillLegacyTriggers, importLegacySchedules } from './automation-db';
 import { extractInfoHash } from './search-aggregator';
 
 export function initTorrentDb(): void {
@@ -185,10 +188,34 @@ export function initTorrentDb(): void {
         db.exec('ALTER TABLE torrent_files ADD COLUMN priority INTEGER NOT NULL DEFAULT 0');
     }
 
-    const autoRuleCols = getDb().prepare("PRAGMA table_info(automation_rules)").all() as { name: string }[];
+    const autoRuleCols = db.prepare("PRAGMA table_info(automation_rules)").all() as { name: string }[];
     if (!autoRuleCols.some(c => c.name === 'prompt')) {
-        getDb().exec("ALTER TABLE automation_rules ADD COLUMN prompt TEXT DEFAULT ''");
+        db.exec("ALTER TABLE automation_rules ADD COLUMN prompt TEXT DEFAULT ''");
     }
+    if (!autoRuleCols.some(c => c.name === 'trigger')) {
+        db.exec('ALTER TABLE automation_rules ADD COLUMN trigger TEXT');
+    }
+    if (!autoRuleCols.some(c => c.name === 'agent_id')) {
+        db.exec(`ALTER TABLE automation_rules ADD COLUMN agent_id TEXT NOT NULL DEFAULT '${DEFAULT_AUTOMATION_AGENT}'`);
+    }
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS automation_runs (
+            id TEXT PRIMARY KEY,
+            rule_id TEXT NOT NULL,
+            trigger TEXT NOT NULL,
+            event_summary TEXT,
+            message_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            detail TEXT,
+            started_at INTEGER NOT NULL,
+            finished_at INTEGER,
+            FOREIGN KEY (rule_id) REFERENCES automation_rules(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_auto_runs_rule ON automation_runs(rule_id, started_at);
+        CREATE INDEX IF NOT EXISTS idx_auto_runs_message ON automation_runs(message_id);
+    `);
+    backfillLegacyTriggers();
+    importLegacySchedules(path.join(FONTE_HOME, 'schedules.json'));
 
     // Backfill names that were stored URL-encoded from magnet dn= parameters.
     const encodedRows = db.prepare("SELECT id, name FROM torrents WHERE name LIKE '%+%' OR name LIKE '%\\%%' ESCAPE '\\'").all() as { id: string; name: string }[];

@@ -4,7 +4,7 @@ import { aggregateSearch, filterByTitle, rankResults, computeQualityMatch, extra
 import {
     getWatchlistEntries, updateWatchlistEntry,
     insertWatchlistResult, getWatchlistResultByMagnet, markResultSelected,
-    getFeedbackTitles, getBlockedResultKeys, isOngoingWatch,
+    getFeedbackTitles, getBlockedResultKeys, isOngoingWatch, searchYear,
 } from './watchlist-db';
 import { buildAffinity } from './release-affinity';
 import { getTorrentManager } from './torrent-manager';
@@ -82,8 +82,7 @@ export async function runWatchlistCheck(): Promise<void> {
 
             const filtered = filterByTitle(results, {
                 title: entry.title,
-                // Year narrows everything except episodic TV releases.
-                year: entry.mediaType !== 'tv' ? entry.year ?? undefined : undefined,
+                year: searchYear(entry.mediaType, entry.year),
                 seasonPattern: entry.seasonPattern,
             });
 

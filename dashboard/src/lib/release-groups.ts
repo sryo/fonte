@@ -142,15 +142,49 @@ export function seederTone(seeders: number): Tone {
   return "error";
 }
 
-const MUSIC_FORMAT_RE = /\b(FLAC|ALAC|APE|320|V0|V2|MP3|AAC)\b/i;
+export interface QualitySuggestion {
+  value: string;
+  hint?: string;
+}
+
+// One list drives both the suggestions the modals offer and the regexes that
+// read a format back off a release title, so the two can't drift apart.
+const MUSIC_FORMATS: QualitySuggestion[] = [
+  { value: "FLAC", hint: "lossless" },
+  { value: "ALAC", hint: "lossless" },
+  { value: "APE", hint: "lossless" },
+  { value: "320", hint: "MP3 constant rate" },
+  { value: "V0", hint: "MP3 variable, best" },
+  { value: "V2", hint: "MP3 variable" },
+  { value: "MP3" },
+  { value: "AAC" },
+];
+const MUSIC_ALTERNATION = MUSIC_FORMATS.map(f => f.value).join("|");
+
+export const MUSIC_FORMAT_RE = new RegExp(String.raw`\b(${MUSIC_ALTERNATION})\b`, "i");
 const MUSIC_PACK_RE = /\b(discography|collection|complete)\b/i;
+
+// Every resolution resolutionTag can name, loudest first. SD is what it falls
+// back to, never something to ask for.
+const VIDEO_QUALITIES: QualitySuggestion[] = [
+  { value: "2160p", hint: "4K" },
+  { value: "1080p" },
+  { value: "720p" },
+  { value: "480p" },
+];
+
+export const QUALITY_SUGGESTIONS: Partial<Record<MediaType, QualitySuggestion[]>> = {
+  movie: VIDEO_QUALITIES,
+  tv: VIDEO_QUALITIES,
+  music: MUSIC_FORMATS,
+};
 
 function albumCut(title: string): string {
   return title
     .replace(/^.{1,60}?\s-\s/, "")
     .replace(/\s*[([]\s*(19|20)\d{2}\b[\s\S]*$/, "")
-    .replace(/\s*[([][^)\]]*\b(FLAC|ALAC|APE|320|V0|V2|MP3|AAC)\b[\s\S]*$/i, "")
-    .replace(/\s+\b(FLAC|ALAC|APE|320|V0|V2|MP3|AAC|WEB|CD|Vinyl)\b[\s\S]*$/i, "")
+    .replace(new RegExp(String.raw`\s*[([][^)\]]*\b(${MUSIC_ALTERNATION})\b[\s\S]*$`, "i"), "")
+    .replace(new RegExp(String.raw`\s+\b(${MUSIC_ALTERNATION}|WEB|CD|Vinyl)\b[\s\S]*$`, "i"), "")
     .trim();
 }
 

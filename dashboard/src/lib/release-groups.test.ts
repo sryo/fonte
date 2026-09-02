@@ -11,6 +11,8 @@ import {
   seederTone,
   formatTag,
   formatMatches,
+  MUSIC_FORMAT_RE,
+  QUALITY_SUGGESTIONS,
   type GroupableRelease,
 } from "./release-groups";
 
@@ -233,5 +235,33 @@ describe("groupReleases by kind", () => {
     const rows = [release("Show S14E04 1080p"), release("Show S14E03 1080p")];
     expect(groupReleases(rows, "seeders", "movie").mode).toBe("flat");
     expect(groupReleases(rows, "seeders", "other").mode).toBe("flat");
+  });
+});
+
+// The suggestions the watchlist modals offer are only useful if the parsers in
+// this file can read them back off a release title. Anything offered here that
+// formatTag can't recognize would silently never match.
+describe("QUALITY_SUGGESTIONS", () => {
+  it("offers only music formats the parser recognizes", () => {
+    for (const { value } of QUALITY_SUGGESTIONS.music!) {
+      expect(MUSIC_FORMAT_RE.test(`Artist - Album [${value}]`)).toBe(true);
+      expect(formatTag(`Artist - Album [${value}]`, "music")).toBe(value.toUpperCase());
+    }
+  });
+
+  it("offers only resolutions the parser recognizes", () => {
+    for (const { value } of QUALITY_SUGGESTIONS.movie!) {
+      expect(resolutionTag(`Some Film 2019 ${value}`)).toBe(value);
+      expect(formatMatches(resolutionTag(`Some Film 2019 ${value}`), value, "movie")).toBe(true);
+    }
+  });
+
+  it("matches a 2160p release against the 4K spelling a user may type", () => {
+    expect(formatMatches(resolutionTag("Some Film 2160p"), "4K", "movie")).toBe(true);
+  });
+
+  it("gives movie and tv the same ladder and leaves other kinds unsuggested", () => {
+    expect(QUALITY_SUGGESTIONS.tv).toEqual(QUALITY_SUGGESTIONS.movie);
+    expect(QUALITY_SUGGESTIONS.other).toBeUndefined();
   });
 });

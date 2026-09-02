@@ -13,12 +13,7 @@ app.get('/api/agents/:id/messages', (c) => {
     const limit = parseInt(c.req.query('limit') || '200', 10);
     const sinceId = parseInt(c.req.query('since_id') || '0', 10);
 
-    let messages = getAgentMessages(agentId, limit);
-    if (sinceId > 0) {
-        messages = messages.filter((m: any) => m.id > sinceId);
-    }
-
-    return ok(c, { messages });
+    return ok(c, { messages: getAgentMessages(agentId, limit, sinceId > 0 ? sinceId : 0) });
 });
 
 // Edit-and-rerun truncation: drops the row and everything after it.

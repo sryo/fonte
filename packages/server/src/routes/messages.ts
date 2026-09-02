@@ -4,6 +4,10 @@ import { ok, fail } from '../http';
 
 const app = new Hono();
 
+// Client-supplied ids (the dashboard's `web_<uuid>`) let a retried POST land
+// on the messages UNIQUE constraint instead of enqueueing twice.
+const CLIENT_MESSAGE_ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
+
 app.post('/api/message', async (c) => {
     const body = await c.req.json();
     const { message, agent, sender, senderId, channel, messageId: clientMessageId, resumeSessionId } = body as {
@@ -17,7 +21,9 @@ app.post('/api/message', async (c) => {
 
     const resolvedChannel = channel || 'api';
     const resolvedSender = sender || 'API';
-    const messageId = clientMessageId || genId('api');
+    const messageId = typeof clientMessageId === 'string' && CLIENT_MESSAGE_ID_RE.test(clientMessageId)
+        ? clientMessageId
+        : genId('api');
 
     // Resolve agent routing at enqueue time so channel messages and scheduled
     // messages end up in the same per-agent promise chain. Without this,

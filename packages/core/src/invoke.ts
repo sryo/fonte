@@ -200,7 +200,8 @@ export async function invokeAgent(
     teams: Record<string, TeamConfig> = {},
     opts?: {
         onEvent?: (text: string) => void;
-        onTool?: (name: string, input: unknown) => void;
+        onTool?: (name: string, input: unknown, toolUseId?: string) => void;
+        onToolResult?: (toolUseId: string, isError: boolean) => void;
         onSessionId?: (sessionId: string) => void;
         resumeSessionId?: string;
     },
@@ -286,6 +287,7 @@ export async function invokeAgent(
         envOverrides,
         onEvent: opts?.onEvent,
         onTool: opts?.onTool,
+        onToolResult: opts?.onToolResult,
         onSessionId: opts?.onSessionId,
         resumeSessionId: opts?.resumeSessionId,
     });

@@ -1,5 +1,5 @@
 import type {
-  WatchlistStatus, MediaType, WatchlistRecord, WatchlistResultRecord,
+  WatchlistStatus, MediaType, WatchlistRecord, WatchlistResultRecord, WatchlistSuggestion,
 } from "../api-types";
 import { apiFetch } from "./client";
 
@@ -14,6 +14,10 @@ export async function getWatchlistEntry(id: string): Promise<{ ok: boolean; entr
 
 export async function addWatchlistEntry(data: { title: string; mediaType: MediaType; year?: number; quality?: string; seasonPattern?: string }): Promise<{ ok: boolean; entry: WatchlistRecord }> {
   return apiFetch("/api/watchlist", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function suggestWatchlistTitles(query: string, signal?: AbortSignal): Promise<WatchlistSuggestion[]> {
+  return apiFetch(`/api/watchlist/suggest?q=${encodeURIComponent(query)}`, { signal }, "suggestions");
 }
 
 // year/seasonPattern/posterUrl accept null to clear the stored value

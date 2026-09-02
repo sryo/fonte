@@ -8,6 +8,22 @@ import { CardResizeHandle } from "@/components/home/card-resize";
 import { MiddleTruncate } from "@/components/ui/middle-truncate";
 import { ProgressRing } from "@/components/home/progress-ring";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { formatRunTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+const RUN_VERB: Record<NonNullable<AutomationRule["lastRun"]>["status"], string> = {
+  running: "Running since",
+  ok: "Last run succeeded",
+  error: "Last run failed",
+  interrupted: "Last run interrupted",
+  skipped: "Last fire skipped",
+};
+
+export function describeLastRun(rule: AutomationRule): string {
+  const run = rule.lastRun;
+  if (!run) return "Never run";
+  return `${RUN_VERB[run.status]} ${formatRunTime(run.startedAt).replace(/^([A-Z])/, (m) => m.toLowerCase())}`;
+}
 
 // Automation cards have no poster, so this hand-rolls the MediaCard look on a text card.
 export function AutomationCard({
@@ -42,14 +58,14 @@ export function AutomationCard({
       <MiddleTruncate text={rule.name} className="text-sm font-medium leading-tight group-hover:text-foreground" />
       <div className="mt-2">
         <span className="text-2xs bg-automation/15 text-automation px-1.5 py-0.5 rounded-full">
-          {rule.triggerType.replace(":", " ")}
+          {rule.triggerDescription}
         </span>
       </div>
       <p className="mt-2 text-2xs text-muted-foreground line-clamp-3 flex-1">
         {rule.prompt}
       </p>
-      <p className="mt-2 text-2xs text-muted-foreground">
-        Triggered {rule.triggerCount} time{rule.triggerCount !== 1 ? "s" : ""}
+      <p className={cn("mt-2 text-2xs", rule.lastRun?.status === "error" ? "text-destructive" : "text-muted-foreground")}>
+        {describeLastRun(rule)}
       </p>
       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
         <div className="absolute inset-0 flex items-center justify-center">

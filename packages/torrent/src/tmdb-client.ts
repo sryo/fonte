@@ -1,3 +1,5 @@
+import type { WatchlistSuggestion } from './types';
+
 export interface TmdbMediaInfo {
     tmdbId: number;
     title: string;
@@ -6,6 +8,50 @@ export interface TmdbMediaInfo {
     year: number;
     mediaType: 'movie' | 'tv';
     posterUrl?: string;
+}
+
+async function tmdbSearch(path: string, params: Record<string, string>): Promise<any[]> {
+    const url = new URL(`https://api.themoviedb.org/3/search/${path}`);
+    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error(`TMDB search failed (${res.status})`);
+
+    const data = await res.json() as { results?: any[] };
+    return data.results || [];
+}
+
+const posterUrl = (path?: string) => (path ? `https://image.tmdb.org/t/p/w300${path}` : undefined);
+
+/** TMDB dates are "YYYY-MM-DD", and absent for unreleased entries. */
+function releaseYear(result: any): number | undefined {
+    const date = result.release_date || result.first_air_date || '';
+    const year = date ? parseInt(date.slice(0, 4), 10) : NaN;
+    return Number.isFinite(year) ? year : undefined;
+}
+
+/**
+ * Title-ahead lookup across film and television in one call. Unlike
+ * searchTmdb, which resolves a known entry to its poster, this ranks
+ * candidates for a user who is still typing.
+ */
+export async function searchTmdbMulti(opts: {
+    query: string;
+    apiKey: string;
+    limit?: number;
+}): Promise<WatchlistSuggestion[]> {
+    const { query, apiKey, limit = 8 } = opts;
+    if (!query.trim()) return [];
+
+    const results = await tmdbSearch('multi', { api_key: apiKey, query });
+    return results
+        .filter(r => (r.media_type === 'movie' || r.media_type === 'tv') && (r.title || r.name))
+        .slice(0, limit)
+        .map(r => ({
+            title: r.title || r.name,
+            year: releaseYear(r),
+            mediaType: r.media_type as 'movie' | 'tv',
+        }));
 }
 
 export async function searchTmdb(opts: {

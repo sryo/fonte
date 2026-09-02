@@ -57,3 +57,28 @@ export function formatClock(ms: number): string {
     const s = Math.max(0, Math.floor(ms / 1000));
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
+
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function clockOf(d: Date): string {
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+/** "Just now", "12 min ago", "Today at 3:10 PM", "Yesterday at…", "Last Tuesday at…", then "Aug 14 at…". */
+export function formatRunTime(ts: number, now: number = Date.now()): string {
+  const diff = now - ts;
+  if (diff >= 0 && diff < 60_000) return "Just now";
+  if (diff >= 0 && diff < 3_600_000) return `${Math.floor(diff / 60_000)} min ago`;
+  if (diff < 0 && -diff < 3_600_000) return `In ${Math.max(1, Math.ceil(-diff / 60_000))} min`;
+  const d = new Date(ts);
+  const today = new Date(now);
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dayDiff = Math.round((startOfDay(d) - startOfDay(today)) / 86_400_000);
+  if (dayDiff === 0) return `Today at ${clockOf(d)}`;
+  if (dayDiff === -1) return `Yesterday at ${clockOf(d)}`;
+  if (dayDiff === 1) return `Tomorrow at ${clockOf(d)}`;
+  if (dayDiff < -1 && dayDiff > -7) return `Last ${WEEKDAY_NAMES[d.getDay()]} at ${clockOf(d)}`;
+  if (dayDiff > 1 && dayDiff < 7) return `${WEEKDAY_NAMES[d.getDay()]} at ${clockOf(d)}`;
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(d.getFullYear() !== today.getFullYear() ? { year: "numeric" } : {}) });
+  return `${date} at ${clockOf(d)}`;
+}

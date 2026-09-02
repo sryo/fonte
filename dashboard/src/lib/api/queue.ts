@@ -15,7 +15,8 @@ export interface ProcessingMessage {
   sender: string;
   message: string;
   agent: string;
-  status: "queued" | "processing";
+  status: "pending" | "queued" | "processing";
+  lane?: "user" | "background";
   processAlive: boolean;
   startedAt: number;
   duration: number;
@@ -89,6 +90,8 @@ export async function sendMessage(payload: {
   agent?: string;
   sender?: string;
   channel?: string;
+  /** Client-generated id; a retry with the same id is a no-op server-side. */
+  messageId?: string;
   /** Fork the conversation from this provider session (edit-and-rerun). */
   resumeSessionId?: string;
 }): Promise<{ ok: boolean; messageId: string }> {

@@ -11,15 +11,25 @@ import {
     invokeAgent, killAgentProcess, getActiveAgentIds,
     loadPlugins, runIncomingHooks,
     streamResponse,
-    initQueueDb, getPendingAgents, claimAllPendingMessages,
+    initQueueDb, getPendingAgents, claimNextPendingMessage,
     markProcessing, completeMessage, failMessage, getMessageStatus, setMessageSessionId,
+    interruptMessage, oldestPendingUserMessageAge, getProcessingMessages,
     recoverStaleMessages, pruneAckedResponses, pruneCompletedMessages,
     closeQueueDb, queueEvents,
-    insertAgentMessage,
-    startScheduler, stopScheduler,
+    insertAgentMessage, deleteAgentMessagesByMessageId, updateAgentToolMessage,
+    registerSystemPromptSection,
 } from '@fonte/core';
 import { startApiServer } from '@fonte/server';
-import { createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted, createAutomationEngine, getWhatsAppService, backfillPosters } from '@fonte/torrent';
+import {
+    createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted,
+    createAutomationEngine, getWhatsAppService, backfillPosters,
+    AUTOMATION_QUIET_REPLY, renderAutomationsSection,
+} from '@fonte/torrent';
+
+// A background run older than this while a person is waiting gets paused and re-queued.
+const USER_WAIT_WATCHDOG_MS = 45_000;
+const TOOL_ROW_MAX_CHARS = 20_000;
+const RECOVERY_PREAMBLE = '[recovery] Your previous attempt at this message was interrupted by a restart. Part of it may already be done. Check before claiming anything is complete, and if you cannot tell what was asked, say so instead of guessing.\n\n';
 
 [FILES_DIR, path.dirname(LOG_FILE)].forEach(dir => {
     if (!fs.existsSync(dir)) {
@@ -89,11 +99,13 @@ async function processMessage(dbMsg: any): Promise<void> {
     }
 
     ({ text: message } = await runIncomingHooks(message, { channel, sender, messageId, originalMessage: rawMessage }));
+    if ((dbMsg.recovery ?? 0) > 0) message = RECOVERY_PREAMBLE + message;
 
     emitEvent('agent:invoke', { agentId, agentName: agent.name, fromAgent: data.fromAgent || null });
     let sessionId: string | null = null;
     let response: string;
     let errored = false;
+    let runError: Error | null = null;
     try {
         response = await invokeAgent(agent, agentId, message, workspacePath, shouldReset, agents, {}, {
             onEvent: (text) => {
@@ -105,15 +117,23 @@ async function processMessage(dbMsg: any): Promise<void> {
             },
             resumeSessionId: dbMsg.resume_session_id ?? undefined,
             onSessionId: (id) => { sessionId = id; },
-            onTool: (name, input) => {
-                let content = JSON.stringify({ name, input });
-                if (content.length > 2048) content = JSON.stringify({ name });
+            onTool: (name, input, toolUseId) => {
+                let content = JSON.stringify({ name, input, toolUseId });
+                if (content.length > TOOL_ROW_MAX_CHARS) {
+                    const room = TOOL_ROW_MAX_CHARS - JSON.stringify({ name, toolUseId, input: '' }).length;
+                    content = JSON.stringify({ name, toolUseId, input: JSON.stringify(input).slice(0, Math.max(0, room)) });
+                }
                 insertAgentMessage({ agentId, role: 'assistant', channel, sender: agentId, messageId, content, kind: 'tool' });
                 emitEvent('agent:progress', { agentId, agentName: agent.name, tool: name, messageId });
+            },
+            onToolResult: (toolUseId, isError) => {
+                updateAgentToolMessage(agentId, messageId, toolUseId, { status: isError ? 'failed' : 'done' });
+                emitEvent('agent:progress', { agentId, agentName: agent.name, toolResult: toolUseId, failed: isError, messageId });
             },
         });
     } catch (error) {
         errored = true;
+        runError = error as Error;
         const provider = agent.provider || 'anthropic';
         const providerLabel = provider === 'openai' ? 'Codex' : provider === 'opencode' ? 'OpenCode' : 'Claude';
         log('ERROR', `${providerLabel} error (agent: ${agentId}): ${(error as Error).message}`);
@@ -122,10 +142,19 @@ async function processMessage(dbMsg: any): Promise<void> {
 
     // Session persists even for stopped runs, so an edit can fork from them.
     if (sessionId) setMessageSessionId(dbMsg.id, sessionId);
+    const statusAfterRun = getMessageStatus(dbMsg.id);
     // A stopped run must never deliver its partial answer to any channel.
-    if (getMessageStatus(dbMsg.id) === 'cancelled') {
+    if (statusAfterRun === 'cancelled') {
         insertAgentMessage({ agentId, role: 'assistant', channel, sender: agentId, messageId, content: 'Stopped', kind: 'system' });
         return;
+    }
+    // The watchdog put the row back to pending; it re-runs after the user's turn.
+    if (statusAfterRun === 'pending') {
+        deleteAgentMessagesByMessageId(agentId, messageId, 'assistant');
+        return;
+    }
+    if (errored) {
+        emitEvent('agent:error', { agentId, agentName: agent.name, messageId, channel, error: runError?.message ?? 'Agent run failed' });
     }
     if (errored) {
         const msgSender = isInternal ? data.fromAgent! : sender;
@@ -133,6 +162,17 @@ async function processMessage(dbMsg: any): Promise<void> {
         await sendDirectResponse(response, {
             channel, sender, senderId: data.senderId,
             messageId, originalMessage: rawMessage, agentId,
+        });
+        return;
+    }
+
+    if (response.trim() === AUTOMATION_QUIET_REPLY) {
+        deleteAgentMessagesByMessageId(agentId, messageId, 'assistant');
+        insertAgentMessage({ agentId, role: 'assistant', channel, sender: agentId, messageId, content: 'Nothing to report', kind: 'system' });
+        emitEvent('agent:response', {
+            agentId, agentName: agent.name, role: 'assistant',
+            channel, sender, messageId,
+            content: '', quiet: true,
         });
         return;
     }
@@ -179,14 +219,15 @@ async function processQueue(): Promise<void> {
     if (pendingAgents.length === 0) return;
 
     for (const agentId of pendingAgents) {
-        const messages = claimAllPendingMessages(agentId);
-        if (messages.length === 0) continue;
+        if (agentChains.has(agentId)) continue;
 
-        const currentChain = agentChains.get(agentId) || Promise.resolve();
-        // .catch() prevents a rejected chain from blocking subsequent messages
-        const newChain = currentChain.catch(() => {}).then(async () => {
+        // One claim per turn, user lane first, so a message that arrives while a
+        // batch of background wakes is queued still runs before them.
+        const newChain = (async () => {
             const epoch = agentKillEpoch.get(agentId) || 0;
-            for (const msg of messages) {
+            for (;;) {
+                const msg = claimNextPendingMessage(agentId);
+                if (!msg) break;
                 if (getMessageStatus(msg.id) === 'cancelled') continue;
                 if ((agentKillEpoch.get(agentId) || 0) !== epoch) {
                     failMessage(msg.id, 'Agent killed');
@@ -198,16 +239,44 @@ async function processQueue(): Promise<void> {
                     completeMessage(msg.id);
                 } catch (error) {
                     log('ERROR', `Failed to process message ${msg.id}: ${(error as Error).message}`);
-                    failMessage(msg.id, (error as Error).message);
+                    const outcome = failMessage(msg.id, (error as Error).message);
+                    // A retry reports its own outcome; only a dead row needs closing here.
+                    if (outcome === 'dead') {
+                        emitEvent('agent:error', { agentId, messageId: msg.message_id, error: (error as Error).message });
+                    }
                 }
             }
-        });
+        })();
         agentChains.set(agentId, newChain);
-        newChain.finally(() => {
+        newChain.catch(() => {}).finally(() => {
             if (agentChains.get(agentId) === newChain) {
                 agentChains.delete(agentId);
             }
+            // A message enqueued while the loop was winding down starts a fresh chain.
+            void processQueue();
         });
+    }
+}
+
+/**
+ * A person waiting behind a background run gets priority: the run is paused,
+ * its row goes back to pending (it re-runs after the user's turn), and the
+ * chat gets a note explaining the pause.
+ */
+function pauseBackgroundRunsForWaitingUsers(): void {
+    for (const row of getProcessingMessages()) {
+        if (row.status !== 'processing' || row.lane !== 'background') continue;
+        const agentId: string = row.agent || 'default';
+        const waited = oldestPendingUserMessageAge(agentId);
+        if (waited === null || waited < USER_WAIT_WATCHDOG_MS) continue;
+        if (!interruptMessage(row.id)) continue;
+        killAgentProcess(agentId);
+        emitEvent('agent:interrupted', { agentId, messageId: row.message_id, reason: 'Paused for your message' });
+        insertAgentMessage({
+            agentId, role: 'user', channel: row.channel, sender: 'Fonte', messageId: `${row.message_id}_paused`, kind: 'event',
+            content: JSON.stringify({ event: 'automation-paused', summary: 'Paused an automation to answer you' }),
+        });
+        log('INFO', `Paused background run ${row.message_id} for ${agentId}: a user message waited ${Math.round(waited / 1000)}s`);
     }
 }
 
@@ -261,11 +330,13 @@ const maintenanceInterval = setInterval(() => {
     pruneCompletedMessages();
 }, 60 * 1000);
 
+const watchdogInterval = setInterval(pauseBackgroundRunsForWaitingUsers, 5000);
+
+registerSystemPromptSection('automations', renderAutomationsSection);
+
 (async () => {
     await loadPlugins();
 })();
-
-startScheduler();
 
 const torrentManager = createTorrentManager(getSettings().torrent);
 torrentManager.start().catch(err => {
@@ -327,11 +398,11 @@ function shutdown(exitCode = 0): void {
     if (shuttingDown) return;
     shuttingDown = true;
     log('INFO', exitCode === 75 ? 'Restarting queue processor...' : 'Shutting down queue processor...');
-    stopScheduler();
     stopWatchlistRunner();
     automationEngine.stop();
     clearInterval(pollInterval);
     clearInterval(maintenanceInterval);
+    clearInterval(watchdogInterval);
     // Detached CLI children would outlive us as orphans otherwise.
     for (const id of getActiveAgentIds()) killAgentProcess(id);
     apiServer.close();

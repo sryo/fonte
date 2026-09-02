@@ -20,6 +20,8 @@ export * from './watchlist-runner';
 export * from './subtitle-manager';
 export * from './poster-manager';
 export * from './automation-events';
+export * from './automation-trigger';
 export * from './automation-db';
+export * from './automation-prompt';
 export * from './automation-engine';
 export * from './whatsapp-service';

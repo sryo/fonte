@@ -7,18 +7,28 @@ import { log } from '../logging';
  * go to `onTool` when provided, else render as legacy `[tool: X]` markers.
  * Skips 'result' events — those duplicate the final assistant message.
  */
-function extractEventText(json: any, onTool?: (name: string, input: unknown) => void): string | null {
+function extractEventText(
+    json: any,
+    onTool?: (name: string, input: unknown, toolUseId?: string) => void,
+    onToolResult?: (toolUseId: string, isError: boolean) => void,
+): string | null {
     if (json.type === 'assistant' && json.message?.content) {
         const parts: string[] = [];
         for (const block of json.message.content) {
             if (block.type === 'text' && block.text) {
                 parts.push(block.text);
             } else if (block.type === 'tool_use' && block.name) {
-                if (onTool) onTool(block.name, block.input);
+                if (onTool) onTool(block.name, block.input, block.id);
                 else parts.push(`[tool: ${block.name}]`);
             }
         }
         return parts.length > 0 ? parts.join('\n') : null;
+    }
+    // Tool results come back as user-role turns in the stream.
+    if (json.type === 'user' && Array.isArray(json.message?.content) && onToolResult) {
+        for (const block of json.message.content) {
+            if (block.type === 'tool_result' && block.tool_use_id) onToolResult(block.tool_use_id, block.is_error === true);
+        }
     }
     return null;
 }
@@ -27,7 +37,7 @@ export const claudeAdapter: AgentAdapter = {
     providers: ['anthropic'],
 
     async invoke(opts: InvokeOptions): Promise<string> {
-        const { agentId, message, workingDir, systemPrompt, model, shouldReset, envOverrides, onEvent, onTool, onSessionId, resumeSessionId } = opts;
+        const { agentId, message, workingDir, systemPrompt, model, shouldReset, envOverrides, onEvent, onTool, onToolResult, onSessionId, resumeSessionId } = opts;
         const env = { IS_SANDBOX: '1', ...envOverrides };
         log('DEBUG', `Using Claude provider (agent: ${agentId})`);
 
@@ -61,7 +71,7 @@ export const claudeAdapter: AgentAdapter = {
                         signalDone();
                         return;
                     }
-                    const text = extractEventText(json, onTool);
+                    const text = extractEventText(json, onTool, onToolResult);
                     if (text) {
                         response = text;
                         onEvent(text);

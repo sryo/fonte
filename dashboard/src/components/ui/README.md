@@ -37,14 +37,14 @@ strings at the call site. Three ranked presets, heights `3 : 6 : 14`:
 
 | `variant`  | Height | Shape                        | Use for                          |
 | ---------- | ------ | ---------------------------- | -------------------------------- |
-| `ambient`  | 3px    | square, full-bleed, flat     | the always-on aggregate rail (status strip) |
-| `list`     | 6px    | rounded pill, faintly seated | dense list rows (per-file)       |
-| `hero`     | 14px   | rounded, carved trough + lit fill sheen | the primary indicator (torrent detail) |
+| `ambient`  | 3px    | square, full-bleed           | the always-on aggregate rail (status strip) |
+| `list`     | 6px    | rounded pill                 | dense list rows (per-file)       |
+| `hero`     | 14px   | rounded pill                 | the primary indicator (torrent detail) |
 
-Hierarchy is **size + depth**, never color — all three stay torrent-blue. `ambient`
+Hierarchy is **size**, never color. All three stay torrent-blue. `ambient`
 is deliberately square and edge-to-edge (a system rail, like a browser load bar);
 a pill there would read as a detached widget. Pass only layout classes
-(`w-full`, `flex-1`) via `className`; the variant owns height, radius, and depth.
+(`w-full`, `flex-1`) via `className`; the variant owns height and radius.
 
 ## Percent is derived once
 

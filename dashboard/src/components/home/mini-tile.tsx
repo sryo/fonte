@@ -225,7 +225,7 @@ export function AutomationMiniTile({
   return (
     <MiniTile
       title={rule.name}
-      subtitle={running ? "Running…" : rule.triggerType.replace(":", " ")}
+      subtitle={running ? "Running…" : rule.triggerDescription}
       icon={Lightning}
       iconClassName="h-4 w-4 text-automation"
       iconWeight="fill"

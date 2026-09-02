@@ -4,13 +4,13 @@ import {
     getWatchlistEntries, deleteWatchlistEntry,
     getWatchlistResults, insertWatchlistResult, markResultSelected, deleteUnselectedResults,
     setResultFeedback, clearResultBlock,
-    getNewResultCounts, markWatchlistResultsViewed, isOngoingWatch,
+    getNewResultCounts, markWatchlistResultsViewed, isOngoingWatch, searchYear,
     getTorrentManager,
     runWatchlistCheck,
     aggregateSearch, filterByTitle, sortBySeedersThenSize, computeQualityMatch,
-    searchReleases, searchTmdb,
+    searchReleases, searchTmdb, searchTmdbMulti,
 } from '@fonte/torrent';
-import type { WatchlistStatus, MediaType } from '@fonte/torrent';
+import type { WatchlistStatus, MediaType, WatchlistSuggestion } from '@fonte/torrent';
 import { log, genId, getSettings } from '@fonte/core';
 import { ok, fail, requireEntity } from '../http';
 
@@ -33,11 +33,10 @@ async function multiSearch(title: string, year?: number, quality?: string, categ
     return searchReleases({ title, year, quality, category, season });
 }
 
-// Year narrows every media type except TV: episodic releases are named by
-// season/episode, not calendar year, so TV queries and filters skip it.
 function buildSearchQuery(title: string, mediaType: MediaType, year: number | null | undefined, quality: string): string {
     const parts = [title];
-    if (mediaType !== 'tv' && year) parts.push(String(year));
+    const searchable = searchYear(mediaType, year);
+    if (searchable) parts.push(String(searchable));
     if (quality) parts.push(quality);
     return parts.join(' ');
 }
@@ -57,7 +56,7 @@ interface SearchableEntry {
 async function searchAndPersist(entry: SearchableEntry): Promise<void> {
     const found = await searchReleases({
         title: entry.title,
-        year: entry.mediaType !== 'tv' ? entry.year ?? undefined : undefined,
+        year: searchYear(entry.mediaType, entry.year),
         quality: entry.quality,
         category: entry.category,
         seasonPattern: entry.seasonPattern ?? undefined,
@@ -223,6 +222,37 @@ app.post('/api/watchlist', async (c) => {
         const msg = (err as Error).message;
         log('ERROR', `[watchlist] Add failed: ${msg}`);
         return fail(c, msg);
+    }
+});
+
+// Typing a title fires one lookup per debounce, and backspacing walks back
+// through prefixes already asked for, so identical queries repeat constantly
+// while TMDB's answer for one holds for hours.
+const SUGGEST_TTL_MS = 10 * 60 * 1000;
+const suggestCache = new Map<string, { at: number; suggestions: WatchlistSuggestion[] }>();
+
+// Registered ahead of /api/watchlist/:id so "suggest" isn't read as an entry id.
+// Typeahead never fails the caller: no key, no network, no match all answer
+// with an empty list so the field stays plain text.
+app.get('/api/watchlist/suggest', async (c) => {
+    const query = c.req.query('q')?.trim().toLowerCase();
+    if (!query) return ok(c, { suggestions: [] });
+
+    const tmdbKey = getSettings().subtitles?.tmdb_api_key;
+    if (!tmdbKey) return ok(c, { suggestions: [] });
+
+    const hit = suggestCache.get(query);
+    if (hit && Date.now() - hit.at < SUGGEST_TTL_MS) return ok(c, { suggestions: hit.suggestions });
+
+    try {
+        const suggestions = await searchTmdbMulti({ query, apiKey: tmdbKey });
+        // Bounded so a long typing session can't grow the map without limit.
+        if (suggestCache.size >= 200) suggestCache.clear();
+        suggestCache.set(query, { at: Date.now(), suggestions });
+        return ok(c, { suggestions });
+    } catch (err) {
+        log('WARN', `[watchlist] Title lookup failed: ${(err as Error).message}`);
+        return ok(c, { suggestions: [] });
     }
 });
 

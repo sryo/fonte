@@ -11,6 +11,7 @@
     "@fonte/core": "*",
     "@whiskeysockets/baileys": "^7.0.0-rc11",
     "better-sqlite3": "^12.6.2",
+    "croner": "^10.0.1",
     "pino": "^10.3.1",
     "whatsapp-web.js": "^1.26.1"
   },

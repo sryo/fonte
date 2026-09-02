@@ -71,6 +71,23 @@ describe('isOngoingWatch', () => {
     });
 });
 
+describe('searchYear', () => {
+    it('carries the year for kinds whose releases are named by it', () => {
+        expect(wdb.searchYear('movie', 1982)).toBe(1982);
+        expect(wdb.searchYear('music', 1997)).toBe(1997);
+    });
+
+    it('withholds it from tv and other, whose releases are not', () => {
+        expect(wdb.searchYear('tv', 2019)).toBeUndefined();
+        expect(wdb.searchYear('other', 2019)).toBeUndefined();
+    });
+
+    it('normalizes a missing year to undefined', () => {
+        expect(wdb.searchYear('movie', null)).toBeUndefined();
+        expect(wdb.searchYear('movie')).toBeUndefined();
+    });
+});
+
 describe('insertWatchlistResult upsert', () => {
     it('re-finding a magnet refreshes found_at but preserves first_found_at', () => {
         insertEntry('wl1');

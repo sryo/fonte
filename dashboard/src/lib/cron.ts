@@ -53,7 +53,7 @@ export function cronNextOccurrences(cron: string, count: number): Date[] {
 export type RepeatMode = "once" | "daily" | "weekdays" | "weekly" | "monthly" | "hourly" | "custom";
 export const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
-export function buildCron(opts: {
+function buildCron(opts: {
   repeat: RepeatMode;
   hour: number;
   minute: number;
@@ -126,4 +126,57 @@ export function describeSchedule(opts: {
     case "custom":
       return "Custom cron expression";
   }
+}
+
+export interface ScheduleForm {
+  repeat: RepeatMode;
+  hour: number;
+  minute: number;
+  days: number[];
+  monthDay: number;
+  intervalMinutes: number;
+  customCron: string;
+}
+
+export const DEFAULT_SCHEDULE_FORM: ScheduleForm = {
+  repeat: "daily",
+  hour: 9,
+  minute: 0,
+  days: [1],
+  monthDay: 1,
+  intervalMinutes: 30,
+  customCron: "",
+};
+
+const INT = /^\d+$/;
+
+/** Inverse of buildCron for the shapes the editor produces; anything else lands in "custom". */
+export function parseCronToForm(cron: string): ScheduleForm {
+  const fields = cron.trim().split(/\s+/);
+  const custom: ScheduleForm = { ...DEFAULT_SCHEDULE_FORM, repeat: "custom", customCron: cron.trim() };
+  if (fields.length !== 5) return custom;
+  const [min, hour, dom, mon, dow] = fields;
+  if (mon !== "*") return custom;
+
+  const step = /^\*\/(\d+)$/.exec(min);
+  if (step && hour === "*" && dom === "*" && dow === "*") {
+    return { ...DEFAULT_SCHEDULE_FORM, repeat: "hourly", intervalMinutes: Number(step[1]) };
+  }
+  if (INT.test(min) && hour === "*" && dom === "*" && dow === "*") {
+    return { ...DEFAULT_SCHEDULE_FORM, repeat: "hourly", intervalMinutes: 0, minute: Number(min) };
+  }
+  if (!INT.test(min) || !INT.test(hour)) return custom;
+  const base = { ...DEFAULT_SCHEDULE_FORM, hour: Number(hour), minute: Number(min) };
+
+  if (dom === "*" && dow === "*") return { ...base, repeat: "daily" };
+  if (dom === "*" && dow === "1-5") return { ...base, repeat: "weekdays" };
+  if (dom === "*" && /^\d(,\d)*$/.test(dow)) {
+    return { ...base, repeat: "weekly", days: dow.split(",").map(Number).map((d) => (d === 7 ? 0 : d)) };
+  }
+  if (dow === "*" && INT.test(dom)) return { ...base, repeat: "monthly", monthDay: Number(dom) };
+  return custom;
+}
+
+export function scheduleFormToCron(form: ScheduleForm): string {
+  return buildCron({ ...form, repeat: form.repeat === "once" ? "custom" : form.repeat });
 }

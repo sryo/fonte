@@ -1,18 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog } from "radix-ui";
 import { ArrowUp, PencilSimple, Robot, Square, X } from "@phosphor-icons/react";
-import {
-  deleteAgentMessagesFrom,
-  getAgentMessages,
-  resetAgent,
-  sendMessage,
-  type AgentMessage,
-} from "@/lib/api";
-import { groupActivity } from "@/lib/agent-activity";
 import { formatClock } from "@/lib/format";
-import { useAgentRun } from "@/hooks/use-agent-run";
+import { useAgentChat, type ChatMessage } from "@/hooks/use-agent-chat";
 import { Button } from "@/components/ui/button";
 import { IconSwap } from "@/components/ui/icon-swap";
 import {
@@ -22,7 +14,14 @@ import {
   PromptInputTextarea,
 } from "@/components/ui/prompt-input";
 import { Markdown } from "@/components/ui/markdown";
-import { SystemNote, ToolActivity } from "@/components/agent/tool-activity";
+import {
+  EventNote,
+  QueuedRow,
+  SendStatus,
+  SystemNote,
+  ToolActivity,
+} from "@/components/agent/tool-activity";
+import { parseEventRow } from "@/lib/agent-activity";
 import { cn } from "@/lib/utils";
 
 const AGENT_ID = "fonte";
@@ -44,30 +43,28 @@ function Elapsed({ since }: { since: number }) {
 }
 
 export function ChatPanel({ open, onClose }: ChatPanelProps) {
-  const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const { run, stopping, stop } = useAgentRun(AGENT_ID, open);
-
-  const refresh = useCallback(async () => {
-    try {
-      const data = await getAgentMessages(AGENT_ID, 50);
-      setMessages([...data].reverse());
-    } catch {
-      // silently fail polling
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    refresh();
-    const id = setInterval(refresh, 3000);
-    return () => clearInterval(id);
-  }, [open, refresh]);
+  const {
+    messages,
+    items,
+    run,
+    stopping,
+    stop,
+    queued,
+    cancellingId,
+    cancelQueued,
+    send,
+    retry,
+    discard,
+    sending,
+    editingRowId,
+    editableRowId,
+    startEditing,
+    cancelEditing,
+  } = useAgentChat(AGENT_ID, { active: open, limit: 50 });
 
   useEffect(() => {
     if (open) {
@@ -77,55 +74,29 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     }
   }, [open]);
 
-  const startEditing = useCallback((msg: AgentMessage) => {
-    setEditingRowId(msg.id);
-    setInput(msg.content);
-    inputRef.current?.focus();
-  }, []);
+  const beginEdit = useCallback(
+    (msg: ChatMessage) => {
+      if (typeof msg.id !== "number") return;
+      startEditing(msg.id);
+      setInput(msg.content);
+      inputRef.current?.focus();
+    },
+    [startEditing]
+  );
 
-  const cancelEditing = useCallback(() => {
-    setEditingRowId(null);
+  const endEdit = useCallback(() => {
+    cancelEditing();
     setInput("");
-  }, []);
+  }, [cancelEditing]);
 
-  const handleSend = useCallback(async () => {
+  const handleSend = useCallback(() => {
     const value = input.trim();
     if (!value || sending) return;
+    setInput("");
+    void send(value);
+  }, [input, sending, send]);
 
-    setSending(true);
-    try {
-      if (editingRowId != null) {
-        // Edit-and-rerun: stop the in-flight run, truncate history from the
-        // edited message, and fork from the previous run's provider session
-        // — or reset for a fresh conversation when none was captured.
-        if (run) await stop();
-        const fork = messages.findLast((m) => m.id < editingRowId && m.sessionId)?.sessionId;
-        if (!fork) await resetAgent(AGENT_ID);
-        await deleteAgentMessagesFrom(AGENT_ID, editingRowId);
-        await sendMessage({
-          message: value,
-          agent: AGENT_ID,
-          channel: "web",
-          sender: "Web",
-          resumeSessionId: fork ?? undefined,
-        });
-        setEditingRowId(null);
-      } else {
-        await sendMessage({ message: value, agent: AGENT_ID, channel: "web", sender: "Web" });
-      }
-      setInput("");
-      // Fetch right away so the user's own message shows before the next poll.
-      await refresh();
-    } catch {
-      // next poll reconciles
-    } finally {
-      setSending(false);
-    }
-  }, [input, sending, editingRowId, messages, run, stop, refresh]);
-
-  const items = useMemo(() => groupActivity(messages), [messages]);
   const lastItem = items[items.length - 1];
-  const lastUserRowId = messages.findLast((m) => m.role === "user" && m.channel === "web")?.id;
   const stopMode = run != null && !input.trim();
 
   return (
@@ -138,7 +109,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
         />
 
         <Dialog.Content
-          className="fixed right-0 top-0 h-full w-96 z-50 bg-card border-l shadow-xl flex flex-col outline-none data-[state=open]:animate-chat-panel-in data-[state=closed]:animate-chat-panel-out"
+          className="fixed right-0 top-0 h-full w-96 z-50 bg-card border-l flex flex-col outline-none data-[state=open]:animate-chat-panel-in data-[state=closed]:animate-chat-panel-out"
           aria-describedby={undefined}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
@@ -182,35 +153,56 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
             if (item.type === "system") {
               return <SystemNote key={item.row.id}>{item.row.content}</SystemNote>;
             }
+            if (item.type === "event") {
+              const event = parseEventRow(item.row);
+              return event ? (
+                <EventNote key={item.row.id} event={event} />
+              ) : (
+                <SystemNote key={item.row.id}>{item.row.content}</SystemNote>
+              );
+            }
             const msg = item.row;
+            const isUser = msg.role === "user";
             return (
               <div
                 key={msg.id}
-                className={`group/bubble flex items-end gap-1 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                className={cn("flex flex-col gap-1", isUser ? "items-end" : "items-start")}
                 style={{ overflowAnchor: "none" }}
               >
-                {msg.role === "user" && msg.id === lastUserRowId && (
-                  <button
-                    type="button"
-                    onClick={() => startEditing(msg)}
-                    aria-label="Edit and rerun"
-                    title="Edit and rerun"
-                    className="mb-1 rounded p-1 text-foreground opacity-0 transition-all group-hover/bubble:opacity-50 hover:opacity-100 focus-visible:opacity-100"
-                  >
-                    <PencilSimple className="size-4" />
-                  </button>
-                )}
-                <div
-                  className={cn(
-                    "px-3 py-2 text-sm max-w-[80%] break-words",
-                    msg.role === "user"
-                      ? "bg-muted font-medium rounded-xl rounded-br-sm whitespace-pre-wrap"
-                      : "bg-card border rounded-xl rounded-bl-sm prose prose-sm dark:prose-invert max-w-none",
-                    editingRowId === msg.id && "ring-2 ring-ring/50"
+                <div className={`group/bubble flex items-end gap-1 ${isUser ? "justify-end" : "justify-start"}`}>
+                  {isUser && msg.id === editableRowId && (
+                    <button
+                      type="button"
+                      onClick={() => beginEdit(msg)}
+                      aria-label="Edit and rerun"
+                      title="Edit and rerun"
+                      className="mb-1 rounded p-1 text-foreground opacity-0 transition-all group-hover/bubble:opacity-50 hover:opacity-100 focus-visible:opacity-100"
+                    >
+                      <PencilSimple className="size-4" />
+                    </button>
                   )}
-                >
-                  {msg.role === "user" ? msg.content : <Markdown>{msg.content}</Markdown>}
+                  <div
+                    className={cn(
+                      "px-3 py-2 text-sm max-w-[80%] break-words",
+                      isUser
+                        ? "bg-muted font-medium rounded-xl rounded-br-sm whitespace-pre-wrap"
+                        : "bg-card border rounded-xl rounded-bl-sm prose prose-sm dark:prose-invert max-w-none",
+                      editingRowId === msg.id && "ring-2 ring-ring/50",
+                      msg.local?.phase === "pending" && "opacity-60"
+                    )}
+                  >
+                    {isUser ? msg.content : <Markdown>{msg.content}</Markdown>}
+                  </div>
                 </div>
+                {msg.local && msg.local.phase !== "queued" && msg.message_id && (
+                  <SendStatus
+                    phase={msg.local.phase}
+                    error={msg.local.error}
+                    onRetry={() => retry(msg.message_id!)}
+                    onDiscard={() => discard(msg.message_id!)}
+                    className="pr-1"
+                  />
+                )}
               </div>
             );
           })}
@@ -232,7 +224,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
               <span>Editing. Reruns from here</span>
               <button
                 type="button"
-                onClick={cancelEditing}
+                onClick={endEdit}
                 className="rounded px-1.5 py-0.5 hover:bg-muted hover:text-foreground transition-colors"
               >
                 Cancel
@@ -246,7 +238,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
               isLoading={sending}
               onSubmit={handleSend}
               disabled={sending}
-              className="flex items-end gap-2 border-0 bg-muted shadow-none p-1.5 pl-3.5"
+              className="flex items-end gap-2 border-0 bg-muted p-1.5 pl-3.5"
             >
               <PromptInputTextarea
                 ref={inputRef}
@@ -255,7 +247,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
                 onKeyDown={(e) => {
                   if (e.key === "Escape" && editingRowId != null) {
                     e.stopPropagation();
-                    cancelEditing();
+                    endEdit();
                   }
                 }}
               />
@@ -281,6 +273,18 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
                 </PromptInputAction>
               </PromptInputActions>
             </PromptInput>
+            {queued.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {queued.map((q) => (
+                  <QueuedRow
+                    key={q.key}
+                    content={q.content}
+                    onCancel={q.queueId != null ? () => cancelQueued(q.queueId!) : undefined}
+                    cancelling={q.queueId != null && cancellingId === q.queueId}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
         </Dialog.Content>

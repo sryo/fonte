@@ -3,7 +3,7 @@ import { cn, type DomainColor } from "@/lib/utils";
 
 export type ProgressColor = DomainColor | "primary";
 
-// Hierarchy comes from size + depth, not color.
+// Hierarchy comes from size, not color.
 export type ProgressVariant = "ambient" | "list" | "hero";
 
 const FILL: Record<ProgressColor, string> = {
@@ -15,14 +15,8 @@ const FILL: Record<ProgressColor, string> = {
 
 const TRACK: Record<ProgressVariant, string> = {
   ambient: "h-[3px] rounded-none",
-  list: "h-1.5 rounded-full shadow-[inset_0_1px_0_rgb(0_0_0/0.06)] dark:shadow-[inset_0_1px_0_rgb(0_0_0/0.25)]",
-  hero: "h-3.5 rounded-full shadow-[inset_0_1px_3px_rgb(0_0_0/0.12)] dark:shadow-[inset_0_1px_3px_rgb(0_0_0/0.35)]",
-};
-
-const FILL_SHEEN: Record<ProgressVariant, string> = {
-  ambient: "",
-  list: "",
-  hero: "shadow-[inset_0_2px_2px_-1px_rgb(255_255_255/0.35)]",
+  list: "h-1.5 rounded-full",
+  hero: "h-3.5 rounded-full",
 };
 
 // Clamp a 0–1 fraction to a whole-percent 0–100. Shared so the bar width and
@@ -66,7 +60,6 @@ export function ProgressBar({
         className={cn(
           "h-full rounded-full transition-all duration-300",
           done ? "bg-done" : FILL[color],
-          FILL_SHEEN[variant],
           stalled && "opacity-50",
           shine && !stalled && !done && "progress-bar-fill",
         )}
