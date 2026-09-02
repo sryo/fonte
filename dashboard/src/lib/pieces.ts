@@ -21,6 +21,16 @@ function decodeBase64(input: string): Uint8Array | null {
   return Uint8Array.from(bits);
 }
 
+export function countPieces(bitfieldBase64: string, pieceCount: number): number {
+  const bytes = decodeBase64(bitfieldBase64);
+  if (!bytes || pieceCount <= 0 || bytes.length * 8 < pieceCount) return 0;
+  let sum = 0;
+  for (let i = 0; i < pieceCount; i++) {
+    if ((bytes[i >> 3] & (0x80 >> (i & 7))) !== 0) sum++;
+  }
+  return sum;
+}
+
 export function downsamplePieces(bitfieldBase64: string, pieceCount: number, cells: number): number[] {
   const zeros = new Array<number>(cells).fill(0);
   if (pieceCount <= 0 || cells <= 0) return zeros;

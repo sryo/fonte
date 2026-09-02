@@ -84,6 +84,18 @@ function execTransmissionCreate(args: string[]): Promise<void> {
 
 // ── Torrent Manager ───────────────────────────────────────────────────────────
 
+// Transmission's availability array holds one integer per piece: -1 when we
+// already have it, otherwise the number of connected peers that do. Pack the
+// pieces nobody has into an MSB-first bitfield shaped like `pieces`.
+export function packUnavailable(availability: unknown, pieceCount: number): string | null {
+    if (!Array.isArray(availability) || availability.length < pieceCount) return null;
+    const bytes = new Uint8Array(Math.ceil(pieceCount / 8));
+    for (let i = 0; i < pieceCount; i++) {
+        if (availability[i] === 0) bytes[i >> 3] |= 0x80 >> (i & 7);
+    }
+    return Buffer.from(bytes).toString('base64');
+}
+
 export class TorrentManager {
     private rpc: TransmissionRpc | null = null;
     private config: TorrentConfig;
@@ -412,15 +424,15 @@ export class TorrentManager {
         log('INFO', `Reannounced trackers: ${record.name || id}`);
     }
 
-    async getPieces(id: string): Promise<{ bitfield: string; count: number } | null> {
+    async getPieces(id: string): Promise<{ bitfield: string; count: number; unavailable: string | null } | null> {
         this.getRequiredTorrent(id);
         const tId = this.transmissionIds.get(id);
         if (tId === undefined || !this.rpc) return null;
         try {
-            const res = await this.rpc.call('torrent-get', { ids: [tId], fields: ['pieces', 'pieceCount'] });
+            const res = await this.rpc.call('torrent-get', { ids: [tId], fields: ['pieces', 'pieceCount', 'availability'] });
             const t = res?.torrents?.[0];
             if (!t || typeof t.pieces !== 'string' || typeof t.pieceCount !== 'number') return null;
-            return { bitfield: t.pieces, count: t.pieceCount };
+            return { bitfield: t.pieces, count: t.pieceCount, unavailable: packUnavailable(t.availability, t.pieceCount) };
         } catch {
             return null;
         }

@@ -152,6 +152,7 @@ export async function deleteSubtitleApi(subtitleId: number): Promise<{ ok: boole
 export interface PiecesInfo {
   bitfield: string;
   count: number;
+  unavailable: string | null;
 }
 
 export async function getTorrentPieces(id: string): Promise<{ ok: boolean; pieces: PiecesInfo | null }> {

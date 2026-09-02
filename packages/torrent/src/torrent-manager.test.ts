@@ -551,11 +551,32 @@ describe('getPieces', () => {
 
         const pieces = await manager.getPieces('t1');
 
-        expect(pieces).toEqual({ bitfield: '/wA=', count: 16 });
+        expect(pieces).toEqual({ bitfield: '/wA=', count: 16, unavailable: null });
         expect(calls[0]).toEqual({
             method: 'torrent-get',
-            args: { ids: [1], fields: ['pieces', 'pieceCount'] },
+            args: { ids: [1], fields: ['pieces', 'pieceCount', 'availability'] },
         });
+    });
+
+    it('packs pieces no connected peer has into an MSB-first bitfield', async () => {
+        insertBasic('t1');
+        const availability = [-1, -1, 0, 3, 0, 0, 1, 0, -1, -1, 2, 0, 0, 0, 0, 0];
+        const { manager } = piecesManager(() => ({
+            torrents: [{ pieces: 'wMA=', pieceCount: 16, availability }],
+        }));
+
+        const pieces = await manager.getPieces('t1');
+
+        expect(pieces?.unavailable).toBe(Buffer.from([0b00101101, 0b00011111]).toString('base64'));
+    });
+
+    it('leaves unavailable null when the availability array is short', async () => {
+        insertBasic('t1');
+        const { manager } = piecesManager(() => ({
+            torrents: [{ pieces: 'wMA=', pieceCount: 16, availability: [0, 0] }],
+        }));
+
+        expect((await manager.getPieces('t1'))?.unavailable).toBeNull();
     });
 
     it('returns null when the torrent has no transmission mapping', async () => {

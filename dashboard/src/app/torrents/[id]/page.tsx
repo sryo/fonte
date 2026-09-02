@@ -23,6 +23,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { ProgressBar, toPct } from "@/components/ui/progress-bar";
 import { DetailHero } from "@/components/shared/detail-hero";
 import { PiecesBand } from "@/components/torrent/pieces-band";
+import { countPieces } from "@/lib/pieces";
 import { FileList, type FileSelectionSummary } from "@/components/torrent/file-list";
 import { SubtitleList } from "@/components/torrent/subtitle-list";
 import { AlternativesModal } from "@/components/torrent/alternatives-modal";
@@ -231,6 +232,10 @@ export default function TorrentDetailPage() {
       : "";
   const isStopped = torrent.status === "paused" || torrent.status === "completed";
   const isStalled = !!torrent.stalledSince;
+  const unavailablePct =
+    pieces?.unavailable && torrent.status === "downloading" && torrent.numPeers > 0
+      ? Math.round((100 * countPieces(pieces.unavailable, pieces.count)) / pieces.count)
+      : 0;
   const canPauseResume = ["downloading", "seeding", "paused", "completed"].includes(torrent.status);
 
   return (
@@ -307,9 +312,10 @@ export default function TorrentDetailPage() {
         {pieces ? (
           <PiecesBand
             bitfield={pieces.bitfield}
+            unavailable={torrent.status === "downloading" && torrent.numPeers > 0 ? pieces.unavailable : null}
             count={pieces.count}
             done={torrent.progress >= 1 || torrent.status === "completed" || torrent.status === "seeding"}
-            label={`Download progress: ${pct}%`}
+            label={`Download progress: ${pct}%${unavailablePct > 0 ? `. ${unavailablePct}% not held by any connected peer` : ""}`}
           />
         ) : (
           <ProgressBar

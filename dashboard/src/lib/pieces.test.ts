@@ -2,7 +2,7 @@
 // though it isn't a workspace). Imports must stay relative — nothing maps the
 // "@/" alias outside Next.
 import { describe, it, expect } from "vitest";
-import { downsamplePieces } from "./pieces";
+import { countPieces, downsamplePieces } from "./pieces";
 
 const b64 = (...bytes: number[]) => Buffer.from(bytes).toString("base64");
 
@@ -45,5 +45,18 @@ describe("downsamplePieces", () => {
 
   it("maps a full bitfield to all ones", () => {
     expect(downsamplePieces(b64(0xff, 0xff), 16, 4)).toEqual([1, 1, 1, 1]);
+  });
+});
+
+describe("countPieces", () => {
+  it("counts set bits up to the piece count only", () => {
+    expect(countPieces(b64(0xff, 0xf0), 12)).toBe(12);
+    expect(countPieces(b64(0xff, 0xf0), 10)).toBe(10);
+    expect(countPieces(b64(0b10100000), 3)).toBe(2);
+  });
+
+  it("returns zero for garbage or a short bitfield", () => {
+    expect(countPieces("!!nope!!", 8)).toBe(0);
+    expect(countPieces(b64(0xff), 16)).toBe(0);
   });
 });
