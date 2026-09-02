@@ -138,6 +138,11 @@ export function initTorrentDb(): void {
     if (!wlCols.some(c => c.name === 'results_viewed_at')) {
         db.exec('ALTER TABLE watchlist ADD COLUMN results_viewed_at INTEGER');
     }
+    if (!wlCols.some(c => c.name === 'last_error')) {
+        db.exec('ALTER TABLE watchlist ADD COLUMN last_error TEXT');
+        db.exec('ALTER TABLE watchlist ADD COLUMN last_error_at INTEGER');
+        db.exec('ALTER TABLE watchlist ADD COLUMN fail_count INTEGER NOT NULL DEFAULT 0');
+    }
 
     // found_at refreshes on every re-find; first_found_at is needed to tell
     // new results from re-found ones.

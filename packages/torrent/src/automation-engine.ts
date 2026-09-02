@@ -8,9 +8,8 @@ import {
 import { triggerMembers } from './automation-trigger';
 import { getTorrent } from './torrent-db';
 import { AUTOMATION_EVENTS } from './automation-events';
-import {
-    buildWakePrompt, describeEventBatch, normalizeErrorKind, shouldNotifyFailure, type WakeEvent,
-} from './automation-prompt';
+import { buildWakePrompt, describeEventBatch, type WakeEvent } from './automation-prompt';
+import { FailureCounter } from './failure-notices';
 
 const EVENT_FIRE_DEBOUNCE_MS = 750;
 const MAX_EVENTS_PER_WAKE = 25;
@@ -44,7 +43,7 @@ export class AutomationEngine {
     private busSubscribed = false;
     private jobs = new Map<string, Cron[]>();
     private batches = new Map<string, EventBatch>();
-    private failureOccurrences = new Map<string, number>();
+    private failures = new FailureCounter();
     private unsubscribeRules: (() => void) | null = null;
     private readonly eventDebounceMs: number;
     private readonly maxEventsPerWake: number;
@@ -286,19 +285,13 @@ export class AutomationEngine {
     }
 
     private recordFailure(ruleId: string, ruleName: string, detail: string): void {
-        const key = `${ruleId}:${normalizeErrorKind(detail)}`;
-        const occurrence = (this.failureOccurrences.get(key) ?? 0) + 1;
-        this.failureOccurrences.set(key, occurrence);
-        emitEvent(AUTOMATION_EVENTS.FAILED, {
-            ruleId, ruleName, detail, occurrence, notify: shouldNotifyFailure(occurrence),
-        });
+        const { occurrence, notify } = this.failures.record(ruleId, detail);
+        emitEvent(AUTOMATION_EVENTS.FAILED, { ruleId, ruleName, detail, occurrence, notify });
         log('ERROR', `Automation "${ruleName}" failed (occurrence ${occurrence}): ${detail}`);
     }
 
     private clearFailures(ruleId: string): void {
-        for (const key of this.failureOccurrences.keys()) {
-            if (key.startsWith(`${ruleId}:`)) this.failureOccurrences.delete(key);
-        }
+        this.failures.clear(ruleId);
     }
 }
 

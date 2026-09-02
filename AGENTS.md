@@ -27,7 +27,7 @@ curl -X POST http://localhost:3777/api/search -H "Content-Type: application/json
 
 The search endpoint:
 - Tries multiple query variations (title+year+quality, title+year, title alone)
-- Searches Jackett (7+ tracker indexers) AND bt4g (DHT network) in parallel
+- Searches every configured source in parallel, each on its own timeout
 - Deduplicates by info hash
 - Filters by title match
 - Sorts by seeders then size
@@ -81,6 +81,8 @@ DELETE /api/watchlist/:id                 Remove
 ```
 
 Grabbing a result from an ongoing watch (tv/music with no seasonPattern) keeps the entry `watching`; movies and season-pattern entries become `fulfilled`.
+
+Each configured source is searched separately with its own timeout, so one unavailable source cannot sink a check. A check fails only when no source answered; the entry then carries `lastError`, `lastErrorAt` and `failCount`, and the periodic runner retries it less often (1, 3, 7 intervals, capped) until a check succeeds. `POST /api/watchlist/check` and `/:id/search` ignore that backoff.
 
 Thumbs-down on a result, or deleting a torrent the watchlist grabbed, permanently stops that release from being auto-added again; only thumbs feed the ranking preferences the cron learns from. Adding a result via `/add` clears its block.
 

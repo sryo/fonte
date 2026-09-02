@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
     parseSizeString, extractInfoHash, filterByTitle,
     computeQualityMatch, computeScore, rankResults, sortBySeedersThenSize,
-    aggregateSearch,
+    aggregateSearch, aggregateSearchReport, describeSearchFailure,
 } from './search-aggregator';
 import { searchJackett } from './jackett-client';
 import { searchBt4g } from './bt4g-client';
@@ -252,19 +252,22 @@ describe('aggregateSearch info-hash dedup', () => {
     const jackettResult = (title: string, magnetUri: string) => ({
         title, magnetUri, seeders: 5, leechers: 0, size: 0, indexer: 'idx', category: [],
     });
+    const jackettSearch = (results: ReturnType<typeof jackettResult>[]) => ({
+        results, sources: [{ indexer: 'idx', ok: true, results: results.length, elapsedMs: 1 }],
+    });
     const bt4gResult = (title: string, magnetUri: string, infoHash = '') => ({
         title, magnetUri, size: '1 GB', category: 'movie', infoHash,
     });
 
     beforeEach(() => {
-        vi.mocked(searchJackett).mockReset().mockResolvedValue([]);
+        vi.mocked(searchJackett).mockReset().mockResolvedValue(jackettSearch([]));
         vi.mocked(searchBt4g).mockReset().mockResolvedValue([]);
     });
 
     it('dedupes base32 hashes across sources case-insensitively', async () => {
-        vi.mocked(searchJackett).mockResolvedValue([
+        vi.mocked(searchJackett).mockResolvedValue(jackettSearch([
             jackettResult('From Jackett', `magnet:?xt=urn:btih:${b32}`),
-        ]);
+        ]));
         vi.mocked(searchBt4g).mockResolvedValue([
             bt4gResult('From bt4g', `magnet:?xt=urn:btih:${b32.toLowerCase()}`),
         ]);
@@ -276,9 +279,9 @@ describe('aggregateSearch info-hash dedup', () => {
     });
 
     it('dedupes via the bt4g infoHash field when the magnet lacks a hash', async () => {
-        vi.mocked(searchJackett).mockResolvedValue([
+        vi.mocked(searchJackett).mockResolvedValue(jackettSearch([
             jackettResult('From Jackett', `magnet:?xt=urn:btih:${b32}`),
-        ]);
+        ]));
         vi.mocked(searchBt4g).mockResolvedValue([
             bt4gResult('From bt4g', 'magnet:?dn=no-hash-here', b32),
         ]);
@@ -291,10 +294,10 @@ describe('aggregateSearch info-hash dedup', () => {
     it('dedupes hex and base32 encodings of the same hash', async () => {
         const hex = '8acade7b990df0dcc8996f3107a1fa28a9a0cf66';
         const sameHashB32 = 'RLFN464ZBXYNZSEZN4YQPIP2FCU2BT3G';
-        vi.mocked(searchJackett).mockResolvedValue([
+        vi.mocked(searchJackett).mockResolvedValue(jackettSearch([
             jackettResult('Hex form', `magnet:?xt=urn:btih:${hex}`),
             jackettResult('Base32 form', `magnet:?xt=urn:btih:${sameHashB32}`),
-        ]);
+        ]));
 
         const out = await aggregateSearch(['query'], jackettOpts);
         expect(out.map(r => r.title)).toEqual(['Hex form']);
@@ -303,9 +306,9 @@ describe('aggregateSearch info-hash dedup', () => {
     it('dedupes a base32 magnet against a hex bt4g infoHash field', async () => {
         const hex = '8acade7b990df0dcc8996f3107a1fa28a9a0cf66';
         const sameHashB32 = 'RLFN464ZBXYNZSEZN4YQPIP2FCU2BT3G';
-        vi.mocked(searchJackett).mockResolvedValue([
+        vi.mocked(searchJackett).mockResolvedValue(jackettSearch([
             jackettResult('From Jackett', `magnet:?xt=urn:btih:${sameHashB32}`),
-        ]);
+        ]));
         vi.mocked(searchBt4g).mockResolvedValue([
             bt4gResult('From bt4g', 'magnet:?dn=no-hash-here', hex),
         ]);
@@ -342,5 +345,54 @@ describe('bt4g category scoping', () => {
         vi.mocked(searchBt4g).mockResolvedValue([bt4gRow('audio'), bt4gRow('doc')] as any);
         const video = await aggregateSearch(['show'], { categories: [2000] });
         expect(video).toHaveLength(0);
+    });
+});
+
+describe('aggregateSearchReport', () => {
+    const jackettOpts = { jackettUrl: 'http://jackett.local:9117', apiKey: 'key' };
+    const row = (title: string, hash: string) => ({
+        title, magnetUri: `magnet:?xt=urn:btih:${hash}`, seeders: 1, leechers: 0, size: 0, indexer: 'TPB', category: [],
+    });
+
+    beforeEach(() => {
+        vi.mocked(searchJackett).mockReset();
+        vi.mocked(searchBt4g).mockReset().mockResolvedValue([]);
+    });
+
+    it('keeps results from the sources that answered and lists the ones that did not', async () => {
+        vi.mocked(searchJackett).mockResolvedValue({
+            results: [row('Show', '8acade7b990df0dcc8996f3107a1fa28a9a0cf66')],
+            sources: [
+                { indexer: 'TPB', ok: true, results: 1, elapsedMs: 5 },
+                { indexer: 'EZTV', ok: false, error: 'Challenge detected', results: 0, elapsedMs: 5000 },
+            ],
+        });
+        vi.mocked(searchBt4g).mockRejectedValue(new Error('bt4g search failed (503)'));
+
+        const report = await aggregateSearchReport(['show'], jackettOpts);
+        expect(report.results).toHaveLength(1);
+        expect(report.allFailed).toBe(false);
+        expect(report.failed.map(s => s.source).sort()).toEqual(['EZTV', 'bt4g']);
+        expect(describeSearchFailure(report)).toBe('EZTV: Challenge detected, bt4g: bt4g search failed (503)');
+    });
+
+    it('is allFailed only when nothing answered, across every query variation', async () => {
+        vi.mocked(searchJackett).mockRejectedValue(new Error('Jackett search failed (502): bad gateway'));
+        vi.mocked(searchBt4g).mockRejectedValue(new Error('timed out'));
+        const dead = await aggregateSearchReport(['show', 'show 2024'], jackettOpts);
+        expect(dead.allFailed).toBe(true);
+        expect(dead.sources.map(s => s.source).sort()).toEqual(['bt4g', 'jackett']);
+
+        // A source that failed for one variation but answered another counts as up.
+        vi.mocked(searchBt4g).mockRejectedValueOnce(new Error('timed out')).mockResolvedValueOnce([]);
+        const flaky = await aggregateSearchReport(['show', 'show 2024'], jackettOpts);
+        expect(flaky.sources.find(s => s.source === 'bt4g')?.ok).toBe(true);
+        expect(flaky.allFailed).toBe(false);
+    });
+
+    it('treats an unconfigured Jackett as absent rather than failed', async () => {
+        const report = await aggregateSearchReport(['show'], {});
+        expect(report.sources.map(s => s.source)).toEqual(['bt4g']);
+        expect(report.allFailed).toBe(false);
     });
 });

@@ -49,6 +49,7 @@ export function WatchlistCard({
             </span>
           )}
           {entry.status === "paused" && <PosterBadge>Paused</PosterBadge>}
+          {entry.lastError && <PosterBadge tone="error">Check failed</PosterBadge>}
           {fulfilled && <PosterBadge>Fulfilled</PosterBadge>}
           <PosterBadge>{entry.quality}</PosterBadge>
         </>
@@ -57,7 +58,13 @@ export function WatchlistCard({
         <CardAction
           variant="primary"
           icon={MagnifyingGlass}
-          label={entry.lastCheckedAt ? `Search now\nLast searched: ${formatRelativeTime(entry.lastCheckedAt)}` : "Search now\nNever searched"}
+          label={
+            entry.lastError
+              ? `Search now\nLast check failed${entry.lastErrorAt ? ` ${formatRelativeTime(entry.lastErrorAt)}` : ""}: ${entry.lastError}`
+              : entry.lastCheckedAt
+                ? `Search now\nLast searched: ${formatRelativeTime(entry.lastCheckedAt)}`
+                : "Search now\nNever searched"
+          }
           kbd="S"
           onClick={onSearch}
         />

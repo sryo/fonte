@@ -1,6 +1,6 @@
 import { log, getSettings } from '@fonte/core';
-import { searchJackett, JackettResult } from './jackett-client';
-import { searchBt4g } from './bt4g-client';
+import { searchJackett, JackettResult, JackettSearch } from './jackett-client';
+import { searchBt4g, Bt4gResult } from './bt4g-client';
 
 export interface AggregatedResult extends JackettResult {
     source: string;
@@ -11,45 +11,73 @@ export interface AggregateSearchOpts {
     categories?: number[];
     jackettUrl?: string;
     apiKey?: string;
-    // 'warn' (default) logs and continues with remaining sources; 'throw'
-    // propagates Jackett failures so callers can treat the search as failed
-    // rather than silently degrading to bt4g-only results.
-    jackettErrors?: 'warn' | 'throw';
+}
+
+export interface SourceOutcome {
+    source: string;
+    ok: boolean;
+    error?: string;
+    results: number;
+}
+
+export interface SearchReport {
+    results: AggregatedResult[];
+    sources: SourceOutcome[];
+    failed: SourceOutcome[];
+    /** Every source that was asked failed, so the search says nothing about availability. */
+    allFailed: boolean;
+}
+
+function mergeOutcome(into: Map<string, SourceOutcome>, outcome: SourceOutcome): void {
+    const prior = into.get(outcome.source);
+    if (!prior) {
+        into.set(outcome.source, { ...outcome });
+        return;
+    }
+    prior.results += outcome.results;
+    if (outcome.ok && !prior.ok) {
+        prior.ok = true;
+        delete prior.error;
+    } else if (!outcome.ok && !prior.ok && !prior.error && outcome.error) {
+        prior.error = outcome.error;
+    }
 }
 
 /**
  * Search Jackett (if configured) and bt4g for each query, dedupe by info
- * hash across all results, and tag each result with its source.
+ * hash across all results, tag each result with its source, and report which
+ * sources answered.
  */
-export async function aggregateSearch(queries: string[], opts: AggregateSearchOpts = {}): Promise<AggregatedResult[]> {
+export async function aggregateSearchReport(queries: string[], opts: AggregateSearchOpts = {}): Promise<SearchReport> {
     const { categories = [], jackettUrl, apiKey } = opts;
 
     // All query variations hit both sources concurrently; the merge below runs
     // in query order so dedup priority (earlier variation, Jackett first) is
     // deterministic regardless of arrival order.
     const fetches = [...new Set(queries.filter(q => q))].map(async (query) => {
-        const jackettPromise: Promise<JackettResult[] | Error> = (jackettUrl && apiKey)
+        const jackettPromise: Promise<JackettSearch | Error> = (jackettUrl && apiKey)
             ? searchJackett({ query, categories, jackettUrl, apiKey }).catch((err: Error) => err)
-            : Promise.resolve([]);
-        const bt4gPromise = searchBt4g(query).catch((err: Error) => {
-            log('WARN', `[search] bt4g failed for "${query}": ${err.message}`);
-            return [];
-        });
+            : Promise.resolve({ results: [], sources: [] });
+        const bt4gPromise: Promise<Bt4gResult[] | Error> = searchBt4g(query).catch((err: Error) => err);
         return { query, jackett: await jackettPromise, bt4g: await bt4gPromise };
     });
 
     const seenHashes = new Set<string>();
     const all: AggregatedResult[] = [];
+    const outcomes = new Map<string, SourceOutcome>();
     // bt4g tags releases with its own coarse categories; dropping doc and
     // audio only makes sense when the search itself is video-scoped.
     const videoScoped = categories.some(c => (c >= 2000 && c < 3000) || (c >= 5000 && c < 6000));
 
     for (const { query, jackett, bt4g } of await Promise.all(fetches)) {
         if (jackett instanceof Error) {
-            if (opts.jackettErrors === 'throw') throw jackett;
             log('WARN', `[search] Jackett failed for "${query}": ${jackett.message}`);
+            mergeOutcome(outcomes, { source: 'jackett', ok: false, error: jackett.message, results: 0 });
         } else {
-            for (const r of jackett) {
+            for (const outcome of jackett.sources) {
+                mergeOutcome(outcomes, { source: outcome.indexer, ok: outcome.ok, error: outcome.error, results: outcome.results });
+            }
+            for (const r of jackett.results) {
                 const hash = extractInfoHash(r.magnetUri);
                 if (hash && seenHashes.has(hash)) continue;
                 if (hash) seenHashes.add(hash);
@@ -57,6 +85,12 @@ export async function aggregateSearch(queries: string[], opts: AggregateSearchOp
             }
         }
 
+        if (bt4g instanceof Error) {
+            log('WARN', `[search] bt4g failed for "${query}": ${bt4g.message}`);
+            mergeOutcome(outcomes, { source: 'bt4g', ok: false, error: bt4g.message, results: 0 });
+            continue;
+        }
+        mergeOutcome(outcomes, { source: 'bt4g', ok: true, results: bt4g.length });
         for (const r of bt4g) {
             if (!r.magnetUri) continue;
             const cat = r.category?.toLowerCase();
@@ -79,7 +113,27 @@ export async function aggregateSearch(queries: string[], opts: AggregateSearchOp
         }
     }
 
-    return all;
+    const sources = [...outcomes.values()];
+    const failed = sources.filter(s => !s.ok);
+    return { results: all, sources, failed, allFailed: sources.length > 0 && failed.length === sources.length };
+}
+
+export async function aggregateSearch(queries: string[], opts: AggregateSearchOpts = {}): Promise<AggregatedResult[]> {
+    return (await aggregateSearchReport(queries, opts)).results;
+}
+
+/** "eztv: Challenge detected, 1337x: timed out, bt4g: 503" for logs and the entry's last error. */
+export function describeSearchFailure(report: Pick<SearchReport, 'failed'>): string {
+    return report.failed.map(s => `${s.source}: ${s.error ?? 'failed'}`).join(', ').slice(0, 300);
+}
+
+export interface SearchReleasesOpts {
+    title: string;
+    year?: number;
+    quality?: string;
+    category?: number;
+    season?: number;
+    seasonPattern?: string;
 }
 
 /**
@@ -88,14 +142,7 @@ export async function aggregateSearch(queries: string[], opts: AggregateSearchOp
  * Reads Jackett config from settings. Shared by the watchlist runner and the
  * "find alternatives" flow.
  */
-export async function searchReleases(opts: {
-    title: string;
-    year?: number;
-    quality?: string;
-    category?: number;
-    season?: number;
-    seasonPattern?: string;
-}): Promise<AggregatedResult[]> {
+export async function searchReleasesReport(opts: SearchReleasesOpts): Promise<SearchReport> {
     const { title, year, quality, category, season } = opts;
     const seasonPattern = opts.seasonPattern
         ?? (season != null ? `S${String(season).padStart(2, '0')}` : undefined);
@@ -113,14 +160,18 @@ export async function searchReleases(opts: {
     queries.add(`${title} ${year || ''}`.trim());
     queries.add(title);
 
-    const allResults = await aggregateSearch([...queries], {
+    const report = await aggregateSearchReport([...queries], {
         categories: category ? [category] : [],
         jackettUrl,
         apiKey,
     });
 
-    const filtered = filterByTitle(allResults, { title, year, seasonPattern });
-    return sortBySeedersThenSize(filtered);
+    const filtered = filterByTitle(report.results, { title, year, seasonPattern });
+    return { ...report, results: sortBySeedersThenSize(filtered) };
+}
+
+export async function searchReleases(opts: SearchReleasesOpts): Promise<AggregatedResult[]> {
+    return (await searchReleasesReport(opts)).results;
 }
 
 export interface TitleFilterOpts {

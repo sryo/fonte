@@ -2,6 +2,7 @@ export const WATCHLIST_EVENTS = {
     SEARCH: 'watchlist:search',
     MATCH: 'watchlist:match',
     RESULTS: 'watchlist:results',
+    CHECK_FAILED: 'watchlist:check_failed',
     ADDED: 'watchlist:added',
     REMOVED: 'watchlist:removed',
     UPDATED: 'watchlist:updated',

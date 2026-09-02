@@ -8,7 +8,7 @@ import {
     getTorrentManager,
     runWatchlistCheck,
     aggregateSearch, filterByTitle, sortBySeedersThenSize, computeQualityMatch,
-    searchReleases, searchTmdb, searchTmdbMulti,
+    searchReleases, searchReleasesReport, describeSearchFailure, searchTmdb, searchTmdbMulti,
 } from '@fonte/torrent';
 import type { WatchlistStatus, MediaType, WatchlistSuggestion } from '@fonte/torrent';
 import { log, genId, getSettings } from '@fonte/core';
@@ -54,14 +54,21 @@ interface SearchableEntry {
 // Persist so the results have real ids (Add-as-Torrent needs them) and
 // survive the page's periodic re-fetch from the DB.
 async function searchAndPersist(entry: SearchableEntry): Promise<void> {
-    const found = await searchReleases({
+    const report = await searchReleasesReport({
         title: entry.title,
         year: searchYear(entry.mediaType, entry.year),
         quality: entry.quality,
         category: entry.category,
         seasonPattern: entry.seasonPattern ?? undefined,
     });
-    for (const r of found.slice(0, 50)) {
+    const now = Date.now();
+    if (report.allFailed) {
+        const error = describeSearchFailure(report);
+        const current = getWatchlistEntry(entry.id);
+        updateWatchlistEntry(entry.id, { lastCheckedAt: now, lastError: error, lastErrorAt: now, failCount: (current?.failCount ?? 0) + 1 });
+        throw new Error(`No source answered (${error})`);
+    }
+    for (const r of report.results.slice(0, 50)) {
         insertWatchlistResult({
             watchlistId: entry.id,
             title: r.title,
@@ -74,7 +81,7 @@ async function searchAndPersist(entry: SearchableEntry): Promise<void> {
             indexer: r.indexer,
         });
     }
-    updateWatchlistEntry(entry.id, { lastCheckedAt: Date.now() });
+    updateWatchlistEntry(entry.id, { lastCheckedAt: now, lastError: null, lastErrorAt: null, failCount: 0 });
 }
 
 // Accepts a title, IMDB URL/ID, magnet URI, or info hash and dispatches
@@ -313,7 +320,7 @@ app.delete('/api/watchlist/:id', requireEntry, (c) => {
 // Run the full periodic check on demand (all watching entries, auto-add included).
 app.post('/api/watchlist/check', async (c) => {
     try {
-        await runWatchlistCheck();
+        await runWatchlistCheck({ force: true });
         return ok(c);
     } catch (err) {
         return fail(c, (err as Error).message, 500);

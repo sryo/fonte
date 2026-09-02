@@ -99,25 +99,6 @@ export function buildWakePrompt(rule: Pick<AutomationRule, 'id' | 'name' | 'prom
     return lines.join('\n');
 }
 
-export function normalizeErrorKind(detail: string | null | undefined): string {
-    const text = (detail ?? '').trim().toLowerCase();
-    if (!text) return 'unknown';
-    const normalized = text
-        .replace(/\([^)]*\)/g, ' ')
-        .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, ' ')
-        .replace(/0x[0-9a-f]+/g, ' ')
-        .replace(/\d+/g, ' ')
-        .replace(/[^a-z ]+/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-    return normalized.split(' ').filter(Boolean).slice(0, 6).join(' ') || 'unknown';
-}
-
-/** Notify on the 1st, 2nd, 4th, 8th... occurrence of the same failure. */
-export function shouldNotifyFailure(occurrence: number): boolean {
-    return occurrence <= 1 || (occurrence & (occurrence - 1)) === 0;
-}
-
 // ── System prompt section ────────────────────────────────────────────────────
 
 function describeLastRun(run: AutomationRun | undefined): string {

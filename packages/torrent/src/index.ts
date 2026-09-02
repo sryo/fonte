@@ -19,6 +19,7 @@ export * from './bt4g-client';
 export * from './watchlist-runner';
 export * from './subtitle-manager';
 export * from './poster-manager';
+export * from './failure-notices';
 export * from './automation-events';
 export * from './automation-trigger';
 export * from './automation-db';

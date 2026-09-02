@@ -33,6 +33,8 @@ export function notifyForEvent(type: string, data: Record<string, unknown>): voi
     } else if (type === 'watchlist:results' && prefs.watchlist_match) {
         const n = Number(data.count ?? 0);
         sendMacNotification('Watchlist results', `${n} new result${n === 1 ? '' : 's'} · ${data.title}`);
+    } else if (type === 'watchlist:check_failed' && prefs.watchlist_match && data.notify) {
+        sendMacNotification('Watchlist check failed', `${data.title}: ${data.error}`);
     } else if (type === 'automation:failed' && prefs.automation_failed !== false && data.notify) {
         sendMacNotification(`Automation "${data.ruleName}" failed`, String(data.detail ?? ''));
     }

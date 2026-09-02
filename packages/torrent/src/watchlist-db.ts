@@ -67,6 +67,9 @@ export function updateWatchlistEntry(id: string, fields: Partial<{
     lastMatchAt: number;
     matchedTorrentId: string;
     posterUrl: string | null;
+    lastError: string | null;
+    lastErrorAt: number | null;
+    failCount: number;
 }>): void {
     const sets: string[] = [];
     const values: any[] = [];
@@ -84,6 +87,9 @@ export function updateWatchlistEntry(id: string, fields: Partial<{
     if (fields.lastMatchAt !== undefined) { sets.push('last_match_at = ?'); values.push(fields.lastMatchAt); }
     if (fields.matchedTorrentId !== undefined) { sets.push('matched_torrent_id = ?'); values.push(fields.matchedTorrentId); }
     if (fields.posterUrl !== undefined) { sets.push('poster_url = ?'); values.push(fields.posterUrl); }
+    if (fields.lastError !== undefined) { sets.push('last_error = ?'); values.push(fields.lastError); }
+    if (fields.lastErrorAt !== undefined) { sets.push('last_error_at = ?'); values.push(fields.lastErrorAt); }
+    if (fields.failCount !== undefined) { sets.push('fail_count = ?'); values.push(fields.failCount); }
 
     if (sets.length === 0) return;
     sets.push('updated_at = ?');
@@ -292,6 +298,9 @@ function rowToWatchlistRecord(row: any): WatchlistRecord {
         matchedTorrentId: row.matched_torrent_id ?? undefined,
         posterUrl: row.poster_url ?? undefined,
         resultsViewedAt: row.results_viewed_at ?? undefined,
+        lastError: row.last_error ?? undefined,
+        lastErrorAt: row.last_error_at ?? undefined,
+        failCount: row.fail_count ?? 0,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };

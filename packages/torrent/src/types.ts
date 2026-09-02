@@ -71,6 +71,11 @@ export interface WatchlistRecord {
     matchedTorrentId?: string;
     posterUrl?: string;
     resultsViewedAt?: number;
+    /** Set while the latest check found no source that answered; cleared by the next success. */
+    lastError?: string;
+    lastErrorAt?: number;
+    /** Consecutive failed checks; drives the runner's backoff. */
+    failCount: number;
     /** API enrichment on list responses: unselected results first found after resultsViewedAt. */
     newResultsCount?: number;
     createdAt: number;

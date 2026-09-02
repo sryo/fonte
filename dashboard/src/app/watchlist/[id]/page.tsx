@@ -257,6 +257,12 @@ export default function WatchlistDetailPage() {
         }
         details={
           <div className="space-y-1 text-2xs text-muted-foreground">
+            {entry.lastError && (
+              <p className="text-destructive">
+                Last check failed {relativeOrNever(entry.lastErrorAt)}: {entry.lastError}
+                {entry.failCount > 1 ? ` (${entry.failCount} in a row, retrying less often)` : ""}
+              </p>
+            )}
             <p className="break-all font-mono">{entry.searchQuery}</p>
             <p className="tabular-nums">
               Checked {absoluteOrNever(entry.lastCheckedAt)} · Matched {absoluteOrNever(entry.lastMatchAt)} · Added{" "}
