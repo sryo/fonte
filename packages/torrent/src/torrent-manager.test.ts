@@ -609,3 +609,43 @@ describe('getPieces', () => {
         await expect(manager.getPieces('nope')).rejects.toThrow('Torrent not found');
     });
 });
+
+describe('summarizeSwarm', () => {
+    it('takes the highest count among trackers that returned one', () => {
+        expect(TM.summarizeSwarm([
+            { seederCount: 0, leecherCount: 8 },
+            { seederCount: 2, leecherCount: 5 },
+            { seederCount: -1, leecherCount: -1 },
+            { seederCount: 1, leecherCount: 12 },
+        ])).toEqual({ seeders: 2, leechers: 12, reporting: 3, total: 4 });
+    });
+
+    it('reports zero trackers answering when every count is unknown', () => {
+        expect(TM.summarizeSwarm([{ seederCount: -1 }, { seederCount: -1 }]))
+            .toEqual({ seeders: 0, leechers: 0, reporting: 0, total: 2 });
+    });
+
+    it('returns null when Transmission sent no tracker list', () => {
+        expect(TM.summarizeSwarm(undefined)).toBeNull();
+    });
+});
+
+describe('swarm persistence', () => {
+    it('stores the tracker summary on the record', async () => {
+        insertBasic('t1');
+        const trackerStats = [{ seederCount: 0, leecherCount: 8 }, { seederCount: -1, leecherCount: -1 }];
+        const manager = managerWith([tRow('t1', { status: 4, percentDone: 0.5, trackerStats })]);
+        await sync(manager);
+        const record = db.getTorrent('t1');
+        expect(record?.swarmSeeders).toBe(0);
+        expect(record?.swarmLeechers).toBe(8);
+        expect(record?.trackersReporting).toBe(1);
+        expect(record?.trackersTotal).toBe(2);
+    });
+
+    it('leaves the summary untouched when trackerStats is absent', async () => {
+        insertBasic('t1');
+        await sync(managerWith([tRow('t1', { status: 4, percentDone: 0.5 })]));
+        expect(db.getTorrent('t1')?.trackersTotal).toBeUndefined();
+    });
+});

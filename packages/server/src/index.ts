@@ -12,6 +12,7 @@ import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import { RESPONSE_ALREADY_SENT } from '@hono/node-server/utils/response';
 import { log } from '@fonte/core';
+import { getTorrentManager } from '@fonte/torrent';
 import { addSSEClient, removeSSEClient } from './sse';
 import { ok, fail } from './http';
 
@@ -72,6 +73,7 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
         return ok(c, {
             uptime: Math.floor((Date.now() - startedAt) / 1000),
             server: { running: true, port: API_PORT },
+            listenPort: getTorrentManager().getListenPort(),
         });
     });
 

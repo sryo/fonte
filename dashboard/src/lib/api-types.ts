@@ -25,6 +25,10 @@ export interface TorrentRecord {
     posterUrl?: string;
     queuePosition?: number;     // Transmission download-queue order, 0-based; unset until first sync
     bandwidthPriority?: number; // -1 low | 0 normal | 1 high
+    swarmSeeders?: number;      // highest seeder count any tracker reported; unset until the first sync
+    swarmLeechers?: number;
+    trackersReporting?: number; // trackers that returned a seeder count
+    trackersTotal?: number;
 }
 
 export interface TorrentFileRecord {

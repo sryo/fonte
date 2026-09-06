@@ -51,10 +51,17 @@ export async function apiFetch<T>(path: string, options?: RequestInit, unwrapKey
   return body;
 }
 
+export interface ListenPort {
+  port: number | null;
+  open: boolean | null;
+  checkedAt: number;
+}
+
 export async function getSystemStatus(): Promise<{
   ok: boolean;
   uptime: number;
   server: { running: boolean; port: number };
+  listenPort?: ListenPort;
 }> {
   return apiFetch("/api/status");
 }

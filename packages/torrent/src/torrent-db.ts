@@ -30,6 +30,10 @@ export function initTorrentDb(): void {
             stalled_since INTEGER,
             queue_position INTEGER,
             bandwidth_priority INTEGER NOT NULL DEFAULT 0,
+            swarm_seeders INTEGER,
+            swarm_leechers INTEGER,
+            trackers_reporting INTEGER,
+            trackers_total INTEGER,
             updated_at INTEGER NOT NULL
         );
 
@@ -188,6 +192,12 @@ export function initTorrentDb(): void {
         db.exec('ALTER TABLE torrents ADD COLUMN bandwidth_priority INTEGER NOT NULL DEFAULT 0');
     }
 
+    for (const col of ['swarm_seeders', 'swarm_leechers', 'trackers_reporting', 'trackers_total']) {
+        if (!torrentCols.some(c => c.name === col)) {
+            db.exec(`ALTER TABLE torrents ADD COLUMN ${col} INTEGER`);
+        }
+    }
+
     const fileCols = db.prepare("PRAGMA table_info(torrent_files)").all() as { name: string }[];
     if (!fileCols.some(c => c.name === 'priority')) {
         db.exec('ALTER TABLE torrent_files ADD COLUMN priority INTEGER NOT NULL DEFAULT 0');
@@ -284,6 +294,10 @@ export function updateTorrent(id: string, fields: Partial<{
     magnetUri: string;
     queuePosition: number | null;
     bandwidthPriority: number;
+    swarmSeeders: number | null;
+    swarmLeechers: number | null;
+    trackersReporting: number | null;
+    trackersTotal: number | null;
 }>): void {
     const sets: string[] = [];
     const values: any[] = [];
@@ -305,6 +319,10 @@ export function updateTorrent(id: string, fields: Partial<{
     if (fields.posterUrl !== undefined) { sets.push('poster_url = ?'); values.push(fields.posterUrl); }
     if (fields.queuePosition !== undefined) { sets.push('queue_position = ?'); values.push(fields.queuePosition); }
     if (fields.bandwidthPriority !== undefined) { sets.push('bandwidth_priority = ?'); values.push(fields.bandwidthPriority); }
+    if (fields.swarmSeeders !== undefined) { sets.push('swarm_seeders = ?'); values.push(fields.swarmSeeders); }
+    if (fields.swarmLeechers !== undefined) { sets.push('swarm_leechers = ?'); values.push(fields.swarmLeechers); }
+    if (fields.trackersReporting !== undefined) { sets.push('trackers_reporting = ?'); values.push(fields.trackersReporting); }
+    if (fields.trackersTotal !== undefined) { sets.push('trackers_total = ?'); values.push(fields.trackersTotal); }
 
     if (sets.length === 0) return;
     sets.push('updated_at = ?');
@@ -431,5 +449,9 @@ function rowToRecord(row: any): TorrentRecord {
         posterUrl: row.poster_url ?? undefined,
         queuePosition: row.queue_position ?? undefined,
         bandwidthPriority: row.bandwidth_priority ?? 0,
+        swarmSeeders: row.swarm_seeders ?? undefined,
+        swarmLeechers: row.swarm_leechers ?? undefined,
+        trackersReporting: row.trackers_reporting ?? undefined,
+        trackersTotal: row.trackers_total ?? undefined,
     };
 }

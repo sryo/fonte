@@ -6,7 +6,7 @@ import Link from "next/link";
 import { DotsThree, X } from "@phosphor-icons/react";
 import {
   getTorrent, getTorrentFiles, pauseTorrent, resumeTorrent, removeTorrent,
-  verifyTorrent, reannounceTorrent, revealTorrent, searchTorrentAlternatives, swapTorrent,
+  verifyTorrent, reannounceTorrent, revealTorrent, searchTorrentAlternatives, swapTorrent, getSystemStatus, type ListenPort,
   getTorrentSubtitles, fetchTorrentSubtitles, setTorrentFilesWanted, setTorrentFilesPriority,
   getTorrentPieces,
   type TorrentRecord, type TorrentFileRecord, type SubtitleRecord, type AlternativeResult, type PiecesInfo,
@@ -24,6 +24,7 @@ import { ProgressBar, toPct } from "@/components/ui/progress-bar";
 import { DetailHero } from "@/components/shared/detail-hero";
 import { PiecesBand } from "@/components/torrent/pieces-band";
 import { countPieces } from "@/lib/pieces";
+import { describeStall } from "@/lib/stall";
 import { FileList, type FileSelectionSummary } from "@/components/torrent/file-list";
 import { SubtitleList } from "@/components/torrent/subtitle-list";
 import { AlternativesModal } from "@/components/torrent/alternatives-modal";
@@ -44,6 +45,7 @@ export default function TorrentDetailPage() {
   const id = params.id;
 
   const [torrent, setTorrent] = useState<TorrentRecord | null>(null);
+  const [listenPort, setListenPort] = useState<ListenPort | null>(null);
   const [files, setFiles] = useState<TorrentFileRecord[]>([]);
   const [subtitles, setSubtitles] = useState<SubtitleRecord[]>([]);
   const [pieces, setPieces] = useState<PiecesInfo | null>(null);
@@ -85,12 +87,14 @@ export default function TorrentDetailPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [torrentRes, filesRes, subsRes, piecesRes] = await Promise.all([
+      const [torrentRes, filesRes, subsRes, piecesRes, statusRes] = await Promise.all([
         getTorrent(id),
         getTorrentFiles(id),
         getTorrentSubtitles(id).catch(() => ({ ok: false, subtitles: [] })),
         getTorrentPieces(id).catch(() => ({ ok: false, pieces: null })),
+        getSystemStatus().catch(() => null),
       ]);
+      setListenPort(statusRes?.listenPort ?? null);
       setTorrent(torrentRes.torrent);
       if (!filePollPausedRef.current) setFiles(overlayPendingToggles(filesRes.files));
       setSubtitles(subsRes.subtitles || []);
@@ -232,6 +236,18 @@ export default function TorrentDetailPage() {
       : "";
   const isStopped = torrent.status === "paused" || torrent.status === "completed";
   const isStalled = !!torrent.stalledSince;
+  const stall = describeStall(torrent, listenPort);
+  const seedersToken = torrent.trackersReporting ? (
+    <>
+      {" · "}
+      <span
+        className={torrent.status === "downloading" && torrent.swarmSeeders === 0 ? "text-warning" : undefined}
+        title={`Highest seeder count reported by any of ${torrent.trackersTotal} trackers`}
+      >
+        {torrent.swarmSeeders} {torrent.swarmSeeders === 1 ? "seeder" : "seeders"}
+      </span>
+    </>
+  ) : null;
   const unavailablePct =
     pieces?.unavailable && torrent.status === "downloading" && torrent.numPeers > 0
       ? Math.round((100 * countPieces(pieces.unavailable, pieces.count)) / pieces.count)
@@ -279,11 +295,8 @@ export default function TorrentDetailPage() {
           tone="warn"
           action={<Button size="xs" variant="ghost" onClick={handleFindAlternatives} disabled={altSearching}>{altSearching ? "Searching…" : "Find alternatives"}</Button>}
         >
-          <p className="font-medium">Stalled &mdash; {torrent.numPeers === 0 ? "no peers available" : "not receiving data"}</p>
-          <p className="text-xs opacity-80">
-            {torrent.numPeers === 0 ? "This torrent isn't finding peers." : "Peers are connected but nothing is arriving."}
-            {" "}Try updating trackers, or swap to a healthier release.
-          </p>
+          <p className="font-medium">{stall.title}</p>
+          <p className="text-xs opacity-80">{stall.detail}</p>
         </Callout>
       )}
 
@@ -307,7 +320,7 @@ export default function TorrentDetailPage() {
           {eta && <span className="text-lg font-black text-ghost">{eta} left</span>}
         </div>
         <p className="text-xs text-muted-foreground tabular-nums">
-          <span className="text-torrent">↓ {formatSpeed(torrent.downloadSpeed)}</span> ↑ {formatSpeed(torrent.uploadSpeed)} · {torrent.numPeers} peers{unavailablePct > 0 && (<> · <span className="text-warning" title={`${unavailablePct}% of the file is held by no connected peer`}>{unavailablePct}% unavailable</span></>)} · {formatBytes(torrent.downloaded)} of {formatBytes(torrent.size)} · Uploaded {formatBytes(torrent.uploaded)}
+          <span className="text-torrent">↓ {formatSpeed(torrent.downloadSpeed)}</span> ↑ {formatSpeed(torrent.uploadSpeed)} · {torrent.numPeers} peers{seedersToken}{unavailablePct > 0 && (<> · <span className="text-warning" title={`${unavailablePct}% of the file is held by no connected peer`}>{unavailablePct}% unavailable</span></>)} · {formatBytes(torrent.downloaded)} of {formatBytes(torrent.size)} · Uploaded {formatBytes(torrent.uploaded)}
         </p>
         {pieces ? (
           <PiecesBand

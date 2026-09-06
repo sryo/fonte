@@ -24,6 +24,7 @@ import { getSubtitlesByTorrent } from './subtitle-db';
 // stalled. Persisted as TorrentRecord.stalledSince and announced once per
 // episode via the torrent:stalled event.
 const STALL_TIMEOUT_MS = 3 * 60 * 1000;
+const LISTEN_PORT_RECHECK_MS = 6 * 60 * 60 * 1000;
 
 const DEFAULT_CONFIG: TorrentConfig = {
     download_dir: path.join(require('os').homedir(), 'Downloads', 'fonte'),
@@ -96,6 +97,29 @@ export function packUnavailable(availability: unknown, pieceCount: number): stri
     return Buffer.from(bytes).toString('base64');
 }
 
+export interface SwarmSummary {
+    seeders: number;
+    leechers: number;
+    reporting: number;
+    total: number;
+}
+
+// A tracker that never returned a count carries -1. Each tracker sees the
+// same swarm partially, so the highest count is the floor of what exists.
+export function summarizeSwarm(trackerStats: unknown): SwarmSummary | null {
+    if (!Array.isArray(trackerStats)) return null;
+    let seeders = 0;
+    let leechers = 0;
+    let reporting = 0;
+    for (const t of trackerStats) {
+        if (typeof t?.seederCount !== 'number' || t.seederCount < 0) continue;
+        reporting++;
+        seeders = Math.max(seeders, t.seederCount);
+        leechers = Math.max(leechers, t.leecherCount ?? 0);
+    }
+    return { seeders, leechers, reporting, total: trackerStats.length };
+}
+
 export class TorrentManager {
     private rpc: TransmissionRpc | null = null;
     private config: TorrentConfig;
@@ -105,6 +129,8 @@ export class TorrentManager {
     private downloadActivity = new Map<string, { downloaded: number; lastDataAt: number }>();
     private stalledNotified = new Set<string>();
     private transmissionIds = new Map<string, number>();
+    private listenPort: { port: number | null; open: boolean | null; checkedAt: number } = { port: null, open: null, checkedAt: 0 };
+    private listenPortCheck: Promise<void> | null = null;
 
     constructor(config?: Partial<TorrentConfig>) {
         this.config = { ...DEFAULT_CONFIG, ...config };
@@ -131,6 +157,7 @@ export class TorrentManager {
                 log('WARN', `Failed to apply config to Transmission: ${(err as Error).message}`);
             }
             await this.buildTransmissionIdMap();
+            void this.checkListenPort();
         }
 
         this.updateInterval = setInterval(() => this.syncStats(), 3000);
@@ -635,6 +662,29 @@ export class TorrentManager {
         }
     }
 
+    getListenPort(): { port: number | null; open: boolean | null; checkedAt: number } {
+        return { ...this.listenPort };
+    }
+
+    private checkListenPort(): Promise<void> {
+        if (this.listenPortCheck) return this.listenPortCheck;
+        this.listenPortCheck = (async () => {
+            if (!this.rpc) return;
+            const checkedAt = Date.now();
+            try {
+                const session = await this.rpc.call('session-get', { fields: ['peer-port'] });
+                const test = await this.rpc.call('port-test');
+                this.listenPort = { port: session['peer-port'] ?? null, open: test['port-is-open'] ?? null, checkedAt };
+            } catch (err) {
+                this.listenPort = { ...this.listenPort, open: null, checkedAt };
+                log('WARN', `Listen port check failed: ${(err as Error).message}`);
+            } finally {
+                this.listenPortCheck = null;
+            }
+        })();
+        return this.listenPortCheck;
+    }
+
     private async syncStats(): Promise<void> {
         if (!this.rpc) return;
 
@@ -645,13 +695,14 @@ export class TorrentManager {
                     'id', 'hashString', 'name', 'status', 'percentDone',
                     'rateDownload', 'rateUpload', 'downloadedEver', 'uploadedEver',
                     'totalSize', 'peersConnected', 'error', 'errorString',
-                    'queuePosition', 'bandwidthPriority',
+                    'queuePosition', 'bandwidthPriority', 'trackerStats',
                 ],
             });
             transmissionTorrents = result.torrents || [];
         } catch {
             return; // Transmission not available, skip sync
         }
+        if (Date.now() - this.listenPort.checkedAt > LISTEN_PORT_RECHECK_MS) void this.checkListenPort();
 
         for (const t of transmissionTorrents) {
             const hash = (t.hashString as string || '').toLowerCase();
@@ -708,6 +759,7 @@ export class TorrentManager {
                 ? activity.lastDataAt
                 : null;
 
+            const swarm = summarizeSwarm(t.trackerStats);
             const updates: Parameters<typeof updateTorrent>[1] = {
                 progress,
                 downloadSpeed: t.rateDownload ?? 0,
@@ -720,6 +772,7 @@ export class TorrentManager {
                 stalledSince,
                 queuePosition: t.queuePosition ?? null,
                 bandwidthPriority: t.bandwidthPriority ?? 0,
+                ...(swarm ? { swarmSeeders: swarm.seeders, swarmLeechers: swarm.leechers, trackersReporting: swarm.reporting, trackersTotal: swarm.total } : {}),
                 // percentDone covers wanted files only, so re-wanting a file can
                 // regress a "completed" torrent. 'checking' is excluded — verify
                 // passes regress progress transiently.
