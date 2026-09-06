@@ -296,8 +296,12 @@ async function callAnthropicTranslate(apiKey: string, text: string, sourceLang: 
 
 // ── Name Parsing ──────────────────────────────────────────────────────────────
 
+// "www.Site.org - Title", "Site.com - Title", "[www.Site.com] Title"
+const SITE_TAG_PREFIX = /^\s*(?:\[\s*(?:www\.)?[a-z0-9-]+\.[a-z]{2,4}\s*\]|www\.[a-z0-9-]+\.[a-z]{2,4}|[a-z0-9-]+\.(?:com|org|net|to|me|cc|io|xyz|info|club|site|tv|rs|lol|ws)(?=\s*[-–:]))\s*[-–:]?\s*/i;
+
 export function parseTorrentName(name: string): { title: string; year?: number; isTv: boolean } {
     let cleaned = name
+        .replace(SITE_TAG_PREFIX, '')
         .replace(/\.(mkv|mp4|avi|m4v)$/i, '')
         .replace(/[._+]/g, ' ');
 

@@ -17,6 +17,15 @@ describe('parseTorrentName', () => {
             .toEqual({ title: 'Love - Kjærlighet', year: 2024, isTv: false });
     });
 
+    it('strips a leading site tag', () => {
+        expect(parseTorrentName('www.UIndex.org    -    Una Quinta Portuguesa (2025) 1080p BluRay 5.1-WORLD'))
+            .toEqual({ title: 'Una Quinta Portuguesa', year: 2025, isTv: false });
+        expect(parseTorrentName('[www.Site.com] Misericordia (2024) 1080p WEBRip x264'))
+            .toEqual({ title: 'Misericordia', year: 2024, isTv: false });
+        expect(parseTorrentName('Welcome.to.Marwen.2018.1080p.BluRay.x264'))
+            .toEqual({ title: 'Welcome to Marwen', year: 2018, isTv: false });
+    });
+
     it('keeps a leading bracket tag in the title', () => {
         // characterizes current behavior: bracketed release-group prefixes are not stripped
         expect(parseTorrentName('[TGx] Misericordia (2024) 1080p WEBRip x264'))

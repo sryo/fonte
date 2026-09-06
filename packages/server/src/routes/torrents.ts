@@ -1,7 +1,7 @@
 import { existsSync } from 'fs';
 import path from 'path';
 import { Hono } from 'hono';
-import { getTorrentManager, parseTorrentName, searchReleases, computeQualityMatch } from '@fonte/torrent';
+import { getTorrentManager, parseTorrentName, searchReleases, computeQualityMatch, extractInfoHash } from '@fonte/torrent';
 import type { TorrentStatus } from '@fonte/torrent';
 import { log, expandHomePath, validateSettings, revealInFinder } from '@fonte/core';
 import { ok, fail } from '../http';
@@ -203,7 +203,9 @@ app.post('/api/torrents/:id/alternatives', async (c) => {
         const category = parsed.isTv ? 5000 : 2000;
         const seasonPattern = parsed.isTv ? torrent.name.match(/S\d{2}E\d{2}/i)?.[0] : undefined;
 
-        const results = await searchReleases({ title: parsed.title, year: parsed.year, quality, category, seasonPattern });
+        const inLibrary = new Set(getTorrentManager().getTorrents().map(t => t.infoHash.toLowerCase()));
+        const results = (await searchReleases({ title: parsed.title, year: parsed.year, quality, category, seasonPattern }))
+            .filter(r => !inLibrary.has(extractInfoHash(r.magnetUri) ?? ''));
         const mapped = results.slice(0, 25).map(r => ({
             title: r.title,
             magnetUri: r.magnetUri,
