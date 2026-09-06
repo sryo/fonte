@@ -212,7 +212,7 @@ async function persistAndGrab(
         // never come back.
         const blocked = getBlockedResultKeys(entry.id);
         const best = pool.find((r) => {
-            if (r.seeders <= 0 || computeQualityMatch(r.title, wantedQuality) < 0.5) return false;
+            if (!r.seeders || computeQualityMatch(r.title, wantedQuality) < 0.5) return false;
             const infoHash = extractInfoHash(r.magnetUri);
             if ((infoHash && blocked.infoHashes.has(infoHash)) || blocked.magnetUris.has(r.magnetUri)) return false;
             const existing = infoHash ? getTorrentByHash(infoHash) : null;

@@ -1,16 +1,19 @@
 import { log, getSettings } from '@fonte/core';
 import { searchJackett, JackettResult, JackettSearch } from './jackett-client';
 import { searchBt4g, Bt4gResult } from './bt4g-client';
+import { scrapeSwarms, magnetTrackers, parseUdpTracker, DEFAULT_SCRAPE_TRACKERS, type ScrapeOutcome } from './tracker-scrape';
 
 export interface AggregatedResult extends JackettResult {
     source: string;
     sizeStr?: string;
+    swarmChecked?: boolean;
 }
 
 export interface AggregateSearchOpts {
     categories?: number[];
     jackettUrl?: string;
     apiKey?: string;
+    verifySwarms?: boolean;
 }
 
 export interface SourceOutcome {
@@ -101,8 +104,6 @@ export async function aggregateSearchReport(queries: string[], opts: AggregateSe
             all.push({
                 title: r.title,
                 magnetUri: r.magnetUri,
-                seeders: 0, // bt4g RSS doesn't include seeder count
-                leechers: 0,
                 size: parseSizeString(r.size),
                 sizeStr: r.size,
                 publishDate: r.publishDate,
@@ -110,6 +111,14 @@ export async function aggregateSearchReport(queries: string[], opts: AggregateSe
                 category: [],
                 source: 'bt4g-dht',
             });
+        }
+    }
+
+    if (opts.verifySwarms) {
+        try {
+            await verifySwarms(all);
+        } catch (err) {
+            log('WARN', `[search] tracker scrape failed: ${(err as Error).message}`);
         }
     }
 
@@ -122,12 +131,59 @@ export async function aggregateSearch(queries: string[], opts: AggregateSearchOp
     return (await aggregateSearchReport(queries, opts)).results;
 }
 
+const MAX_SCRAPE_HASHES = 148;
+const MAX_SCRAPE_TRACKERS = 12;
+
+/**
+ * Replace claimed counts with tracker-scraped ones. A zero from a tracker
+ * that never saw the torrent proves nothing, so a scrape only overrides when
+ * some count is positive or one of the magnet's own trackers answered.
+ */
+export async function verifySwarms(
+    results: AggregatedResult[],
+    scrape: (hashes: string[], trackers: string[]) => Promise<ScrapeOutcome> = scrapeSwarms,
+): Promise<void> {
+    const byHash = new Map<string, AggregatedResult>();
+    const trackerUrls = new Map<string, string>();
+    const trackerVotes = new Map<string, number>();
+    for (const r of results) {
+        const hash = extractInfoHash(r.magnetUri);
+        if (!hash || byHash.has(hash)) continue;
+        byHash.set(hash, r);
+        for (const url of magnetTrackers(r.magnetUri)) {
+            const parsed = parseUdpTracker(url);
+            if (!parsed) continue;
+            trackerUrls.set(parsed.key, url);
+            trackerVotes.set(parsed.key, (trackerVotes.get(parsed.key) ?? 0) + 1);
+        }
+    }
+    if (byHash.size === 0) return;
+
+    const trackers = [...trackerVotes].sort((a, b) => b[1] - a[1]).map(([key]) => trackerUrls.get(key)!);
+    for (const url of DEFAULT_SCRAPE_TRACKERS) {
+        const key = parseUdpTracker(url)!.key;
+        if (!trackerVotes.has(key)) trackers.push(url);
+    }
+
+    const { counts, answered } = await scrape([...byHash.keys()].slice(0, MAX_SCRAPE_HASHES), trackers.slice(0, MAX_SCRAPE_TRACKERS));
+    for (const [hash, r] of byHash) {
+        const c = counts.get(hash);
+        if (!c) continue;
+        const own = magnetTrackers(r.magnetUri).map(url => parseUdpTracker(url)?.key);
+        if (c.seeders <= 0 && c.leechers <= 0 && !own.some(key => key && answered.has(key))) continue;
+        r.seeders = c.seeders;
+        r.leechers = c.leechers;
+        r.swarmChecked = true;
+    }
+}
+
 /** "eztv: Challenge detected, 1337x: timed out, bt4g: 503" for logs and the entry's last error. */
 export function describeSearchFailure(report: Pick<SearchReport, 'failed'>): string {
     return report.failed.map(s => `${s.source}: ${s.error ?? 'failed'}`).join(', ').slice(0, 300);
 }
 
 export interface SearchReleasesOpts {
+    verifySwarms?: boolean;
     title: string;
     year?: number;
     quality?: string;
@@ -164,6 +220,7 @@ export async function searchReleasesReport(opts: SearchReleasesOpts): Promise<Se
         categories: category ? [category] : [],
         jackettUrl,
         apiKey,
+        verifySwarms: opts.verifySwarms ?? true,
     });
 
     const filtered = filterByTitle(report.results, { title, year, seasonPattern });
@@ -212,13 +269,13 @@ export function sortBySeedersThenSize<T extends { seeders?: number; size?: numbe
 
 // ── Quality Ranking ───────────────────────────────────────────────────────────
 
-export function rankResults<T extends { title: string; seeders: number; publishDate?: number; size?: number }>(
+export function rankResults<T extends { title: string; seeders?: number; publishDate?: number; size?: number }>(
     results: T[], preferredQuality: string, affinity?: (title: string) => number): T[] {
     return [...results].sort((a, b) => {
         const scoreA = computeScore(a, preferredQuality, affinity);
         const scoreB = computeScore(b, preferredQuality, affinity);
         return (scoreB - scoreA)
-            || (b.seeders - a.seeders)
+            || ((b.seeders ?? 0) - (a.seeders ?? 0))
             || ((b.size || 0) - (a.size || 0));
     });
 }
@@ -227,9 +284,12 @@ export function rankResults<T extends { title: string; seeders: number; publishD
 // below the 0.3 quality gap between exact and adjacent tiers: a liked
 // wrong-tier release never beats a neutral right-tier one. Only when the
 // right-tier candidate is itself fully disliked can taste flip the tiers.
-export function computeScore(r: { title: string; seeders: number; publishDate?: number }, preferredQuality: string, affinity?: (title: string) => number): number {
+// An unknown swarm scores like a modest one: not a dead release, not a proven healthy one.
+const UNKNOWN_SEEDER_SCORE = 0.2;
+
+export function computeScore(r: { title: string; seeders?: number; publishDate?: number }, preferredQuality: string, affinity?: (title: string) => number): number {
     const qm = computeQualityMatch(r.title, preferredQuality);
-    const seederScore = Math.min(r.seeders, 100) / 100;
+    const seederScore = r.seeders === undefined ? UNKNOWN_SEEDER_SCORE : Math.min(r.seeders, 100) / 100;
     const recencyScore = r.publishDate
         ? Math.max(0, 1 - (Date.now() - r.publishDate) / (7 * 24 * 60 * 60 * 1000))
         : 0;

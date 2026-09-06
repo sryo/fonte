@@ -3,7 +3,7 @@
 
 export interface ReleaseSortable {
     title: string;
-    seeders: number;
+    seeders?: number;
     size: number;
     qualityMatch: number;
     publishDate?: number;
@@ -14,7 +14,7 @@ export type ReleaseSortKey = "match" | "seeders" | "size" | "newest" | "name";
 type Comparator = (a: ReleaseSortable, b: ReleaseSortable) => number;
 
 const byMatch: Comparator = (a, b) => b.qualityMatch - a.qualityMatch;
-const bySeeders: Comparator = (a, b) => b.seeders - a.seeders;
+const bySeeders: Comparator = (a, b) => (b.seeders ?? -1) - (a.seeders ?? -1);
 // Undated releases sink to the bottom rather than masquerading as newest.
 const byNewest: Comparator = (a, b) => (b.publishDate ?? 0) - (a.publishDate ?? 0);
 const byName: Comparator = (a, b) =>

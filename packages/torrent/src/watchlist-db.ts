@@ -139,8 +139,8 @@ export function insertWatchlistResult(result: {
     watchlistId: string;
     title: string;
     magnetUri: string;
-    seeders: number;
-    leechers: number;
+    seeders?: number;
+    leechers?: number;
     size: number;
     qualityMatch: number;
     publishDate?: number;
@@ -159,8 +159,8 @@ export function insertWatchlistResult(result: {
             WHERE id = ?
         `).run(
             result.title,
-            result.seeders,
-            result.leechers,
+            result.seeders ?? null,
+            result.leechers ?? null,
             result.size,
             result.qualityMatch,
             result.publishDate ?? null,
@@ -179,8 +179,8 @@ export function insertWatchlistResult(result: {
         result.watchlistId,
         result.title,
         result.magnetUri,
-        result.seeders,
-        result.leechers,
+        result.seeders ?? null,
+        result.leechers ?? null,
         result.size,
         result.qualityMatch,
         result.publishDate ?? null,
@@ -312,8 +312,8 @@ function rowToResultRecord(row: any): WatchlistResultRecord {
         watchlistId: row.watchlist_id,
         title: row.title,
         magnetUri: row.magnet_uri,
-        seeders: row.seeders,
-        leechers: row.leechers,
+        seeders: row.seeders ?? undefined,
+        leechers: row.leechers ?? undefined,
         size: row.size,
         qualityMatch: row.quality_match,
         publishDate: row.publish_date ?? undefined,

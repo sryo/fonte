@@ -11,8 +11,9 @@ import { cn } from "@/lib/utils";
 
 export interface ReleaseItem {
   title: string;
-  seeders: number;
-  leechers: number;
+  seeders?: number;
+  leechers?: number;
+  swarmChecked?: boolean;
   size: number;
   qualityMatch: number;
   indexer?: string;
@@ -96,7 +97,14 @@ export function ReleaseList<T extends ReleaseItem>({
             <div className="min-w-0 flex-1">
               <MiddleTruncate text={r.title} className="text-sm font-medium" />
               <p className="text-xs text-muted-foreground tabular-nums">
-                ↑ {r.seeders} / {r.leechers} · {formatBytes(r.size)} ·{" "}
+                {r.seeders === undefined ? (
+                  <span title="No source reported swarm counts">seeds unknown</span>
+                ) : (
+                  <span title={r.swarmChecked ? "Counted by a tracker during this search" : "As reported by the indexer, not checked against a tracker"}>
+                    ↑ {r.seeders} / {r.leechers ?? 0}{!r.swarmChecked && " unverified"}
+                  </span>
+                )}
+                {" · "}{formatBytes(r.size)} ·{" "}
                 <span className={cn(TONE_TEXT[qualityTone(r.qualityMatch)])}>
                   {r.qualityMatch}%
                 </span>

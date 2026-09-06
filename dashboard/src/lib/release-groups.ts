@@ -136,7 +136,8 @@ export function resolutionMatches(tag: ResolutionLabel, wantedQuality: string): 
   return tag === (wanted === "4k" ? "2160p" : wanted);
 }
 
-export function seederTone(seeders: number): Tone {
+export function seederTone(seeders?: number): Tone {
+  if (seeders === undefined) return "neutral";
   if (seeders >= 50) return "done";
   if (seeders >= 5) return "warn";
   return "error";

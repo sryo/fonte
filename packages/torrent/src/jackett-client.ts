@@ -3,8 +3,8 @@ import { log } from '@fonte/core';
 export interface JackettResult {
     title: string;
     magnetUri: string;
-    seeders: number;
-    leechers: number;
+    seeders?: number;
+    leechers?: number;
     size: number;
     publishDate?: number;
     indexer: string;
@@ -87,8 +87,8 @@ function mapResults(raw: any[]): JackettResult[] {
     return raw.map((r: any) => ({
         title: r.Title || '',
         magnetUri: r.MagnetUri || r.Link || '',
-        seeders: r.Seeders ?? 0,
-        leechers: r.Peers ?? 0,
+        seeders: typeof r.Seeders === 'number' ? r.Seeders : undefined,
+        leechers: typeof r.Peers === 'number' ? r.Peers : undefined,
         size: r.Size ?? 0,
         publishDate: r.PublishDate ? new Date(r.PublishDate).getTime() : undefined,
         indexer: r.Tracker || r.TrackerId || 'unknown',

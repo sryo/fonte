@@ -211,6 +211,7 @@ app.post('/api/torrents/:id/alternatives', async (c) => {
             magnetUri: r.magnetUri,
             seeders: r.seeders,
             leechers: r.leechers,
+            swarmChecked: r.swarmChecked,
             size: r.size,
             indexer: r.indexer,
             publishDate: r.publishDate,

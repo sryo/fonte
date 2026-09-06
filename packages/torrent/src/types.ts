@@ -91,8 +91,8 @@ export interface WatchlistResultRecord {
     watchlistId: string;
     title: string;
     magnetUri: string;
-    seeders: number;
-    leechers: number;
+    seeders?: number;
+    leechers?: number;
     size: number;
     qualityMatch: number;
     publishDate?: number;

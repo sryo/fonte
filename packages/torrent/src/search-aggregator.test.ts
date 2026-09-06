@@ -2,8 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
     parseSizeString, extractInfoHash, filterByTitle,
     computeQualityMatch, computeScore, rankResults, sortBySeedersThenSize,
-    aggregateSearch, aggregateSearchReport, describeSearchFailure,
-} from './search-aggregator';
+    aggregateSearch, aggregateSearchReport, describeSearchFailure, verifySwarms, type AggregatedResult } from './search-aggregator';
 import { searchJackett } from './jackett-client';
 import { searchBt4g } from './bt4g-client';
 
@@ -394,5 +393,61 @@ describe('aggregateSearchReport', () => {
         const report = await aggregateSearchReport(['show'], {});
         expect(report.sources.map(s => s.source)).toEqual(['bt4g']);
         expect(report.allFailed).toBe(false);
+    });
+});
+
+describe('verifySwarms', () => {
+    const HASH_A = 'a'.repeat(40);
+    const HASH_B = 'b'.repeat(40);
+    const HASH_C = 'c'.repeat(40);
+    const row = (hash: string, seeders: number | undefined, trackers: string[] = []): AggregatedResult => ({
+        title: hash.slice(0, 4),
+        magnetUri: `magnet:?xt=urn:btih:${hash}` + trackers.map(t => `&tr=${encodeURIComponent(t)}`).join(''),
+        seeders,
+        leechers: seeders === undefined ? undefined : 1,
+        size: 1,
+        indexer: 'x',
+        category: [],
+        source: 'x',
+    });
+    const scrapeWith = (counts: Record<string, [number, number]>, answered: string[]) => async () => ({
+        counts: new Map(Object.entries(counts).map(([h, [seeders, leechers]]) => [h, { seeders, leechers, completed: 0 }])),
+        answered: new Set(answered),
+    });
+
+    it('replaces claims with positive tracker counts and marks the result checked', async () => {
+        const results = [row(HASH_A, 36), row(HASH_B, undefined)];
+        await verifySwarms(results, scrapeWith({ [HASH_A]: [4, 9], [HASH_B]: [0, 2] }, ['t.example:1337']));
+        expect(results[0]).toMatchObject({ seeders: 4, leechers: 9, swarmChecked: true });
+        expect(results[1]).toMatchObject({ seeders: 0, leechers: 2, swarmChecked: true });
+    });
+
+    it('keeps the claim when every tracker says zero and none of them is the magnet\'s own', async () => {
+        const results = [row(HASH_A, 36, ['udp://own.example:6969/announce']), row(HASH_B, undefined)];
+        await verifySwarms(results, scrapeWith({ [HASH_A]: [0, 0], [HASH_B]: [0, 0] }, ['other.example:1337']));
+        expect(results[0]).toMatchObject({ seeders: 36 });
+        expect(results[0].swarmChecked).toBeUndefined();
+        expect(results[1].seeders).toBeUndefined();
+    });
+
+    it('trusts a zero from one of the magnet\'s own trackers', async () => {
+        const results = [row(HASH_A, 36, ['udp://own.example:6969/announce'])];
+        await verifySwarms(results, scrapeWith({ [HASH_A]: [0, 0] }, ['own.example:6969']));
+        expect(results[0]).toMatchObject({ seeders: 0, leechers: 0, swarmChecked: true });
+    });
+
+    it('asks for the magnets\' most common trackers first, then the defaults, and skips hashless links', async () => {
+        const calls: { hashes: string[]; trackers: string[] }[] = [];
+        const scrape = async (hashes: string[], trackers: string[]) => { calls.push({ hashes, trackers }); return { counts: new Map(), answered: new Set<string>() }; };
+        const results = [
+            row(HASH_A, 1, ['udp://rare.example:1/announce', 'udp://common.example:2/announce']),
+            row(HASH_B, 1, ['udp://common.example:2/announce']),
+            row(HASH_C, 1, ['udp://common.example:2/announce']),
+            { ...row(HASH_A, 1), magnetUri: 'https://indexer.example/download/123.torrent' },
+        ];
+        await verifySwarms(results, scrape);
+        expect(calls[0].hashes).toEqual([HASH_A, HASH_B, HASH_C]);
+        expect(calls[0].trackers.slice(0, 2)).toEqual(['udp://common.example:2/announce', 'udp://rare.example:1/announce']);
+        expect(calls[0].trackers.length).toBeGreaterThan(2);
     });
 });

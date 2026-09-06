@@ -68,8 +68,9 @@ export async function revealTorrent(id: string, path?: string): Promise<{ ok: bo
 export interface AlternativeResult {
   title: string;
   magnetUri: string;
-  seeders: number;
-  leechers: number;
+  seeders?: number;
+  leechers?: number;
+  swarmChecked?: boolean;
   size: number;
   indexer?: string;
   publishDate?: number;

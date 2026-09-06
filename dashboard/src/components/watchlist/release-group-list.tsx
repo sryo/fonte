@@ -123,7 +123,7 @@ export function ReleaseGroupList({
           )}
         </div>
         <span className={cn("w-14 shrink-0 text-right text-xs font-extrabold tabular-nums", TONE_TEXT[seederTone(r.seeders)])}>
-          {r.seeders}
+          {r.seeders ?? "?"}
         </span>
         <span className="w-17 shrink-0 text-right text-xs text-muted-foreground tabular-nums">
           {formatBytes(r.size)}
