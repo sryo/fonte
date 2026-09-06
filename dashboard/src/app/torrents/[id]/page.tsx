@@ -307,7 +307,7 @@ export default function TorrentDetailPage() {
           {eta && <span className="text-lg font-black text-ghost">{eta} left</span>}
         </div>
         <p className="text-xs text-muted-foreground tabular-nums">
-          <span className="text-torrent">↓ {formatSpeed(torrent.downloadSpeed)}</span> ↑ {formatSpeed(torrent.uploadSpeed)} · {torrent.numPeers} peers · {formatBytes(torrent.downloaded)} of {formatBytes(torrent.size)} · Uploaded {formatBytes(torrent.uploaded)}
+          <span className="text-torrent">↓ {formatSpeed(torrent.downloadSpeed)}</span> ↑ {formatSpeed(torrent.uploadSpeed)} · {torrent.numPeers} peers{unavailablePct > 0 && (<> · <span className="text-warning" title={`${unavailablePct}% of the file is held by no connected peer`}>{unavailablePct}% unavailable</span></>)} · {formatBytes(torrent.downloaded)} of {formatBytes(torrent.size)} · Uploaded {formatBytes(torrent.uploaded)}
         </p>
         {pieces ? (
           <PiecesBand
@@ -315,6 +315,7 @@ export default function TorrentDetailPage() {
             unavailable={torrent.status === "downloading" && torrent.numPeers > 0 ? pieces.unavailable : null}
             count={pieces.count}
             done={torrent.progress >= 1 || torrent.status === "completed" || torrent.status === "seeding"}
+            stalled={isStalled}
             label={`Download progress: ${pct}%${unavailablePct > 0 ? `. ${unavailablePct}% not held by any connected peer` : ""}`}
           />
         ) : (
