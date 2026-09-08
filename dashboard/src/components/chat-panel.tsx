@@ -132,9 +132,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="flex items-center justify-center h-12 w-12 rounded-2xl bg-primary/10 mb-3">
-                <Robot className="h-6 w-6 text-primary" />
-              </div>
+              <Robot className="mb-3 h-8 w-8 text-ghost" />
               <p className="text-sm font-medium text-foreground">No messages yet</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Ask the agent anything below
