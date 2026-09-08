@@ -2,8 +2,9 @@
  * Daemon lifecycle — start, stop, restart, status.
  */
 
-import { execSync, spawn } from 'child_process';
+import { execSync, spawn, spawnSync } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { FONTE_HOME, SCRIPT_DIR } from '@fonte/core';
 import { API_PORT, API_URL } from './shared.ts';
@@ -12,6 +13,9 @@ import { API_PORT, API_URL } from './shared.ts';
 
 const PID_FILE = path.join(FONTE_HOME, 'fonte.pid');
 const LOG_DIR = path.join(FONTE_HOME, 'logs');
+
+const LAUNCHD_LABEL = 'com.fonte.daemon';
+const LAUNCHD_PLIST = path.join(os.homedir(), 'Library', 'LaunchAgents', `${LAUNCHD_LABEL}.plist`);
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
@@ -30,6 +34,21 @@ function getMainScript(): string | null {
     if (fs.existsSync(local)) return local;
     if (fs.existsSync(installed)) return installed;
     return null;
+}
+
+// A macOS install hands the daemon to launchd with KeepAlive, so a plain
+// SIGTERM comes straight back a second later. Stop and restart go through
+// launchctl instead, and starting re-bootstraps the agent so it stays watched.
+function launchdManaged(): boolean {
+    return process.platform === 'darwin' && fs.existsSync(LAUNCHD_PLIST);
+}
+
+function launchdTarget(): string {
+    return `gui/${process.getuid?.() ?? 0}/${LAUNCHD_LABEL}`;
+}
+
+function launchctl(...args: string[]): boolean {
+    return spawnSync('launchctl', args, { stdio: 'ignore' }).status === 0;
 }
 
 export function isRunning(): boolean {
@@ -88,20 +107,27 @@ export async function startDaemon(): Promise<void> {
     fs.mkdirSync(LOG_DIR, { recursive: true });
 
     const logFile = path.join(LOG_DIR, 'daemon.log');
-    const out = fs.openSync(logFile, 'a');
 
-    const child = spawn('node', [mainScript], {
-        detached: true,
-        stdio: ['ignore', out, out],
-        env: { ...process.env, FONTE_HOME },
-    });
-
-    fs.writeFileSync(PID_FILE, String(child.pid));
-    child.unref();
-
-    log(GREEN, `Fonte started (PID: ${child.pid})`);
+    if (launchdManaged()) {
+        // bootstrap fails harmlessly when the agent is already loaded.
+        launchctl('bootstrap', `gui/${process.getuid?.() ?? 0}`, LAUNCHD_PLIST);
+        if (!launchctl('kickstart', launchdTarget())) {
+            log(RED, `Could not start ${LAUNCHD_LABEL}. Run: launchctl bootstrap gui/${process.getuid?.() ?? 0} ${LAUNCHD_PLIST}`);
+            return;
+        }
+    } else {
+        const out = fs.openSync(logFile, 'a');
+        const child = spawn('node', [mainScript], {
+            detached: true,
+            stdio: ['ignore', out, out],
+            env: { ...process.env, FONTE_HOME },
+        });
+        fs.writeFileSync(PID_FILE, String(child.pid));
+        child.unref();
+    }
 
     const status = await waitForServer();
+    log(GREEN, `Fonte started (PID: ${readPid() ?? '?'})`);
     if (status) {
         log(GREEN, `  Server:    http://localhost:${status.server?.port || API_PORT}`);
 
@@ -131,6 +157,16 @@ export async function startDaemon(): Promise<void> {
 }
 
 export function stopDaemon(): void {
+    if (launchdManaged()) {
+        if (!launchctl('bootout', launchdTarget())) {
+            log(YELLOW, 'Fonte is not running');
+            return;
+        }
+        log(GREEN, 'Fonte stopped');
+        try { fs.unlinkSync(PID_FILE); } catch {}
+        return;
+    }
+
     if (!fs.existsSync(PID_FILE)) {
         log(YELLOW, 'Fonte is not running');
         return;
@@ -254,10 +290,22 @@ export async function restartDaemon(): Promise<void> {
         return;
     }
 
-    // Normal mode: explicit stop + start, owned end to end by the CLI. The
-    // API restart path is deliberately not used — under a one-shot launcher
-    // (macOS launchd plist with KeepAlive=false, or a plain `fonte start`)
-    // nothing respawns an exited process.
+    // Under launchd one kickstart replaces the process without ever leaving the
+    // agent unwatched.
+    if (launchdManaged()) {
+        if (launchctl('kickstart', '-k', launchdTarget())) {
+            const status = await waitForServer();
+            log(status ? GREEN : YELLOW, status ? 'Fonte restarted successfully' : 'Fonte is restarting (may take a moment)');
+            return;
+        }
+        log(YELLOW, `${LAUNCHD_LABEL} is not loaded; starting it`);
+        await startDaemon();
+        return;
+    }
+
+    // Otherwise an explicit stop + start, owned end to end by the CLI: under a
+    // plain `fonte start` nothing respawns an exited process, so the API
+    // restart path is deliberately not used.
     stopDaemon();
     if (pid && !(await waitForExit(pid))) {
         log(RED, `Process ${pid} did not exit in time; aborting restart`);

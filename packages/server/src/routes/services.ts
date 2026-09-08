@@ -37,17 +37,20 @@ export function createServicesRoutes(handlers?: ServiceHandlers): Hono {
     // POST /api/services/restart — restart the daemon.
     //
     // Two environments, two mechanisms:
-    // - Container (PID 1): the Docker entrypoint loop respawns us when we
-    //   exit with code 75, so just trigger the graceful shutdown.
-    // - Standalone (launchd one-shot plist / `fonte start`): nothing watches
-    //   our exit code, so exiting alone would kill the daemon dead. Spawn a
-    //   detached replacement first, then shut down gracefully.
+    // - Supervised (container PID 1, or launchd with KeepAlive): the supervisor
+    //   respawns us after we exit, so just trigger the graceful shutdown.
+    // - Standalone (`fonte start` with no supervisor): nothing watches our exit
+    //   code, so exiting alone would kill the daemon dead. Spawn a detached
+    //   replacement first, then shut down gracefully.
     app.post('/api/services/restart', (c) => {
         if (!handlers?.restart) {
             return fail(c, 'Restart not available', 501);
         }
 
-        const container = process.pid === 1;
+        // launchd (KeepAlive) and the Docker entrypoint both respawn us on exit,
+        // so a supervised daemon restarts by exiting rather than by spawning its
+        // own replacement — spawning one would leave two daemons racing the port.
+        const container = process.pid === 1 || process.env.FONTE_SUPERVISED === '1';
         // Respond before exiting so the client gets a response
         const response = ok(c, { action: container ? 'restart' : 'respawn' });
         setTimeout(() => {

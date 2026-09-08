@@ -284,14 +284,15 @@ echo "[8/8] Configuring auto-start at login..."
 
 NODE_BIN="$(command -v node)"
 NPM_BIN="$(command -v npm)"
-FONTE_BIN="$SCRIPT_DIR/packages/cli/bin/fonte.mjs"
+MAIN_SCRIPT="$SCRIPT_DIR/packages/main/dist/index.js"
 DASHBOARD_DIR="$SCRIPT_DIR/dashboard"
 DAEMON_PLIST="$HOME/Library/LaunchAgents/com.fonte.daemon.plist"
 DASHBOARD_PLIST="$HOME/Library/LaunchAgents/com.fonte.dashboard.plist"
 
 mkdir -p "$HOME/Library/LaunchAgents"
 
-# Daemon LaunchAgent (API on :3777) — one-shot launcher; daemon self-detaches
+# Daemon LaunchAgent (API on :3777) — launchd owns the daemon process itself,
+# so KeepAlive brings it back whenever it exits for any reason.
 if [ -f "$DAEMON_PLIST" ]; then
     launchctl unload "$DAEMON_PLIST" 2>/dev/null || true
 fi
@@ -306,13 +307,12 @@ cat > "$DAEMON_PLIST" <<EOF
     <key>ProgramArguments</key>
     <array>
         <string>$NODE_BIN</string>
-        <string>$FONTE_BIN</string>
-        <string>start</string>
+        <string>$MAIN_SCRIPT</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
-    <false/>
+    <true/>
     <key>StandardOutPath</key>
     <string>$CONFIG_DIR/logs/launchd.log</string>
     <key>StandardErrorPath</key>
@@ -325,13 +325,15 @@ cat > "$DAEMON_PLIST" <<EOF
         <string>$HOME</string>
         <key>FONTE_NO_OPEN</key>
         <string>1</string>
+        <key>FONTE_SUPERVISED</key>
+        <string>1</string>
     </dict>
 </dict>
 </plist>
 EOF
 
 launchctl load "$DAEMON_PLIST" 2>/dev/null && \
-    echo "  Daemon (port 3777) will auto-start at login." || \
+    echo "  Daemon (port 3777) will auto-start at login and restart if it exits." || \
     echo "  Warning: failed to load daemon LaunchAgent. Run: launchctl load $DAEMON_PLIST"
 
 # Dashboard LaunchAgent (Next.js on :3000) — long-running; launchd keeps it alive
