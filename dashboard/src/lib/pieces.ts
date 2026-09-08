@@ -21,6 +21,19 @@ function decodeBase64(input: string): Uint8Array | null {
   return Uint8Array.from(bits);
 }
 
+// The hero band never spends a cell on less than a whole piece: past MAX_CELLS
+// it downsamples, and under that it sheds whole rows rather than ending in a
+// ragged one.
+const MAX_CELLS = 144;
+const BAND_COLS = 36;
+
+export function bandGrid(pieceCount: number): { cells: number; cols: number } {
+  if (pieceCount >= MAX_CELLS) return { cells: MAX_CELLS, cols: BAND_COLS };
+  if (pieceCount >= BAND_COLS) return { cells: Math.floor(pieceCount / BAND_COLS) * BAND_COLS, cols: BAND_COLS };
+  const cells = Math.max(1, pieceCount);
+  return { cells, cols: cells };
+}
+
 export function countPieces(bitfieldBase64: string, pieceCount: number): number {
   const bytes = decodeBase64(bitfieldBase64);
   if (!bytes || pieceCount <= 0 || bytes.length * 8 < pieceCount) return 0;

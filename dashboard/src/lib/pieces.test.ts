@@ -2,7 +2,7 @@
 // though it isn't a workspace). Imports must stay relative — nothing maps the
 // "@/" alias outside Next.
 import { describe, it, expect } from "vitest";
-import { countPieces, downsamplePieces } from "./pieces";
+import { bandGrid, countPieces, downsamplePieces } from "./pieces";
 
 const b64 = (...bytes: number[]) => Buffer.from(bytes).toString("base64");
 
@@ -58,5 +58,26 @@ describe("countPieces", () => {
   it("returns zero for garbage or a short bitfield", () => {
     expect(countPieces("!!nope!!", 8)).toBe(0);
     expect(countPieces(b64(0xff), 16)).toBe(0);
+  });
+});
+
+describe("bandGrid", () => {
+  it("caps at four rows once there are enough pieces", () => {
+    expect(bandGrid(144)).toEqual({ cells: 144, cols: 36 });
+    expect(bandGrid(2452)).toEqual({ cells: 144, cols: 36 });
+  });
+
+  it("sheds whole rows rather than leaving a ragged one", () => {
+    expect(bandGrid(143)).toEqual({ cells: 108, cols: 36 });
+    expect(bandGrid(108)).toEqual({ cells: 108, cols: 36 });
+    expect(bandGrid(71)).toEqual({ cells: 36, cols: 36 });
+  });
+
+  it("gives a torrent shorter than one row its own width", () => {
+    expect(bandGrid(20)).toEqual({ cells: 20, cols: 20 });
+  });
+
+  it("never asks for a zero-column grid", () => {
+    expect(bandGrid(0)).toEqual({ cells: 1, cols: 1 });
   });
 });

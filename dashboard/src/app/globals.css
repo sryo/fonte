@@ -57,6 +57,7 @@
   --color-agent: var(--agent);
   --color-agent-foreground: var(--agent-foreground);
   --color-warning: var(--warning);
+  --color-unavailable: var(--unavailable);
   /* One step below text-xs, for badge text and card sublines. */
   --text-2xs: 11px;
   --text-2xs--line-height: 1.35;
@@ -96,6 +97,7 @@
   --automation-foreground: #ffffff;
   --done: #16a34a;
   --warning: #d97706;
+  --unavailable: #ef4444;
   --subtitle: #10b981;
   --subtitle-foreground: #ffffff;
   --agent: #6366f1;
@@ -123,6 +125,7 @@
   --automation-foreground: #0f172a;
   --done: #4ade80;
   --warning: #fbbf24;
+  --unavailable: #f87171;
   --subtitle: #34d399;
   --subtitle-foreground: #0f172a;
   --agent: #818cf8;
