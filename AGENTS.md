@@ -146,6 +146,7 @@ The CLI is for humans and shell scripts. Agents should use the API directly — 
 | `fonte watchlist remove <id>`    | Remove a watchlist entry             |
 | `fonte agent list`               | List configured agents               |
 | `fonte agent add`                | Add a new agent (interactive)        |
+| `fonte provider anthropic --oauth-token <token>` | Save the token from `claude setup-token` so agents stop depending on the Claude CLI's own sign-in |
 | `fonte logs [type]`              | View logs (queue, heartbeat, all)    |
 | `fonte office`                   | Start the web UI on port 3000        |
 | `fonte update`                   | Update to the latest version         |

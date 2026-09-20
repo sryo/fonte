@@ -74,6 +74,31 @@ describe("parseEventRow", () => {
     expect(parseEventRow(row(6, { kind: "event", content: "not json" }))).toBeNull();
     expect(parseEventRow(row(7, { kind: "event", content: JSON.stringify({ summary: "x" }) }))).toBeNull();
   });
+
+  it("carries the failure fields of an agent-failed row", () => {
+    const event = parseEventRow(
+      row(6, {
+        kind: "event",
+        content: JSON.stringify({
+          event: "agent-failed",
+          reason: "auth",
+          summary: "Claude sign-in expired, so I couldn't answer.",
+          detail: "Failed to authenticate: OAuth session expired and could not be refreshed",
+          queueId: 42,
+        }),
+      })
+    );
+    expect(event).toMatchObject({ event: "agent-failed", reason: "auth", queueId: 42 });
+    expect(event?.detail).toContain("OAuth session expired");
+  });
+
+  it("drops unknown reasons and non-numeric queue ids", () => {
+    const event = parseEventRow(
+      row(7, { kind: "event", content: JSON.stringify({ event: "agent-failed", reason: "cosmic", queueId: "42", summary: "x" }) })
+    );
+    expect(event?.reason).toBeUndefined();
+    expect(event?.queueId).toBeUndefined();
+  });
 });
 
 describe("groupActivity", () => {

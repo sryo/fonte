@@ -40,3 +40,14 @@ Open the web UI:
 ```bash
 fonte office
 ```
+
+### Sign the agents in
+
+Agents run through the Claude CLI. With nothing configured they borrow the CLI's own sign-in, which expires and can't renew itself while the daemon runs unattended. Give the daemon a token of its own:
+
+```bash
+claude setup-token
+fonte provider anthropic --oauth-token <token>
+```
+
+The same field lives in the dashboard under Settings → Providers. An API key (`--api-key`) works too; the token wins when both are set.

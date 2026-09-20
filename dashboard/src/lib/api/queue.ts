@@ -65,6 +65,11 @@ export async function cancelAgentRun(id: number): Promise<{ ok: boolean }> {
   return apiFetch(`/api/queue/processing/${id}/cancel`, { method: "POST" });
 }
 
+/** Re-enqueue a failed run under its original message id. */
+export async function retryDeadMessage(id: number): Promise<{ ok: boolean }> {
+  return apiFetch(`/api/queue/dead/${id}/retry`, { method: "POST" });
+}
+
 /** Truncate an agent's visible history from a row id onward (edit-and-rerun). */
 export async function deleteAgentMessagesFrom(agentId: string, fromId: number): Promise<{ ok: boolean }> {
   return apiFetch(

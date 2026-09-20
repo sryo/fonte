@@ -175,6 +175,16 @@ export function failMessage(rowId: number, error: string): 'pending' | 'dead' | 
     return newStatus;
 }
 
+/**
+ * Straight to the dead letter list, no automatic retry: the cause (expired
+ * sign-in, billing) won't clear on its own, so a person retries or deletes it.
+ */
+export function deadLetterMessage(rowId: number, error: string): boolean {
+    return getDb().prepare(
+        `UPDATE messages SET status='dead',retry_count=retry_count+1,last_error=?,updated_at=? WHERE id=? AND status IN ('queued','processing')`
+    ).run(error, Date.now(), rowId).changes > 0;
+}
+
 export function getMessageStatus(rowId: number): string | null {
     const row = getDb().prepare('SELECT status FROM messages WHERE id=?').get(rowId) as { status: string } | undefined;
     return row?.status ?? null;
@@ -278,7 +288,9 @@ export function getDeadMessages(): any[] {
 }
 
 export function retryDeadMessage(rowId: number): boolean {
-    return getDb().prepare(`UPDATE messages SET status='pending',retry_count=0,updated_at=? WHERE id=? AND status='dead'`).run(Date.now(), rowId).changes > 0;
+    const changed = getDb().prepare(`UPDATE messages SET status='pending',retry_count=0,updated_at=? WHERE id=? AND status='dead'`).run(Date.now(), rowId).changes > 0;
+    if (changed) queueEvents.emit('message:enqueued', { id: rowId });
+    return changed;
 }
 
 export function deleteDeadMessage(rowId: number): boolean {

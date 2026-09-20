@@ -1,6 +1,18 @@
 import { AgentAdapter, InvokeOptions } from './types';
 import { runCommand, runCommandStreaming } from '../invoke';
 import { log } from '../logging';
+import { AgentRunError, AgentFailureKind } from '../agent-failure';
+
+const NO_RESPONSE = 'Sorry, I could not generate a response from Claude.';
+
+// The `error` tag the CLI puts on the assistant turn it synthesises when an API call fails.
+const ERROR_TURN_KINDS: Record<string, AgentFailureKind> = {
+    authentication_failed: 'auth',
+    oauth_org_not_allowed: 'auth',
+    billing_error: 'billing',
+    rate_limit: 'rate_limit',
+    overloaded: 'rate_limit',
+};
 
 /**
  * Extract displayable text from a Claude stream-json event. Tool-use blocks
@@ -60,18 +72,29 @@ export const claudeAdapter: AgentAdapter = {
             args.push('--output-format', 'stream-json', '--verbose', '-p', message);
 
             let response = '';
+            let resultOk = false;
+            let failure = null as AgentRunError | null;
             const { promise, signalDone } = runCommandStreaming('claude', args, (line) => {
                 try {
                     const json = JSON.parse(line);
                     if (json.session_id && onSessionId) onSessionId(json.session_id);
                     if (json.type === 'result') {
-                        if (json.result) response = json.result;
+                        if (json.is_error === true) {
+                            failure ??= new AgentRunError((typeof json.result === 'string' && json.result) || response || 'Claude reported an error');
+                        } else {
+                            resultOk = true;
+                            if (json.result) response = json.result;
+                        }
                         if (json.usage) log('INFO', `Claude usage (${agentId}): ${JSON.stringify(json.usage)}`);
                         if (json.modelUsage) log('INFO', `Claude model usage (${agentId}): ${JSON.stringify(json.modelUsage)}`);
                         signalDone();
                         return;
                     }
                     const text = extractEventText(json, onTool, onToolResult);
+                    if (json.type === 'assistant' && typeof json.error === 'string') {
+                        failure = new AgentRunError(text || json.error, ERROR_TURN_KINDS[json.error]);
+                        return;
+                    }
                     if (text) {
                         response = text;
                         onEvent(text);
@@ -80,9 +103,23 @@ export const claudeAdapter: AgentAdapter = {
                     // Ignore non-JSON lines
                 }
             }, workingDir, env, agentId);
-            await promise;
 
-            return response || 'Sorry, I could not generate a response from Claude.';
+            try {
+                await promise;
+            } catch (err) {
+                if (resultOk) {
+                    log('WARN', `Claude exited with an error after its result (agent: ${agentId}): ${(err as Error).message}`);
+                    return response || NO_RESPONSE;
+                }
+                // Older CLIs don't tag the error turn and leave stderr empty, so
+                // the last text they printed is the real error.
+                throw failure ?? new AgentRunError(response || (err as Error).message);
+            }
+            // An error result with a clean exit and no recognisable cause (max
+            // turns) still carries the partial answer.
+            if (failure && failure.kind !== 'unknown') throw failure;
+
+            return response || NO_RESPONSE;
         }
 
         args.push('-p', message);

@@ -136,6 +136,11 @@ function migrateLegacyKeys(parsed: Record<string, unknown>): void {
     }
 }
 
+/** A key pasted from a wrapped terminal line carries the line break and indent inside it; no key format contains whitespace. */
+export function compactSecret(value: string | undefined): string {
+    return (value ?? '').replace(/\s+/g, '');
+}
+
 /** Expand ~ and $HOME prefixes in a user-supplied path. */
 export function expandHomePath(input?: string): string | undefined {
     if (!input) return input;

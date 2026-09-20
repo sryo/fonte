@@ -7,13 +7,14 @@ import {
   getAgentMessages,
   getProcessingMessages,
   resetAgent,
+  retryDeadMessage,
   sendMessage,
   subscribeToEvents,
   type AgentMessage,
   type EventData,
   type ProcessingMessage,
 } from "@/lib/api";
-import { groupActivity } from "@/lib/agent-activity";
+import { groupActivity, type TranscriptEvent } from "@/lib/agent-activity";
 
 /**
  * pending: POST in flight, or accepted and waiting for its agent_messages echo.
@@ -118,6 +119,7 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
   const [inFlightSends, setInFlightSends] = useState(0);
   const [stopping, setStopping] = useState(false);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [retryingId, setRetryingId] = useState<number | null>(null);
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
 
   const agentRef = useRef(agentId);
@@ -324,6 +326,19 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
     await refresh();
   }, [agentId, refresh]);
 
+  const retryFailed = useCallback(
+    async (queueId: number) => {
+      setRetryingId(queueId);
+      try {
+        await retryDeadMessage(queueId);
+        await refresh();
+      } finally {
+        setRetryingId((id) => (id === queueId ? null : id));
+      }
+    },
+    [refresh]
+  );
+
   const startEditing = useCallback((rowId: number) => setEditingRowId(rowId), []);
   const cancelEditing = useCallback(() => setEditingRowId(null), []);
 
@@ -357,6 +372,17 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
   }, [serverRows, outbox, agentId]);
 
   const items = useMemo(() => groupActivity(messages), [messages]);
+
+  const failureRetry = useCallback(
+    (row: ChatMessage, event: TranscriptEvent) => {
+      const { queueId } = event;
+      // Any later row for the same message means a rerun already happened.
+      if (queueId == null || messages.findLast((m) => m.message_id === row.message_id)?.id !== row.id) return null;
+      const busy = retryingId === queueId || processing.some((p) => p.messageId === row.message_id);
+      return { busy, onRetry: () => void retryFailed(queueId) };
+    },
+    [messages, retryingId, processing, retryFailed]
+  );
 
   const queued = useMemo<QueuedMessage[]>(() => {
     const list: QueuedMessage[] = processing
@@ -402,6 +428,7 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
     cancelEditing,
     reset,
     refresh,
+    failureRetry,
     error: pollError,
   };
 }

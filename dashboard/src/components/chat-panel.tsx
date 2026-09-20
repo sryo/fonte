@@ -64,6 +64,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     editableRowId,
     startEditing,
     cancelEditing,
+    failureRetry,
   } = useAgentChat(AGENT_ID, { active: open, limit: 50 });
 
   useEffect(() => {
@@ -154,7 +155,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
             if (item.type === "event") {
               const event = parseEventRow(item.row);
               return event ? (
-                <EventNote key={item.row.id} event={event} />
+                <EventNote key={item.row.id} event={event} retry={failureRetry(item.row, event)} />
               ) : (
                 <SystemNote key={item.row.id}>{item.row.content}</SystemNote>
               );

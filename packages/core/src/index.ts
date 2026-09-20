@@ -12,6 +12,7 @@ export * from './notify';
 export * from './reveal';
 export * from './router';
 export * from './invoke';
+export * from './agent-failure';
 export * from './adapters';
 export * from './plugins';
 

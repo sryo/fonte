@@ -26,6 +26,15 @@ async function loadConfig(): Promise<typeof import('./config')> {
     return import('./config');
 }
 
+describe('compactSecret', () => {
+    it('removes the break a wrapped terminal line leaves inside a pasted token', async () => {
+        const { compactSecret } = await loadConfig();
+        expect(compactSecret('sk-ant-oat01-abc\n  def')).toBe('sk-ant-oat01-abcdef');
+        expect(compactSecret('  sk-key  ')).toBe('sk-key');
+        expect(compactSecret(undefined)).toBe('');
+    });
+});
+
 describe('getSettings', () => {
     it('returns {} when settings.json does not exist', async () => {
         const { getSettings } = await loadConfig();

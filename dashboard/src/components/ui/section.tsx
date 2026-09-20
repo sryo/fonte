@@ -10,6 +10,7 @@ export function Section({
   action,
   children,
   className,
+  id,
 }: {
   title: ReactNode;
   count?: number;
@@ -17,9 +18,10 @@ export function Section({
   action?: ReactNode;
   children: ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
-    <section className={cn("rounded-xl shadow-card bg-card p-4", className)}>
+    <section id={id} className={cn("rounded-xl shadow-card bg-card p-4", className)}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h2 className="flex items-center gap-2 text-2xl font-black tracking-tight">

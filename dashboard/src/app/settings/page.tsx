@@ -91,6 +91,13 @@ export default function SettingsPage() {
 
   }, []);
 
+  // Sections mount after the fetch, too late for the browser's own hash scroll.
+  useEffect(() => {
+    if (loading) return;
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView({ block: "start" });
+  }, [loading]);
+
   const saveTorrentField = useCallback(async (patch: Partial<TorrentConfig>) => {
     const result = await updateTorrentConfig(patch);
     setTorrentConfig(result.config);
@@ -237,7 +244,12 @@ export default function SettingsPage() {
 
       <WhatsAppSection />
 
-      <ProvidersSection />
+      {settings && (
+        <ProvidersSection
+          settings={settings}
+          onSaveField={(patch) => saveSettingsSection("models", patch)}
+        />
+      )}
 
       <AgentsSection />
 

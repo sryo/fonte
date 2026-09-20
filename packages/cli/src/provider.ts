@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import * as p from '@clack/prompts';
+import { compactSecret } from '@fonte/core';
 import { readSettings, writeSettings, requireSettings } from './shared.ts';
 
 // --- provider show ---
@@ -85,13 +86,13 @@ function providerSet(providerName: string, args: string[]) {
 
     if (oauthTokenArg) {
         if (!settings.models[providerName]) settings.models[providerName] = {};
-        (settings.models as any)[providerName].oauth_token = oauthTokenArg;
+        (settings.models as any)[providerName].oauth_token = compactSecret(oauthTokenArg);
         p.log.success(`OAuth token saved for ${providerName}`);
     }
 
     if (apiKeyArg) {
         if (!settings.models[providerName]) settings.models[providerName] = {};
-        (settings.models as any)[providerName].api_key = apiKeyArg;
+        (settings.models as any)[providerName].api_key = compactSecret(apiKeyArg);
         p.log.success(`API key saved for ${providerName}`);
     }
 

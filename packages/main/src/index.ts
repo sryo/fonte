@@ -18,6 +18,7 @@ import {
     closeQueueDb, queueEvents,
     insertAgentMessage, deleteAgentMessagesByMessageId, updateAgentToolMessage,
     registerSystemPromptSection,
+    deadLetterMessage, toAgentRunError, describeAgentFailure, AgentRunError,
 } from '@fonte/core';
 import { startApiServer } from '@fonte/server';
 import {
@@ -103,9 +104,8 @@ async function processMessage(dbMsg: any): Promise<void> {
 
     emitEvent('agent:invoke', { agentId, agentName: agent.name, fromAgent: data.fromAgent || null });
     let sessionId: string | null = null;
-    let response: string;
-    let errored = false;
-    let runError: Error | null = null;
+    let response = '';
+    let runError: AgentRunError | null = null;
     try {
         response = await invokeAgent(agent, agentId, message, workspacePath, shouldReset, agents, {}, {
             onEvent: (text) => {
@@ -132,12 +132,7 @@ async function processMessage(dbMsg: any): Promise<void> {
             },
         });
     } catch (error) {
-        errored = true;
-        runError = error as Error;
-        const provider = agent.provider || 'anthropic';
-        const providerLabel = provider === 'openai' ? 'Codex' : provider === 'opencode' ? 'OpenCode' : 'Claude';
-        log('ERROR', `${providerLabel} error (agent: ${agentId}): ${(error as Error).message}`);
-        response = "Sorry, I encountered an error processing your request. Please check the queue logs.";
+        runError = toAgentRunError(error);
     }
 
     // Session persists even for stopped runs, so an edit can fork from them.
@@ -153,13 +148,18 @@ async function processMessage(dbMsg: any): Promise<void> {
         deleteAgentMessagesByMessageId(agentId, messageId, 'assistant');
         return;
     }
-    if (errored) {
-        emitEvent('agent:error', { agentId, agentName: agent.name, messageId, channel, error: runError?.message ?? 'Agent run failed' });
-    }
-    if (errored) {
-        const msgSender = isInternal ? data.fromAgent! : sender;
-        insertAgentMessage({ agentId, role: 'assistant', channel, sender: msgSender, messageId, content: response });
-        await sendDirectResponse(response, {
+    if (runError) {
+        const provider = agent.provider || 'anthropic';
+        const providerLabel = provider === 'openai' ? 'Codex' : provider === 'opencode' ? 'OpenCode' : provider === 'gemini' ? 'Gemini' : 'Claude';
+        log('ERROR', `${providerLabel} error (agent: ${agentId}, ${runError.kind}): ${runError.message}`);
+        const { summary, remedy } = describeAgentFailure(runError.kind, providerLabel, runError.message);
+        emitEvent('agent:error', { agentId, agentName: agent.name, messageId, channel, error: summary });
+        insertAgentMessage({
+            agentId, role: 'assistant', channel, sender: agentId, messageId, kind: 'event',
+            content: JSON.stringify({ event: 'agent-failed', reason: runError.kind, summary, detail: runError.message, queueId: dbMsg.id }),
+        });
+        deadLetterMessage(dbMsg.id, runError.message);
+        await sendDirectResponse(remedy ? `${summary} ${remedy}` : summary, {
             channel, sender, senderId: data.senderId,
             messageId, originalMessage: rawMessage, agentId,
         });

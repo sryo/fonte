@@ -109,9 +109,15 @@ export function ToolActivity({ calls, live }: { calls: ToolCall[]; live: boolean
   );
 }
 
-export function SystemNote({ children }: { children: ReactNode }) {
-  return <p className="text-center text-2xs text-muted-foreground">{children}</p>;
+export function SystemNote({ children, className, title }: { children: ReactNode; className?: string; title?: string }) {
+  return (
+    <p className={cn("text-center text-2xs text-muted-foreground", className)} title={title}>
+      {children}
+    </p>
+  );
 }
+
+const NOTE_ACTION = "font-semibold text-foreground/80 underline-offset-2 hover:underline disabled:opacity-50 disabled:no-underline";
 
 function RuleName({ event }: { event: TranscriptEvent }) {
   const name = event.ruleName ?? "rule";
@@ -119,15 +125,22 @@ function RuleName({ event }: { event: TranscriptEvent }) {
   return (
     <Link
       href={`/?automation=${encodeURIComponent(event.ruleId)}`}
-      className="font-semibold text-foreground/80 underline-offset-2 hover:underline"
+      className={NOTE_ACTION}
     >
       {name}
     </Link>
   );
 }
 
+/** A failed run's retry affordance: absent once a later run answered the same message. */
+export interface FailureRetry {
+  busy: boolean;
+  onRetry: () => void;
+}
+
 /** Transcript note for a `kind: 'event'` row, in the same voice as SystemNote. */
-export function EventNote({ event }: { event: TranscriptEvent }) {
+export function EventNote({ event, retry }: { event: TranscriptEvent; retry: FailureRetry | null }) {
+  if (event.event === "agent-failed") return <FailureNote event={event} retry={retry} />;
   const tail = event.summary ? ` · ${event.summary}` : "";
   let body: ReactNode;
   if (event.event === "automation-fired") {
@@ -146,6 +159,24 @@ export function EventNote({ event }: { event: TranscriptEvent }) {
     body = event.summary || event.event;
   }
   return <SystemNote>{body}</SystemNote>;
+}
+
+function FailureNote({ event, retry }: { event: TranscriptEvent; retry: FailureRetry | null }) {
+  return (
+    <SystemNote className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1" title={event.detail}>
+      <span>{event.summary || "The run failed."}</span>
+      {event.reason === "auth" && (
+        <Link href="/settings#providers" className={NOTE_ACTION}>
+          Set a new token
+        </Link>
+      )}
+      {retry && (
+        <button type="button" onClick={retry.onRetry} disabled={retry.busy} className={NOTE_ACTION}>
+          {retry.busy ? "Retrying…" : "Retry"}
+        </button>
+      )}
+    </SystemNote>
+  );
 }
 
 /**

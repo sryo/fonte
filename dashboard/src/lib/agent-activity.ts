@@ -13,7 +13,9 @@ export interface ToolCall {
   status?: ToolStatus;
 }
 
-export type TranscriptEventName = "automation-fired" | "automation-paused";
+export type TranscriptEventName = "automation-fired" | "automation-paused" | "agent-failed";
+
+export type FailureReason = "auth" | "rate_limit" | "billing" | "unknown";
 
 /** Parsed `kind: 'event'` row. Unknown event names still carry a summary. */
 export interface TranscriptEvent {
@@ -22,6 +24,12 @@ export interface TranscriptEvent {
   ruleName?: string;
   trigger?: "event" | "schedule" | "manual";
   summary: string;
+  /** agent-failed: why the run produced nothing. */
+  reason?: FailureReason;
+  /** agent-failed: the provider's own words, for the tooltip. */
+  detail?: string;
+  /** agent-failed: the dead-lettered queue row a retry re-enqueues. */
+  queueId?: number;
 }
 
 interface ActivityRow {
@@ -72,12 +80,16 @@ export function parseEventRow(msg: ActivityRow): TranscriptEvent | null {
     const parsed = JSON.parse(msg.content) as Partial<TranscriptEvent>;
     if (typeof parsed !== "object" || parsed === null || !str(parsed.event)) return null;
     const trigger = parsed.trigger;
+    const reason = parsed.reason;
     return {
       event: parsed.event as string,
       ruleId: str(parsed.ruleId),
       ruleName: str(parsed.ruleName),
       trigger: trigger === "event" || trigger === "schedule" || trigger === "manual" ? trigger : undefined,
       summary: str(parsed.summary) ?? "",
+      reason: reason === "auth" || reason === "rate_limit" || reason === "billing" || reason === "unknown" ? reason : undefined,
+      detail: str(parsed.detail),
+      queueId: typeof parsed.queueId === "number" ? parsed.queueId : undefined,
     };
   } catch {
     return null;

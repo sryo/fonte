@@ -55,6 +55,7 @@ export function AgentChatView({
     editableRowId,
     startEditing,
     cancelEditing,
+    failureRetry,
     error: pollError,
   } = useAgentChat(agentId, { active: true, limit: 200 });
 
@@ -116,7 +117,7 @@ export function AgentChatView({
               if (item.type === "event") {
                 const event = parseEventRow(item.row);
                 return event ? (
-                  <EventNote key={item.row.id} event={event} />
+                  <EventNote key={item.row.id} event={event} retry={failureRetry(item.row, event)} />
                 ) : (
                   <SystemNote key={item.row.id}>{item.row.content}</SystemNote>
                 );

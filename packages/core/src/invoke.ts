@@ -2,7 +2,7 @@ import { spawn, ChildProcess } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { AgentConfig, CustomProvider, TeamConfig } from './types';
-import { SCRIPT_DIR, resolveModel, getSettings } from './config';
+import { SCRIPT_DIR, resolveModel, getSettings, compactSecret } from './config';
 import { log } from './logging';
 import { ensureAgentDirectory, buildSystemPrompt } from './agent';
 import { getAdapter } from './adapters';
@@ -243,26 +243,30 @@ export async function invokeAgent(
 
         if (customProvider.harness === 'claude') {
             envOverrides.ANTHROPIC_BASE_URL = customProvider.base_url;
-            envOverrides.ANTHROPIC_AUTH_TOKEN = customProvider.api_key;
+            envOverrides.ANTHROPIC_AUTH_TOKEN = compactSecret(customProvider.api_key);
             envOverrides.ANTHROPIC_API_KEY = '';
         } else if (customProvider.harness === 'codex') {
-            envOverrides.OPENAI_API_KEY = customProvider.api_key;
+            envOverrides.OPENAI_API_KEY = compactSecret(customProvider.api_key);
             envOverrides.OPENAI_BASE_URL = customProvider.base_url;
         }
 
         log('INFO', `Using custom provider '${customId}' (harness: ${customProvider.harness}, base_url: ${customProvider.base_url})`);
     } else {
         const settings = getSettings();
-        if (provider === 'anthropic' && settings.models?.anthropic?.oauth_token) {
-            envOverrides.CLAUDE_CODE_OAUTH_TOKEN = settings.models.anthropic.oauth_token;
+        const oauthToken = compactSecret(settings.models?.anthropic?.oauth_token);
+        const anthropicKey = compactSecret(settings.models?.anthropic?.api_key);
+        const openaiKey = compactSecret(settings.models?.openai?.api_key);
+        const geminiKey = compactSecret((settings.models as any)?.gemini?.api_key);
+        if (provider === 'anthropic' && oauthToken) {
+            envOverrides.CLAUDE_CODE_OAUTH_TOKEN = oauthToken;
             envOverrides.ANTHROPIC_AUTH_TOKEN = '';
             envOverrides.ANTHROPIC_API_KEY = '';
-        } else if (provider === 'anthropic' && settings.models?.anthropic?.api_key) {
-            envOverrides.ANTHROPIC_API_KEY = settings.models.anthropic.api_key;
-        } else if (provider === 'openai' && settings.models?.openai?.api_key) {
-            envOverrides.OPENAI_API_KEY = settings.models.openai.api_key;
-        } else if (provider === 'gemini' && (settings.models as any)?.gemini?.api_key) {
-            envOverrides.GOOGLE_API_KEY = (settings.models as any).gemini.api_key;
+        } else if (provider === 'anthropic' && anthropicKey) {
+            envOverrides.ANTHROPIC_API_KEY = anthropicKey;
+        } else if (provider === 'openai' && openaiKey) {
+            envOverrides.OPENAI_API_KEY = openaiKey;
+        } else if (provider === 'gemini' && geminiKey) {
+            envOverrides.GOOGLE_API_KEY = geminiKey;
         }
     }
 
