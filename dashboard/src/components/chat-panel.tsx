@@ -5,6 +5,7 @@ import { Dialog } from "radix-ui";
 import { ArrowUp, PencilSimple, Robot, Square, X } from "@phosphor-icons/react";
 import { formatClock } from "@/lib/format";
 import { useAgentChat, type ChatMessage } from "@/hooks/use-agent-chat";
+import { useInputHistory } from "@/hooks/use-input-history";
 import { Button } from "@/components/ui/button";
 import { IconSwap } from "@/components/ui/icon-swap";
 import {
@@ -65,7 +66,9 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
     startEditing,
     cancelEditing,
     failureRetry,
+    sentHistory,
   } = useAgentChat(AGENT_ID, { active: open, limit: 50 });
+  const recall = useInputHistory(sentHistory, input, setInput, editingRowId == null);
 
   useEffect(() => {
     if (open) {
@@ -112,6 +115,9 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
         <Dialog.Content
           className="fixed right-0 top-0 h-full w-96 z-50 bg-card border-l flex flex-col outline-none data-[state=open]:animate-chat-panel-in data-[state=closed]:animate-chat-panel-out"
           aria-describedby={undefined}
+          onEscapeKeyDown={(e) => {
+            if (recall.isBrowsing()) e.preventDefault();
+          }}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
             inputRef.current?.focus();
@@ -244,6 +250,7 @@ export function ChatPanel({ open, onClose }: ChatPanelProps) {
                 placeholder={editingRowId != null ? "Edit your message…" : "Type a message..."}
                 className="min-h-0 text-sm"
                 onKeyDown={(e) => {
+                  if (recall.onKeyDown(e)) return;
                   if (e.key === "Escape" && editingRowId != null) {
                     e.stopPropagation();
                     endEdit();

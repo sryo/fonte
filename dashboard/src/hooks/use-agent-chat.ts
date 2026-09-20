@@ -14,7 +14,8 @@ import {
   type EventData,
   type ProcessingMessage,
 } from "@/lib/api";
-import { groupActivity, type TranscriptEvent } from "@/lib/agent-activity";
+import { groupActivity, isTextRow, type TranscriptEvent } from "@/lib/agent-activity";
+import { buildSentHistory } from "@/lib/input-history";
 
 /**
  * pending: POST in flight, or accepted and waiting for its agent_messages echo.
@@ -372,6 +373,7 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
   }, [serverRows, outbox, agentId]);
 
   const items = useMemo(() => groupActivity(messages), [messages]);
+  const sentHistory = useMemo(() => buildSentHistory(messages), [messages]);
 
   const failureRetry = useCallback(
     (row: ChatMessage, event: TranscriptEvent) => {
@@ -404,7 +406,7 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
   const editableRowId = useMemo(
     () =>
       serverRows.findLast(
-        (m) => m.role === "user" && m.channel === "web" && (m.kind === undefined || m.kind === "text")
+        (m) => m.role === "user" && m.channel === "web" && isTextRow(m)
       )?.id,
     [serverRows]
   );
@@ -429,6 +431,7 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
     reset,
     refresh,
     failureRetry,
+    sentHistory,
     error: pollError,
   };
 }

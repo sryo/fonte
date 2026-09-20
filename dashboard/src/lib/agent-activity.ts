@@ -43,6 +43,9 @@ const LEGACY_TOOL_RE = /^\[tool: (.+)\]$/;
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v ? v : undefined);
 
+/** Plain text, as opposed to tool, system and event rows. Rows older than `kind` have none. */
+export const isTextRow = (row: { kind?: string }): boolean => row.kind === undefined || row.kind === "text";
+
 /** Structured tool row, or the legacy `[tool: X]` text rows from old runs. */
 export function parseToolRow(msg: ActivityRow): ToolCall | null {
   const key = String(msg.id);
@@ -64,7 +67,7 @@ export function parseToolRow(msg: ActivityRow): ToolCall | null {
   }
   if (
     msg.role === "assistant" &&
-    (msg.kind === undefined || msg.kind === "text") &&
+    isTextRow(msg) &&
     msg.content.startsWith("[tool:")
   ) {
     const legacy = LEGACY_TOOL_RE.exec(msg.content.trim());

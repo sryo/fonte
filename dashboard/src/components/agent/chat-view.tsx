@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { agentColor } from "@/lib/agent-colors";
 import { parseEventRow } from "@/lib/agent-activity";
 import { useAgentChat, type ChatMessage } from "@/hooks/use-agent-chat";
+import { useInputHistory } from "@/hooks/use-input-history";
 import {
   EventNote,
   QueuedRow,
@@ -56,8 +57,10 @@ export function AgentChatView({
     startEditing,
     cancelEditing,
     failureRetry,
+    sentHistory,
     error: pollError,
   } = useAgentChat(agentId, { active: true, limit: 200 });
+  const recall = useInputHistory(sentHistory, input, setInput, editingRowId == null);
 
   const beginEdit = useCallback(
     (msg: ChatMessage) => {
@@ -207,6 +210,7 @@ export function AgentChatView({
             placeholder={editingRowId != null ? "Edit your message…" : `Message ${agentName}...`}
             className="min-h-[70px]"
             onKeyDown={(e) => {
+              if (recall.onKeyDown(e)) return;
               if (e.key === "Escape" && editingRowId != null) {
                 e.stopPropagation();
                 endEdit();
