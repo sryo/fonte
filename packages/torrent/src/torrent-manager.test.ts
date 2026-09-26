@@ -649,3 +649,54 @@ describe('swarm persistence', () => {
         expect(db.getTorrent('t1')?.trackersTotal).toBeUndefined();
     });
 });
+
+describe('updateConfig', () => {
+    type Call = { method: string; args?: Record<string, unknown> };
+    function managerWithRpc(opts: { sessionSet: 'ok' | 'reject' | 'unreachable' }) {
+        const calls: Call[] = [];
+        const state = { reachable: opts.sessionSet !== 'unreachable' };
+        const manager = new TM.TorrentManager({ download_dir: '/data/old', max_download_speed: 0 });
+        (manager as any).rpc = {
+            call: async (method: string, args?: Record<string, unknown>) => {
+                calls.push({ method, args });
+                if (!state.reachable) throw new Error('fetch failed');
+                if (method === 'session-set' && opts.sessionSet === 'reject') {
+                    throw new Error('Transmission RPC: download directory path is not absolute');
+                }
+                return { torrents: [] };
+            },
+            isAvailable: async () => state.reachable,
+        };
+        return { manager, calls, state };
+    }
+
+    it('pushes the merged config to Transmission', async () => {
+        const { manager, calls } = managerWithRpc({ sessionSet: 'ok' });
+        await manager.updateConfig({ max_download_speed: 500 });
+        const set = calls.find(c => c.method === 'session-set');
+        expect(set?.args).toMatchObject({ 'speed-limit-down-enabled': true, 'speed-limit-down': 500 });
+        expect(manager.getConfig().max_download_speed).toBe(500);
+    });
+
+    it('keeps the previous config when Transmission rejects the change', async () => {
+        const { manager } = managerWithRpc({ sessionSet: 'reject' });
+        await expect(manager.updateConfig({ download_dir: 'relative/dir' })).rejects.toThrow(/not absolute/);
+        expect(manager.getConfig().download_dir).toBe('/data/old');
+    });
+
+    it('accepts the change while Transmission is down and applies it once it is back', async () => {
+        const { manager, calls, state } = managerWithRpc({ sessionSet: 'unreachable' });
+        await manager.updateConfig({ max_download_speed: 250 });
+        expect(manager.getConfig().max_download_speed).toBe(250);
+
+        state.reachable = true;
+        calls.length = 0;
+        await sync(manager);
+        const set = calls.find(c => c.method === 'session-set');
+        expect(set?.args).toMatchObject({ 'speed-limit-down': 250 });
+
+        calls.length = 0;
+        await sync(manager);
+        expect(calls.some(c => c.method === 'session-set')).toBe(false);
+    });
+});

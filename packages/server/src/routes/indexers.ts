@@ -101,7 +101,7 @@ app.get('/api/indexers/status', async (c) => {
     if (!countFailure) log('WARN', `Indexer count failed (Jackett is up): ${result.error}`);
     countFailure = { key, cooldownUntil: Date.now() + FAIL_COOLDOWN_MS };
     const count = staleCount();
-    return ok(c, { count, configured: count > 0, jackettUrl });
+    return ok(c, { count, configured: count > 0, jackettUrl, countError: result.error });
 });
 
 // POST /api/indexers/jackett/restart — restart the Homebrew-managed Jackett

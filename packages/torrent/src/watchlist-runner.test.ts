@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi, type Mock } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi, type Mock } from 'vitest';
 
 vi.mock('./poster-manager', () => ({
     fetchTorrentPoster: vi.fn(async () => undefined),
@@ -472,5 +472,81 @@ describe('overlapping checks', () => {
         await Promise.all([first, second]);
 
         expect(searchReleasesReport).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('watchlistCheckDue', () => {
+    const MIN = 60_000;
+    const t0 = 1_000_000_000_000;
+
+    it('is never due while the watchlist is disabled', () => {
+        expect(runner.watchlistCheckDue({ enabled: false, check_interval_minutes: 1 }, 0, t0)).toBe(false);
+        expect(runner.watchlistCheckDue(undefined, 0, t0)).toBe(false);
+    });
+
+    it('is due right away when nothing has run yet', () => {
+        expect(runner.watchlistCheckDue({ enabled: true, check_interval_minutes: 30 }, 0, t0)).toBe(true);
+    });
+
+    it('waits the full interval between runs, including intervals over an hour', () => {
+        const wl = { enabled: true, check_interval_minutes: 90 };
+        expect(runner.watchlistCheckDue(wl, t0, t0 + 60 * MIN)).toBe(false);
+        expect(runner.watchlistCheckDue(wl, t0, t0 + 89 * MIN)).toBe(false);
+        expect(runner.watchlistCheckDue(wl, t0, t0 + 90 * MIN)).toBe(true);
+    });
+
+    it('spaces a 45-minute interval evenly instead of snapping to the hour', () => {
+        const wl = { enabled: true, check_interval_minutes: 45 };
+        expect(runner.watchlistCheckDue(wl, t0, t0 + 15 * MIN)).toBe(false);
+        expect(runner.watchlistCheckDue(wl, t0, t0 + 45 * MIN)).toBe(true);
+    });
+
+    it('tolerates tick jitter just under the interval', () => {
+        const wl = { enabled: true, check_interval_minutes: 30 };
+        expect(runner.watchlistCheckDue(wl, t0, t0 + 30 * MIN - 50)).toBe(true);
+    });
+
+    it('falls back to 30 minutes for a missing or non-positive interval', () => {
+        expect(runner.watchlistCheckDue({ enabled: true }, t0, t0 + 29 * MIN)).toBe(false);
+        expect(runner.watchlistCheckDue({ enabled: true, check_interval_minutes: 0 }, t0, t0 + 30 * MIN)).toBe(true);
+        expect(runner.watchlistCheckDue({ enabled: true, check_interval_minutes: -5 }, t0, t0 + 29 * MIN)).toBe(false);
+    });
+});
+
+describe('scheduled runner', () => {
+    const MIN = 60_000;
+    const writeWatchlist = (extra: Record<string, unknown>) => fs.writeFileSync(path.join(tmpHome, 'settings.json'), JSON.stringify({
+        watchlist: { jackett_url: 'http://localhost:9117', jackett_api_key: 'test-key', auto_add: false, ...extra },
+    }));
+    const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
+
+    afterEach(() => {
+        runner.stopWatchlistRunner();
+        vi.useRealTimers();
+        writeWatchlist({ auto_add: true, preferred_quality: '1080p' });
+    });
+
+    it('follows the saved enabled flag and interval without a restart', async () => {
+        vi.useFakeTimers();
+        seedEntry();
+        writeWatchlist({ enabled: true, check_interval_minutes: 90 });
+        expect(() => runner.startWatchlistRunner()).not.toThrow();
+
+        await vi.advanceTimersByTimeAsync(5_000);
+        await flush();
+        expect(searchReleasesReport).toHaveBeenCalledTimes(1);
+
+        await vi.advanceTimersByTimeAsync(60 * MIN);
+        await flush();
+        expect(searchReleasesReport).toHaveBeenCalledTimes(1);
+
+        await vi.advanceTimersByTimeAsync(31 * MIN);
+        await flush();
+        expect(searchReleasesReport).toHaveBeenCalledTimes(2);
+
+        writeWatchlist({ enabled: false, check_interval_minutes: 90 });
+        await vi.advanceTimersByTimeAsync(200 * MIN);
+        await flush();
+        expect(searchReleasesReport).toHaveBeenCalledTimes(2);
     });
 });

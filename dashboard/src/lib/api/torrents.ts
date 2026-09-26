@@ -15,6 +15,7 @@ export interface IndexerStatus {
   configured: boolean;
   jackettUrl?: string;
   reason?: string;
+  countError?: string;
 }
 
 export async function getIndexerStatus(fresh = false): Promise<IndexerStatus> {

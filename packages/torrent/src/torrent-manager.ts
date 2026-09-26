@@ -131,6 +131,7 @@ export class TorrentManager {
     private transmissionIds = new Map<string, number>();
     private listenPort: { port: number | null; open: boolean | null; checkedAt: number } = { port: null, open: null, checkedAt: 0 };
     private listenPortCheck: Promise<void> | null = null;
+    private reapplyConfig = false;
 
     constructor(config?: Partial<TorrentConfig>) {
         this.config = { ...DEFAULT_CONFIG, ...config };
@@ -150,6 +151,7 @@ export class TorrentManager {
         const available = await this.rpc.isAvailable();
         if (!available) {
             log('WARN', 'Transmission daemon not available at localhost:9091. Torrents will queue until it starts.');
+            this.reapplyConfig = true;
         } else {
             try {
                 await this.applyConfig();
@@ -541,10 +543,21 @@ export class TorrentManager {
     }
 
     async updateConfig(partial: Partial<TorrentConfig>): Promise<void> {
+        const previous = this.config;
         this.config = { ...this.config, ...partial };
 
         if (this.rpc) {
-            await this.applyConfig();
+            try {
+                await this.applyConfig();
+            } catch (err) {
+                if (await this.rpc.isAvailable()) {
+                    this.config = previous;
+                    throw err;
+                }
+                this.reapplyConfig = true;
+                log('WARN', 'Torrent config saved; Transmission is unreachable, so it applies when it comes back');
+                return;
+            }
         }
 
         log('INFO', 'Torrent config updated');
@@ -700,7 +713,12 @@ export class TorrentManager {
             });
             transmissionTorrents = result.torrents || [];
         } catch {
+            this.reapplyConfig = true;
             return; // Transmission not available, skip sync
+        }
+        if (this.reapplyConfig) {
+            this.reapplyConfig = false;
+            await this.applyConfig().catch(err => log('WARN', `Failed to apply config to Transmission: ${(err as Error).message}`));
         }
         if (Date.now() - this.listenPort.checkedAt > LISTEN_PORT_RECHECK_MS) void this.checkListenPort();
 

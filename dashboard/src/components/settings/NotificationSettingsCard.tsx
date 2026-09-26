@@ -1,24 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { sendTestNotification, type Settings } from "@/lib/api";
 import { Bell } from "@phosphor-icons/react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Section } from "@/components/ui/section";
-import { SettingRow, useAutoSaveSection } from "@/components/settings/shared";
-
-interface NotificationSettings {
-  enabled?: boolean;
-  torrent_completed?: boolean;
-  watchlist_match?: boolean;
-}
-
-const fromRaw = (r?: NotificationSettings) => ({
-  enabled: r?.enabled ?? false,
-  torrent_completed: r?.torrent_completed ?? false,
-  watchlist_match: r?.watchlist_match ?? false,
-});
+import { FieldStatus, SettingRow, useAutoSaveSection } from "@/components/settings/shared";
+import {
+  notificationSettingsFromRaw,
+  type RawNotificationSettings,
+} from "@/lib/notification-settings";
 
 export function NotificationSettingsCard({
   settings,
@@ -27,16 +19,25 @@ export function NotificationSettingsCard({
   settings: Settings;
   onSaveField: (patch: Record<string, unknown>) => Promise<void>;
 }) {
-  const raw = (settings as Record<string, unknown>).notifications as NotificationSettings | undefined;
-  const s = useAutoSaveSection(fromRaw(raw), onSaveField);
+  const raw = (settings as Record<string, unknown>).notifications as RawNotificationSettings | undefined;
+  const s = useAutoSaveSection(notificationSettingsFromRaw(raw), onSaveField);
   const [testing, setTesting] = useState(false);
+  const [testSent, setTestSent] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!testSent) return;
+    const t = setTimeout(() => setTestSent(false), 2000);
+    return () => clearTimeout(t);
+  }, [testSent]);
 
   const handleTest = async () => {
     setTesting(true);
+    setTestSent(false);
     setTestError(null);
     try {
       await sendTestNotification();
+      setTestSent(true);
     } catch (err) {
       setTestError((err as Error).message);
     } finally {
@@ -88,13 +89,26 @@ export function NotificationSettingsCard({
         </SettingRow>
 
         <SettingRow
+          label="Automation failed"
+          description="When an automation run fails"
+          status={s.statusFor("automation_failed")}
+        >
+          <Switch
+            checked={s.value("automation_failed")}
+            onCheckedChange={(v) => s.commit("automation_failed", v)}
+            disabled={!s.value("enabled")}
+          />
+        </SettingRow>
+
+        <SettingRow
           label="Test"
           description="Send a test notification. First use asks for macOS permission (Script Editor)"
         >
           <div className="flex items-center gap-2">
-            {testError && <span className="text-2xs text-destructive">{testError}</span>}
+            {testError && <FieldStatus status={{ state: "error", message: testError }} />}
+            {testSent && <span className="text-xs text-done animate-overlay-in">Sent</span>}
             <Button variant="outline" size="sm" onClick={handleTest} disabled={testing}>
-              {testing ? "Sending..." : "Send test notification"}
+              {testing ? "Sending…" : "Send test notification"}
             </Button>
           </div>
         </SettingRow>

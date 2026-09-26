@@ -23,7 +23,7 @@ import {
 import { startApiServer } from '@fonte/server';
 import {
     createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted,
-    createAutomationEngine, getWhatsAppService, backfillPosters,
+    createAutomationEngine, getWhatsAppService, hasLinkedSession, backfillPosters,
     AUTOMATION_QUIET_REPLY, renderAutomationsSection,
 } from '@fonte/torrent';
 
@@ -347,11 +347,7 @@ backfillPosters().catch(err => {
     log('ERROR', `Poster backfill failed: ${(err as Error).message}`);
 });
 
-const watchlistSettings = getSettings().watchlist;
-if (watchlistSettings?.enabled) {
-    const intervalMinutes = watchlistSettings.check_interval_minutes || 30;
-    startWatchlistRunner(intervalMinutes);
-}
+startWatchlistRunner();
 
 const automationEngine = createAutomationEngine();
 automationEngine.start();
@@ -366,8 +362,7 @@ apiServer.on('error', (err: NodeJS.ErrnoException) => {
     process.exit(1);
 });
 apiServer.on('listening', () => {
-    const waAuthDir = path.join(FONTE_HOME, 'whatsapp-auth');
-    if (fs.existsSync(waAuthDir) && fs.readdirSync(waAuthDir).length > 0) {
+    if (hasLinkedSession()) {
         log('INFO', 'WhatsApp: restoring previous session...');
         getWhatsAppService().start().catch(err => {
             log('ERROR', `WhatsApp auto-start failed: ${(err as Error).message}`);

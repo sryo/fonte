@@ -1,7 +1,7 @@
 import { existsSync } from 'fs';
 import path from 'path';
 import { Hono } from 'hono';
-import { getTorrentManager, parseTorrentName, searchReleases, computeQualityMatch, extractInfoHash } from '@fonte/torrent';
+import { getTorrentManager, normalizeTorrentConfigPatch, parseTorrentName, searchReleases, computeQualityMatch, extractInfoHash } from '@fonte/torrent';
 import type { TorrentStatus } from '@fonte/torrent';
 import { log, expandHomePath, validateSettings, revealInFinder } from '@fonte/core';
 import { ok, fail } from '../http';
@@ -82,10 +82,13 @@ app.put('/api/torrents/config', async (c) => {
         if (typeErrors.length || warnings.length) {
             return fail(c, [...typeErrors, ...warnings].join('; '));
         }
+        const normalized = normalizeTorrentConfigPatch(body);
+        if (normalized.error !== undefined) return fail(c, normalized.error);
+        const { patch } = normalized;
         const manager = getTorrentManager();
-        await manager.updateConfig(body);
+        await manager.updateConfig(patch);
         await mutateSettings((s) => {
-            s.torrent = { ...s.torrent, ...body };
+            s.torrent = { ...s.torrent, ...patch };
         });
         return ok(c, { config: manager.getConfig() });
     } catch (err) {

@@ -1,4 +1,3 @@
-import { Cron } from 'croner';
 import { log, emitEvent, getSettings } from '@fonte/core';
 import {
     searchReleasesReport, describeSearchFailure, rankResults, computeQualityMatch, extractInfoHash,
@@ -21,39 +20,49 @@ const DEFAULT_INTERVAL_MINUTES = 30;
 const CONCURRENCY = 3;
 const MAX_BACKOFF_INTERVALS = 8;
 
-let watchlistJob: Cron | null = null;
+const TICK_MS = 60_000;
+const FIRST_TICK_MS = 5_000;
+
+let tickTimer: ReturnType<typeof setTimeout> | null = null;
+let lastScheduledRunAt = 0;
 let checkInFlight: Promise<void> | null = null;
 const failures = new FailureCounter();
 
-export function startWatchlistRunner(intervalMinutes: number): void {
-    if (watchlistJob) return;
+type WatchlistSchedule = { enabled?: boolean; check_interval_minutes?: number } | undefined;
 
-    const cron = `*/${intervalMinutes} * * * *`;
-    watchlistJob = new Cron(cron, () => {
-        runWatchlistCheck().catch(err => {
-            log('ERROR', `Watchlist check failed: ${err.message}`);
-        });
-        // Poster retry piggybacks here so failed lookups get another shot
-        // without a scheduler of their own.
-        backfillPosters().catch(err => {
-            log('WARN', `Poster backfill failed: ${err.message}`);
-        });
+export function watchlistCheckDue(watchlist: WatchlistSchedule, lastRunAt: number, now: number): boolean {
+    if (!watchlist?.enabled) return false;
+    const minutes = watchlist.check_interval_minutes;
+    const intervalMs = (minutes && minutes > 0 ? minutes : DEFAULT_INTERVAL_MINUTES) * 60_000;
+    return now - lastRunAt >= intervalMs - TICK_MS / 2;
+}
+
+function tick(): void {
+    tickTimer = setTimeout(tick, TICK_MS);
+    const now = Date.now();
+    if (!watchlistCheckDue(getSettings().watchlist, lastScheduledRunAt, now)) return;
+    lastScheduledRunAt = now;
+    runWatchlistCheck().catch(err => {
+        log('ERROR', `Watchlist check failed: ${err.message}`);
     });
+    // Poster retry piggybacks here so failed lookups get another shot
+    // without a scheduler of their own.
+    backfillPosters().catch(err => {
+        log('WARN', `Poster backfill failed: ${err.message}`);
+    });
+}
 
-    log('INFO', `Watchlist runner started (every ${intervalMinutes} min)`);
-
-    // Run once immediately on startup
-    setTimeout(() => {
-        runWatchlistCheck().catch(err => {
-            log('ERROR', `Initial watchlist check failed: ${err.message}`);
-        });
-    }, 5000);
+export function startWatchlistRunner(): void {
+    if (tickTimer) return;
+    lastScheduledRunAt = 0;
+    tickTimer = setTimeout(tick, FIRST_TICK_MS);
+    log('INFO', 'Watchlist runner started');
 }
 
 export function stopWatchlistRunner(): void {
-    if (watchlistJob) {
-        watchlistJob.stop();
-        watchlistJob = null;
+    if (tickTimer) {
+        clearTimeout(tickTimer);
+        tickTimer = null;
         log('INFO', 'Watchlist runner stopped');
     }
 }

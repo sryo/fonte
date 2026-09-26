@@ -9,7 +9,7 @@ app.post('/api/notifications/test', (c) => {
     if (process.platform !== 'darwin') {
         return fail(c, 'Native notifications are only supported on macOS');
     }
-    sendMacNotification('Fonte', 'Test notification — notifications are working');
+    sendMacNotification('Fonte', 'Notifications are working');
     return ok(c);
 });
 

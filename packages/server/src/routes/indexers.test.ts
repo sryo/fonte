@@ -154,6 +154,15 @@ describe('GET /api/indexers/status', () => {
         expect(calls.count).toBe(2);
     });
 
+    it('says why counting failed on a fresh check, so a bad API key is not reported as connected', async () => {
+        stubFetch({ countFails: true });
+        const app = await loadApp();
+
+        const body = await status(app, '?fresh=1') as Record<string, unknown>;
+
+        expect(body.countError).toMatch(/aborted due to timeout/);
+    });
+
     it('shares one count query between concurrent requests', async () => {
         const calls = stubFetch({});
         const app = await loadApp();

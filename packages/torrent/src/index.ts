@@ -6,6 +6,7 @@ export * from './types';
 export * from './torrent-events';
 export * from './torrent-db';
 export * from './torrent-manager';
+export * from './torrent-config';
 export * from './release-source';
 export * from './db-connection';
 export * from './watchlist-events';

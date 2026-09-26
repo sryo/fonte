@@ -15,14 +15,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils";
+import { createAutoSaveQueue, IDLE, textDraftCommit, type SaveStatus } from "@/lib/auto-save";
+import { parseNumberDraft } from "@/lib/number-draft";
 
-export type SaveStatus =
-  | { state: "idle" }
-  | { state: "saving" }
-  | { state: "saved" }
-  | { state: "error"; message: string };
-
-const IDLE: SaveStatus = { state: "idle" };
+export type { SaveStatus };
 
 export function FieldStatus({ status }: { status: SaveStatus }) {
   if (status.state === "idle") return null;
@@ -51,53 +47,31 @@ export function useAutoSaveSection<T extends object>(
 ) {
   const [pending, setPending] = useState<Partial<T>>({});
   const [statuses, setStatuses] = useState<Record<string, SaveStatus>>({});
-  const queueRef = useRef<Promise<void>>(Promise.resolve());
-  const timersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const saveRef = useRef(save);
   useEffect(() => {
     saveRef.current = save;
   }, [save]);
 
-  useEffect(
-    () => () => {
-      Object.values(timersRef.current).forEach(clearTimeout);
-    },
-    []
+  const [queue] = useState(() =>
+    createAutoSaveQueue({
+      onStatus: (key, status) => setStatuses((s) => ({ ...s, [key]: status })),
+      onSettled: (key) =>
+        setPending((p) => {
+          if (!(key in p)) return p;
+          const next = { ...p };
+          delete next[key as keyof T];
+          return next;
+        }),
+    })
   );
-
-  const setStatus = useCallback((key: string, status: SaveStatus) => {
-    setStatuses((s) => ({ ...s, [key]: status }));
-  }, []);
+  useEffect(() => () => queue.dispose(), [queue]);
 
   const commit = useCallback(
     <K extends keyof T & string>(key: K, value: T[K]) => {
       setPending((p) => ({ ...p, [key]: value }));
-      clearTimeout(timersRef.current[key]);
-      setStatus(key, { state: "saving" });
-      queueRef.current = queueRef.current.then(async () => {
-        // A newer commit for the same key owns the pending entry now.
-        const settle = () =>
-          setPending((p) => {
-            if (!Object.is(p[key], value)) return p;
-            const next = { ...p };
-            delete next[key];
-            return next;
-          });
-        try {
-          await saveRef.current({ [key]: value } as unknown as Partial<T>);
-          settle();
-          setStatus(key, { state: "saved" });
-          timersRef.current[key] = setTimeout(() => setStatus(key, IDLE), 2000);
-        } catch (err) {
-          settle();
-          setStatus(key, {
-            state: "error",
-            message: (err as Error).message || "Save failed",
-          });
-        }
-      });
+      queue.commit(key, () => saveRef.current({ [key]: value } as unknown as Partial<T>));
     },
-    [setStatus]
+    [queue]
   );
 
   const value = <K extends keyof T & string>(key: K): T[K] =>
@@ -105,7 +79,7 @@ export function useAutoSaveSection<T extends object>(
 
   const statusFor = (key: keyof T & string): SaveStatus => statuses[key] ?? IDLE;
 
-  return { value, commit, statusFor };
+  return { value, commit, statusFor, whenIdle: queue.whenIdle };
 }
 
 /** Local text draft that commits on blur (and Enter via blur), only when
@@ -121,7 +95,9 @@ export function useDraft(committed: string, onCommit: (draft: string) => void) {
     value: draft,
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value),
     onBlur: () => {
-      if (draft !== committed) onCommit(draft);
+      const next = textDraftCommit(draft, committed);
+      if (next === null) setDraft(committed);
+      else onCommit(next);
     },
     onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") e.currentTarget.blur();
@@ -247,14 +223,13 @@ export function NumberInput({
       className={className}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
-        const n = step && step < 1 ? parseFloat(draft) : parseInt(draft, 10);
-        if (Number.isNaN(n)) {
+        const n = parseNumberDraft(draft, { integer: !(step && step < 1), min });
+        if (n === null) {
           setDraft(String(value));
           return;
         }
-        const clamped = min !== undefined ? Math.max(min, n) : n;
-        setDraft(String(clamped));
-        if (clamped !== value) onCommit(clamped);
+        setDraft(String(n));
+        if (n !== value) onCommit(n);
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter") e.currentTarget.blur();

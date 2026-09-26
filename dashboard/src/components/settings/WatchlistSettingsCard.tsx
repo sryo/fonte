@@ -15,6 +15,8 @@ import {
 import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { getIndexerStatus } from "@/lib/api";
+import { describeIndexerTest, normalizeJackettUrl } from "@/lib/indexer-test";
+import { cn } from "@/lib/utils";
 import {
   SettingRow,
   SecretInput,
@@ -50,23 +52,24 @@ export function WatchlistSettingsCard({
 }) {
   const raw = (settings as Record<string, unknown>).watchlist as WatchlistSettings | undefined;
   const s = useAutoSaveSection(fromRaw(raw), onSaveField);
-  const jackettUrl = useDraft(s.value("jackett_url"), (d) => s.commit("jackett_url", d));
-  const jackettApiKey = useDraft(s.value("jackett_api_key"), (d) => s.commit("jackett_api_key", d));
-
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const jackettUrl = useDraft(s.value("jackett_url"), (d) => {
+    setTestResult(null);
+    s.commit("jackett_url", normalizeJackettUrl(d));
+  });
+  const jackettApiKey = useDraft(s.value("jackett_api_key"), (d) => {
+    setTestResult(null);
+    s.commit("jackett_api_key", d);
+  });
   const handleTest = async () => {
     setTesting(true);
     setTestResult(null);
     try {
-      const res = await getIndexerStatus(true);
-      setTestResult(
-        res.ok
-          ? `Connected — ${res.count} indexer${res.count === 1 ? "" : "s"}`
-          : res.reason || "Jackett unreachable"
-      );
+      await s.whenIdle();
+      setTestResult(describeIndexerTest(await getIndexerStatus(true)));
     } catch (err) {
-      setTestResult((err as Error).message);
+      setTestResult({ ok: false, text: (err as Error).message });
     } finally {
       setTesting(false);
     }
@@ -85,7 +88,7 @@ export function WatchlistSettingsCard({
       <div className="divide-y divide-border/50">
         <SettingRow
           label="Enabled"
-          description="Enable watchlist monitoring. Applies after daemon restart"
+          description="Check watched titles for new releases on a schedule"
           status={s.statusFor("enabled")}
         >
           <Switch checked={s.value("enabled")} onCheckedChange={(v) => s.commit("enabled", v)} />
@@ -93,7 +96,7 @@ export function WatchlistSettingsCard({
 
         <SettingRow
           label="Check interval"
-          description="Minutes between automatic checks. Applies after daemon restart"
+          description="Minutes between automatic checks"
           status={s.statusFor("check_interval_minutes")}
         >
           <NumberInput
@@ -162,7 +165,11 @@ export function WatchlistSettingsCard({
 
         <SettingRow label="Test connection" description="Checks Jackett with the saved URL and key">
           <div className="flex items-center gap-2">
-            {testResult && <span className="text-xs text-muted-foreground">{testResult}</span>}
+            {testResult && (
+              <span className={cn("text-xs", testResult.ok ? "text-done" : "text-destructive")}>
+                {testResult.text}
+              </span>
+            )}
             <Button type="button" variant="outline" size="sm" onClick={handleTest} disabled={testing}>
               {testing ? "Testing…" : "Test"}
             </Button>

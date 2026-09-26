@@ -30,10 +30,10 @@ export function TorrentSettingsCard({
       <div className="divide-y divide-border/50">
         <SettingRow
           label="Download directory"
-          description="Where completed torrents are saved"
+          description="Where new torrents download to. Existing ones stay where they are"
           status={s.statusFor("download_dir")}
         >
-          <Input {...downloadDir} className="w-60 text-sm" placeholder="/downloads" />
+          <Input {...downloadDir} className="w-60 text-sm" placeholder="~/Downloads/fonte" />
         </SettingRow>
 
         <SettingRow
@@ -51,7 +51,7 @@ export function TorrentSettingsCard({
 
         <SettingRow
           label="Max download speed"
-          description="KB/s, 0 = unlimited"
+          description="KB/s. 0 means unlimited"
           status={s.statusFor("max_download_speed")}
         >
           <NumberInput
@@ -65,7 +65,7 @@ export function TorrentSettingsCard({
 
         <SettingRow
           label="Max upload speed"
-          description="KB/s, 0 = unlimited"
+          description="KB/s. 0 means unlimited"
           status={s.statusFor("max_upload_speed")}
         >
           <NumberInput
@@ -79,7 +79,7 @@ export function TorrentSettingsCard({
 
         <SettingRow
           label="Seed ratio limit"
-          description="Stop seeding once uploaded/downloaded reaches this ratio, 0 = seed forever"
+          description="Stop seeding at this upload-to-download ratio. 0 seeds forever"
           status={s.statusFor("seed_ratio_limit")}
         >
           <NumberInput

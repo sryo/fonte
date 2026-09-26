@@ -11,30 +11,11 @@ import {
   useAutoSaveSection,
   useDraft,
 } from "@/components/settings/shared";
-
-interface SubtitleSettings {
-  enabled?: boolean;
-  auto_download?: boolean;
-  translate?: boolean;
-  target_languages?: string[];
-  tmdb_api_key?: string;
-  opensubtitles_api_key?: string;
-}
-
-const fromRaw = (r?: SubtitleSettings) => ({
-  enabled: r?.enabled ?? false,
-  auto_download: r?.auto_download ?? false,
-  translate: r?.translate ?? false,
-  target_languages: r?.target_languages ?? [],
-  tmdb_api_key: r?.tmdb_api_key ?? "",
-  opensubtitles_api_key: r?.opensubtitles_api_key ?? "",
-});
-
-const parseLanguages = (text: string) =>
-  text
-    .split(",")
-    .map((l) => l.trim())
-    .filter(Boolean);
+import {
+  parseLanguageCodes,
+  subtitleSettingsFromRaw,
+  type RawSubtitleSettings,
+} from "@/lib/subtitle-settings";
 
 export function SubtitleSettingsCard({
   settings,
@@ -43,17 +24,19 @@ export function SubtitleSettingsCard({
   settings: Settings;
   onSaveField: (patch: Record<string, unknown>) => Promise<void>;
 }) {
-  const raw = (settings as Record<string, unknown>).subtitles as SubtitleSettings | undefined;
-  const s = useAutoSaveSection(fromRaw(raw), onSaveField);
-  const languages = useDraft(s.value("target_languages").join(", "), (d) =>
-    s.commit("target_languages", parseLanguages(d))
-  );
+  const raw = (settings as Record<string, unknown>).subtitles as RawSubtitleSettings | undefined;
+  const s = useAutoSaveSection(subtitleSettingsFromRaw(raw), onSaveField);
+  const committedLanguages = s.value("target_languages").join(", ");
+  const languages = useDraft(committedLanguages, (d) => {
+    const next = parseLanguageCodes(d);
+    if (next.join(", ") !== committedLanguages) s.commit("target_languages", next);
+  });
   const tmdbApiKey = useDraft(s.value("tmdb_api_key"), (d) => s.commit("tmdb_api_key", d));
   const opensubtitlesApiKey = useDraft(s.value("opensubtitles_api_key"), (d) =>
     s.commit("opensubtitles_api_key", d)
   );
 
-  const parsedLanguages = parseLanguages(languages.value);
+  const parsedLanguages = parseLanguageCodes(languages.value);
 
   return (
     <Section
