@@ -44,6 +44,10 @@ export interface Settings {
         opencode?: {
             model?: string;
         };
+        gemini?: {
+            model?: string;
+            api_key?: string;
+        };
     };
     agents?: Record<string, AgentConfig>;
     custom_providers?: Record<string, CustomProvider>;

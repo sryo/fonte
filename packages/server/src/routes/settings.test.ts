@@ -102,6 +102,17 @@ describe('PUT /api/settings', () => {
         expect(fs.existsSync(settingsPath())).toBe(false);
     });
 
+    it('answers a malformed body with a 400 instead of a server error', async () => {
+        const res = await app.request('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{"subtitles": {',
+        });
+
+        expect(res.status).toBe(400);
+        expect(await res.json()).toEqual({ ok: false, error: 'request body is not valid JSON' });
+    });
+
     it('rejects wrong-typed known keys', async () => {
         const res = await putSettings({ subtitles: { enabled: 'yes' } });
 

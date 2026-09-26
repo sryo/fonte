@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { saveCustomProvider } from "@/lib/api";
+import { cleanId, providerFormError } from "@/lib/agent-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,9 +26,11 @@ const EMPTY_FORM = {
 
 /** The custom-provider form shared by the Providers and Agents sections. */
 export function CustomProviderForm({
+  existingIds,
   onSaved,
   onCancel,
 }: {
+  existingIds: string[];
   /** Called with the new provider's id after a successful save. */
   onSaved: (id: string) => void | Promise<void>;
   onCancel: () => void;
@@ -37,16 +40,20 @@ export function CustomProviderForm({
   const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
-    if (!form.id || !form.name || !form.base_url || !form.api_key) return;
+    const invalid = providerFormError(form, existingIds);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       await saveCustomProvider(form.id, {
-        name: form.name,
+        name: form.name.trim(),
         harness: form.harness,
-        base_url: form.base_url,
-        api_key: form.api_key,
-        model: form.model || undefined,
+        base_url: form.base_url.trim(),
+        api_key: form.api_key.trim(),
+        model: form.model.trim() || undefined,
       });
       await onSaved(form.id);
       setForm(EMPTY_FORM);
@@ -63,7 +70,7 @@ export function CustomProviderForm({
           <Label className="text-xs">Provider id</Label>
           <Input
             value={form.id}
-            onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))}
+            onChange={(e) => setForm((f) => ({ ...f, id: cleanId(e.target.value) }))}
             placeholder="my-provider"
             className="text-sm"
           />

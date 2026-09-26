@@ -1,33 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  getCustomProviders,
-  deleteCustomProvider,
-  BUILTIN_PROVIDERS,
-  type CustomProvider,
-  type Settings,
-} from "@/lib/api";
+import { useState } from "react";
+import { deleteCustomProvider, BUILTIN_PROVIDERS, type Settings } from "@/lib/api";
+import { agentsUsingProvider } from "@/lib/agent-form";
+import { credentialsFromModels, credentialsPatch, type Credentials } from "@/lib/provider-credentials";
 import { Plug } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Section } from "@/components/ui/section";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CustomProviderForm } from "./custom-provider-form";
 import { SettingRow, SecretInput, useAutoSaveSection, useDraft } from "./shared";
-
-type Models = NonNullable<Settings["models"]>;
-
-interface Credentials {
-  anthropic_oauth_token: string;
-  anthropic_api_key: string;
-  openai_api_key: string;
-}
-
-const fromModels = (m?: Models): Credentials => ({
-  anthropic_oauth_token: m?.anthropic?.oauth_token ?? "",
-  anthropic_api_key: m?.anthropic?.api_key ?? "",
-  openai_api_key: m?.openai?.api_key ?? "",
-});
 
 // A token copied from a wrapped terminal line pastes with the break inside it.
 const compact = (draft: string) => draft.replace(/\s+/g, "");
@@ -46,20 +28,13 @@ function BuiltinCredentials({
   settings: Settings;
   onSaveField: (patch: Record<string, unknown>) => Promise<void>;
 }) {
-  const models = settings.models;
-  // Secrets live one level down in settings.models and the section save
-  // merges one level deep, so a commit sends whole provider objects.
-  const s = useAutoSaveSection(fromModels(models), async (patch: Partial<Credentials>) => {
-    const anthropic = { ...models?.anthropic };
-    const openai = { ...models?.openai };
-    if (patch.anthropic_oauth_token !== undefined) anthropic.oauth_token = patch.anthropic_oauth_token || undefined;
-    if (patch.anthropic_api_key !== undefined) anthropic.api_key = patch.anthropic_api_key || undefined;
-    if (patch.openai_api_key !== undefined) openai.api_key = patch.openai_api_key || undefined;
-    await onSaveField({ anthropic, openai });
+  const s = useAutoSaveSection(credentialsFromModels(settings.models), async (patch: Partial<Credentials>) => {
+    await onSaveField(credentialsPatch(patch));
   });
   const token = useDraft(s.value("anthropic_oauth_token"), (d) => s.commit("anthropic_oauth_token", compact(d)));
   const anthropicKey = useDraft(s.value("anthropic_api_key"), (d) => s.commit("anthropic_api_key", compact(d)));
   const openaiKey = useDraft(s.value("openai_api_key"), (d) => s.commit("openai_api_key", compact(d)));
+  const geminiKey = useDraft(s.value("gemini_api_key"), (d) => s.commit("gemini_api_key", compact(d)));
 
   return (
     <div className="space-y-4">
@@ -101,6 +76,18 @@ function BuiltinCredentials({
           </SettingRow>
         </div>
       </div>
+      <div>
+        <p className="text-sm font-medium">Gemini</p>
+        <div className="divide-y divide-border/50">
+          <SettingRow
+            label="API key"
+            description="For agents on the Gemini provider"
+            status={s.statusFor("gemini_api_key")}
+          >
+            <SecretInput {...geminiKey} placeholder="AIza…" className="w-56" />
+          </SettingRow>
+        </div>
+      </div>
     </div>
   );
 }
@@ -108,36 +95,34 @@ function BuiltinCredentials({
 export function ProvidersSection({
   settings,
   onSaveField,
+  onChanged,
 }: {
   settings: Settings;
   onSaveField: (patch: Record<string, unknown>) => Promise<void>;
+  onChanged: () => Promise<void>;
 }) {
-  const [providers, setProviders] = useState<Record<string, CustomProvider>>({});
-  const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
 
-  const fetchProviders = () =>
-    getCustomProviders()
-      .then((data) => {
-        setProviders(data);
-        setLoadError(null);
-      })
-      .catch((err) => setLoadError((err as Error).message))
-      .finally(() => setLoading(false));
-
-  useEffect(() => {
-    void fetchProviders();
-  }, []);
+  const entries = Object.entries(settings.custom_providers ?? {});
+  const usedBy = deleteTarget ? agentsUsingProvider(settings.agents ?? {}, deleteTarget) : [];
 
   const confirmDelete = async () => {
-    if (!deleteTarget) return;
-    await deleteCustomProvider(deleteTarget);
-    await fetchProviders();
+    const id = deleteTarget;
+    if (!id) return;
+    setRowErrors((e) => {
+      const next = { ...e };
+      delete next[id];
+      return next;
+    });
+    try {
+      await deleteCustomProvider(id);
+      await onChanged();
+    } catch (err) {
+      setRowErrors((e) => ({ ...e, [id]: (err as Error).message || "Delete failed" }));
+    }
   };
-
-  const entries = Object.entries(providers);
 
   return (
     <Section
@@ -197,37 +182,32 @@ export function ProvidersSection({
                     </span>
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => setDeleteTarget(id)}
-                  className="shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                >
-                  Delete
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {rowErrors[id] && <span className="text-xs text-destructive">{rowErrors[id]}</span>}
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => setDeleteTarget(id)}
+                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  >
+                    Delete
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
         )}
 
-        {loadError && (
-          <p className="text-sm text-destructive">
-            Could not load providers: {loadError}{" "}
-            <button type="button" onClick={() => void fetchProviders()} className="underline underline-offset-2">
-              Retry
-            </button>
-          </p>
-        )}
-
-        {!loadError && !loading && entries.length === 0 && !showAdd && (
+        {entries.length === 0 && !showAdd && (
           <p className="text-sm text-muted-foreground">No custom providers configured yet.</p>
         )}
 
         {showAdd && (
           <CustomProviderForm
+            existingIds={entries.map(([id]) => id)}
             onSaved={async () => {
               setShowAdd(false);
-              await fetchProviders();
+              await onChanged();
             }}
             onCancel={() => setShowAdd(false)}
           />
@@ -236,7 +216,16 @@ export function ProvidersSection({
       <ConfirmDialog
         open={deleteTarget !== null}
         title="Delete custom provider"
-        message={<>Delete custom provider “{deleteTarget}”? This cannot be undone.</>}
+        message={
+          usedBy.length ? (
+            <>
+              Delete custom provider “{deleteTarget}”? {usedBy.length === 1 ? "Agent" : "Agents"} {usedBy.join(", ")}{" "}
+              {usedBy.length === 1 ? "uses" : "use"} it and will stop working until moved to another provider.
+            </>
+          ) : (
+            <>Delete custom provider “{deleteTarget}”? This cannot be undone.</>
+          )
+        }
         confirmLabel="Delete"
         destructive
         onConfirm={confirmDelete}

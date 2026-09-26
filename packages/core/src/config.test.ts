@@ -98,3 +98,15 @@ describe('getSettings', () => {
         expect(fs.existsSync(settingsPath() + '.bak')).toBe(false);
     });
 });
+
+describe('validateSettings', () => {
+    it('knows every settings leaf the daemon reads', async () => {
+        const { validateSettings } = await loadConfig();
+        const { warnings, typeErrors } = validateSettings({
+            notifications: { automation_failed: false },
+            models: { gemini: { model: 'pro', api_key: 'g-key' } },
+        });
+        expect(typeErrors).toEqual([]);
+        expect(warnings).toEqual([]);
+    });
+});

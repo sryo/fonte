@@ -14,6 +14,9 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { LoadingState } from "@/components/ui/feedback";
 import { restartService } from "@/lib/api";
+import { primeCachedSettings } from "@/lib/settings-cache";
+import { retryUntil } from "@/lib/retry";
+import { mergeSection, rawJsonPatch, redactSecrets, restoreSecrets } from "@/lib/settings-patch";
 import { SaveFooter } from "@/components/settings/shared";
 import { AgentPersonalitySection } from "@/components/settings/AgentPersonalitySection";
 import { AgentsSection } from "@/components/settings/AgentsSection";
@@ -24,36 +27,8 @@ import { TorrentSettingsCard } from "@/components/settings/TorrentSettingsCard";
 import { WatchlistSettingsCard } from "@/components/settings/WatchlistSettingsCard";
 import { WhatsAppSection } from "@/components/settings/WhatsAppSection";
 
-const SECRET_KEY_RE = /(api_key|oauth_token|token)$/i;
-const REDACTED = "__REDACTED__";
-
-/** Replace secret-shaped string leaves so the Advanced editor never renders
-    keys in plaintext. */
-function redactSecrets(node: unknown): unknown {
-  if (Array.isArray(node)) return node.map(redactSecrets);
-  if (typeof node !== "object" || node === null) return node;
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(node)) {
-    out[key] =
-      SECRET_KEY_RE.test(key) && typeof value === "string" && value !== ""
-        ? REDACTED
-        : redactSecrets(value);
-  }
-  return out;
-}
-
-/** Restore untouched redaction sentinels from the live settings at the same
-    path, so a round-trip through the editor never persists the placeholder. */
-function restoreSecrets(node: unknown, source: unknown): unknown {
-  if (Array.isArray(node)) return node.map((v, i) => restoreSecrets(v, Array.isArray(source) ? source[i] : undefined));
-  if (typeof node !== "object" || node === null) return node;
-  const src = (typeof source === "object" && source !== null ? source : {}) as Record<string, unknown>;
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(node)) {
-    out[key] = value === REDACTED ? src[key] : restoreSecrets(value, src[key]);
-  }
-  return out;
-}
+const RESTART_GRACE_MS = 1500;
+const RESTART_LOAD_ATTEMPTS = 20;
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -67,18 +42,32 @@ export default function SettingsPage() {
   const [advSaved, setAdvSaved] = useState(false);
   const [advError, setAdvError] = useState<string | null>(null);
   const rawJsonDirtyRef = useRef(false);
+  const rawBaselineRef = useRef<Record<string, unknown>>({});
   const settingsRef = useRef<Settings | null>(null);
   const [torrentLoadFailed, setTorrentLoadFailed] = useState(false);
   const [restartOpen, setRestartOpen] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [restartError, setRestartError] = useState<string | null>(null);
 
-  function loadAll() {
-    return Promise.all([getSettings(), getTorrentConfig().catch(() => null)])
+  const adoptSettings = useCallback((s: Settings, resetRawJson: boolean) => {
+    settingsRef.current = s;
+    setSettings(s);
+    primeCachedSettings(s);
+    if (resetRawJson || !rawJsonDirtyRef.current) {
+      const redacted = redactSecrets(s) as Record<string, unknown>;
+      rawBaselineRef.current = redacted;
+      setRawJson(JSON.stringify(redacted, null, 2));
+      rawJsonDirtyRef.current = false;
+    }
+  }, []);
+
+  function loadAll(attempts = 1) {
+    return retryUntil(() => Promise.all([getSettings(), getTorrentConfig().catch(() => null)]), {
+      attempts,
+      delayMs: 1000,
+    })
       .then(([s, tc]) => {
-        settingsRef.current = s;
-        setSettings(s);
-        setRawJson(JSON.stringify(redactSecrets(s), null, 2));
-        rawJsonDirtyRef.current = false;
+        adoptSettings(s, true);
         setTorrentConfig(tc ? tc.config : null);
         setTorrentLoadFailed(!tc);
       })
@@ -109,28 +98,35 @@ export default function SettingsPage() {
     async (section: string, patch: Record<string, unknown>) => {
       const cur = (settingsRef.current as Record<string, unknown> | null)?.[section];
       const result = await updateSettings({
-        [section]: { ...(cur && typeof cur === "object" ? cur : {}), ...patch },
+        [section]: mergeSection(cur, patch),
       } as Partial<Settings>);
-      settingsRef.current = result.settings;
-      setSettings(result.settings);
-      if (!rawJsonDirtyRef.current) {
-        setRawJson(JSON.stringify(redactSecrets(result.settings), null, 2));
-      }
+      adoptSettings(result.settings, false);
     },
-    []
+    [adoptSettings]
   );
+
+  const refreshSettings = useCallback(async () => {
+    adoptSettings(await getSettings(), false);
+  }, [adoptSettings]);
 
   const saveRawJson = useCallback(async () => {
     setAdvSaving(true);
     setAdvError(null);
     try {
-      const parsed = JSON.parse(rawJson);
-      const restored = restoreSecrets(parsed, settings) as Partial<Settings>;
-      const result = await updateSettings(restored);
-      settingsRef.current = result.settings;
-      setSettings(result.settings);
-      setRawJson(JSON.stringify(redactSecrets(result.settings), null, 2));
-      rawJsonDirtyRef.current = false;
+      const parsed: unknown = JSON.parse(rawJson);
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        throw new Error("The settings must be a JSON object.");
+      }
+      const { patch, removed } = rawJsonPatch(parsed as Record<string, unknown>, rawBaselineRef.current);
+      if (removed.length) {
+        throw new Error(`Saving can't remove ${removed.join(", ")}. Put it back and clear its fields instead.`);
+      }
+      const { value, unresolved } = restoreSecrets(patch, settingsRef.current);
+      if (unresolved.length) {
+        throw new Error(`Type the value for ${unresolved.join(", ")}. The placeholder only keeps a secret already saved there.`);
+      }
+      const result = await updateSettings(value as Partial<Settings>);
+      adoptSettings(result.settings, true);
       setAdvSaved(true);
       setTimeout(() => setAdvSaved(false), 2000);
     } catch (err) {
@@ -138,7 +134,7 @@ export default function SettingsPage() {
     } finally {
       setAdvSaving(false);
     }
-  }, [rawJson, settings]);
+  }, [rawJson, adoptSettings]);
 
   if (loading) {
     return <LoadingState label="Loading settings…" />;
@@ -180,7 +176,8 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="flex justify-end -mt-12">
+      <div className="flex items-center justify-end gap-2 -mt-12">
+        {restartError && <span className="text-xs text-destructive">{restartError}</span>}
         <Button variant="ghost" size="sm" onClick={() => setRestartOpen(true)} disabled={restarting} className="text-xs text-muted-foreground">
           {restarting ? "Restarting…" : "Restart daemon"}
         </Button>
@@ -203,7 +200,7 @@ export default function SettingsPage() {
 
       {!torrentConfig && torrentLoadFailed && (
         <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
-          Could not load torrent settings — the torrent manager may be starting up.{" "}
+          Could not load torrent settings. The torrent manager may be starting up.{" "}
           <button
             type="button"
             onClick={() => {
@@ -248,10 +245,11 @@ export default function SettingsPage() {
         <ProvidersSection
           settings={settings}
           onSaveField={(patch) => saveSettingsSection("models", patch)}
+          onChanged={refreshSettings}
         />
       )}
 
-      <AgentsSection />
+      {settings && <AgentsSection settings={settings} onChanged={refreshSettings} />}
 
       <AgentPersonalitySection />
 
@@ -308,16 +306,18 @@ export default function SettingsPage() {
         confirmLabel="Restart"
         busyLabel="Restarting…"
         onConfirm={async () => {
-          setRestarting(true);
+          setRestartError(null);
           try {
             await restartService();
-          } finally {
-            setTimeout(() => {
-              setRestarting(false);
-              setLoading(true);
-              void loadAll();
-            }, 4000);
+          } catch (err) {
+            setRestartError((err as Error).message || "Restart failed");
+            return;
           }
+          setRestarting(true);
+          setTimeout(() => {
+            setLoading(true);
+            void loadAll(RESTART_LOAD_ATTEMPTS).finally(() => setRestarting(false));
+          }, RESTART_GRACE_MS);
         }}
         onClose={() => setRestartOpen(false)}
       />

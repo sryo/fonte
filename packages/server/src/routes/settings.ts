@@ -36,14 +36,19 @@ app.get('/api/settings', (c) => {
 });
 
 app.put('/api/settings', async (c) => {
-    const body = await c.req.json();
+    let body: unknown;
+    try {
+        body = await c.req.json();
+    } catch {
+        return fail(c, 'request body is not valid JSON');
+    }
     // Unknown keys are rejected on writes; reads stay lenient.
     const { typeErrors, warnings } = validateSettings(body);
     if (typeErrors.length || warnings.length) {
         return fail(c, [...typeErrors, ...warnings].join('; '));
     }
     const merged = await updateSettingsFile((current) => {
-        const next = { ...current, ...body } as Settings;
+        const next = { ...current, ...(body as Settings) };
         expandSettingsPaths(next);
         return next;
     });

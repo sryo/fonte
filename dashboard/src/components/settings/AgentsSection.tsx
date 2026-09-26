@@ -6,11 +6,11 @@ import {
   saveAgent,
   deleteAgent,
   resetAgent,
-  getCustomProviders,
   BUILTIN_PROVIDERS,
   type AgentConfig,
-  type CustomProvider,
+  type Settings,
 } from "@/lib/api";
+import { agentFormError, cleanId, modelAfterProviderSwitch } from "@/lib/agent-form";
 import { Robot } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,11 +27,19 @@ import { Spinner } from "@/components/ui/feedback";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CustomProviderForm } from "./custom-provider-form";
 
-export function AgentsSection() {
+const EMPTY_FORM = { id: "", name: "", provider: "anthropic", model: "sonnet" };
+
+export function AgentsSection({
+  settings,
+  onChanged,
+}: {
+  settings: Settings;
+  onChanged: () => Promise<void>;
+}) {
   const [agents, setAgents] = useState<Record<string, AgentConfig>>({});
-  const [providers, setProviders] = useState<Record<string, CustomProvider>>({});
+  const providers = settings.custom_providers ?? {};
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ id: "", name: "", provider: "anthropic", model: "sonnet" });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [showAddProvider, setShowAddProvider] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -39,52 +47,74 @@ export function AgentsSection() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState<string | null>(null);
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
 
-  const fetchAll = () =>
-    Promise.all([getAgents(), getCustomProviders()])
-      .then(([a, p]) => {
+  const fetchAgents = () =>
+    getAgents()
+      .then((a) => {
         setAgents(a);
-        setProviders(p);
         setLoadError(null);
       })
       .catch((err) => setLoadError((err as Error).message));
 
   useEffect(() => {
-    void fetchAll();
-  }, []);
+    void fetchAgents();
+  }, [settings.agents]);
 
   const handleSave = async () => {
-    if (!form.id || !form.name || !form.model) return;
+    const invalid = agentFormError(form, Object.keys(agents));
+    if (invalid) {
+      setSaveError(invalid);
+      return;
+    }
     setSaving(true);
     try {
       await saveAgent(form.id, {
-        name: form.name,
+        name: form.name.trim(),
         provider: form.provider,
-        model: form.model,
+        model: form.model.trim(),
         working_directory: "",
       });
-      setForm({ id: "", name: "", provider: "anthropic", model: "sonnet" });
+      setForm(EMPTY_FORM);
       setShowAdd(false);
       setSaveError(null);
-      await fetchAll();
+      await onChanged();
     } catch (err) {
       setSaveError((err as Error).message);
     }
     setSaving(false);
   };
 
+  const runOnRow = async (id: string, action: () => Promise<void>) => {
+    setRowErrors((e) => {
+      const next = { ...e };
+      delete next[id];
+      return next;
+    });
+    try {
+      await action();
+    } catch (err) {
+      setRowErrors((e) => ({ ...e, [id]: (err as Error).message || "Failed" }));
+    }
+  };
+
   const confirmDelete = async () => {
-    if (!deleteTarget) return;
-    await deleteAgent(deleteTarget);
-    await fetchAll();
+    const id = deleteTarget;
+    if (!id) return;
+    await runOnRow(id, async () => {
+      await deleteAgent(id);
+      await onChanged();
+    });
   };
 
   const confirmReset = async () => {
     const id = resetTarget;
     if (!id) return;
-    await resetAgent(id);
-    setResetSent(id);
-    setTimeout(() => setResetSent(null), 2000);
+    await runOnRow(id, async () => {
+      await resetAgent(id);
+      setResetSent(id);
+      setTimeout(() => setResetSent(null), 2000);
+    });
   };
 
   return (
@@ -121,6 +151,7 @@ export function AgentsSection() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                  {rowErrors[id] && <span className="text-xs text-destructive">{rowErrors[id]}</span>}
                   <Button
                     variant="ghost"
                     size="xs"
@@ -146,7 +177,7 @@ export function AgentsSection() {
         {loadError && (
           <p className="text-sm text-destructive">
             Could not load agents: {loadError}{" "}
-            <button type="button" onClick={() => void fetchAll()} className="underline underline-offset-2">
+            <button type="button" onClick={() => void fetchAgents()} className="underline underline-offset-2">
               Retry
             </button>
           </p>
@@ -163,7 +194,7 @@ export function AgentsSection() {
                 <Label className="text-xs">ID</Label>
                 <Input
                   value={form.id}
-                  onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))}
+                  onChange={(e) => setForm((f) => ({ ...f, id: cleanId(e.target.value) }))}
                   placeholder="my-agent"
                   className="text-sm"
                 />
@@ -186,7 +217,11 @@ export function AgentsSection() {
                       setShowAddProvider(true);
                       return;
                     }
-                    setForm((f) => ({ ...f, provider: v }));
+                    setForm((f) => ({
+                      ...f,
+                      provider: v,
+                      model: modelAfterProviderSwitch(f.provider, v, f.model, providers),
+                    }));
                   }}
                 >
                   <SelectTrigger className="text-sm">
@@ -218,9 +253,10 @@ export function AgentsSection() {
 
             {showAddProvider && (
               <CustomProviderForm
+                existingIds={Object.keys(providers)}
                 onSaved={async (id) => {
                   setShowAddProvider(false);
-                  await fetchAll();
+                  await onChanged();
                   setForm((f) => ({ ...f, provider: `custom:${id}` }));
                 }}
                 onCancel={() => setShowAddProvider(false)}
@@ -231,7 +267,7 @@ export function AgentsSection() {
             <div className="flex justify-end gap-2 pt-1">
               <Button
                 variant="ghost"
-                onClick={() => { setShowAdd(false); setShowAddProvider(false); setForm({ id: "", name: "", provider: "anthropic", model: "sonnet" }); }}
+                onClick={() => { setShowAdd(false); setShowAddProvider(false); setSaveError(null); setForm(EMPTY_FORM); }}
                 className="text-muted-foreground"
               >
                 Cancel

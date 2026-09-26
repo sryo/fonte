@@ -24,6 +24,7 @@ const SETTINGS_SHAPE: Shape = {
         anthropic: { model: 'string', api_key: 'string', oauth_token: 'string' },
         openai: { model: 'string', api_key: 'string' },
         opencode: { model: 'string' },
+        gemini: { model: 'string', api_key: 'string' },
     },
     agents: 'record',
     custom_providers: 'record',
@@ -44,6 +45,7 @@ const SETTINGS_SHAPE: Shape = {
     },
     notifications: {
         enabled: 'boolean', torrent_completed: 'boolean', watchlist_match: 'boolean',
+        automation_failed: 'boolean',
     },
     libraries: 'record',
     whatsapp: { allowed_chat: 'string', allowed_participants: 'string[]' },

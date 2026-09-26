@@ -20,8 +20,10 @@ export interface Settings {
     anthropic?: { model?: string; api_key?: string; oauth_token?: string };
     openai?: { model?: string; api_key?: string };
     opencode?: { model?: string };
+    gemini?: { model?: string; api_key?: string };
   };
   agents?: Record<string, AgentConfig>;
+  custom_providers?: Record<string, CustomProvider>;
   monitoring?: { heartbeat_interval?: number };
   watchlist?: { preferred_quality?: string };
 }
