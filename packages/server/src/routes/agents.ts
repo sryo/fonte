@@ -12,6 +12,7 @@ import { ok, fail, requireEntity } from '../http';
 const app = new Hono();
 const requireAgent = requireEntity((id) => getSettings().agents?.[id], 'Agent');
 const execFileAsync = promisify(execFile);
+const AGENT_ID_RE = /^[a-z0-9_-]+$/;
 
 async function ensureSkillsCli(cwd: string) {
     try {
@@ -41,28 +42,36 @@ app.get('/api/agents', (c) => {
 
 app.put('/api/agents/:id', async (c) => {
     const agentId = c.req.param('id');
+    if (!AGENT_ID_RE.test(agentId)) {
+        return fail(c, 'id may only contain lowercase letters, digits, dashes, and underscores');
+    }
     const body = await c.req.json() as Partial<AgentConfig>;
     if (!body.name || !body.provider || !body.model) {
         return fail(c, 'name, provider, and model are required');
     }
 
     const currentSettings = getSettings();
-    const isNew = !currentSettings.agents?.[agentId];
+    const existing = currentSettings.agents?.[agentId];
+    const isNew = !existing;
 
     const workspacePath = currentSettings.workspace?.path
         || path.join(require('os').homedir(), 'fonte-workspace');
     // Expand ~/$HOME like the setup wizard does, so the same value behaves
     // identically no matter which screen wrote it.
-    const workingDir = expandHomePath(body.working_directory) || path.join(workspacePath, agentId);
+    const workingDir = expandHomePath(body.working_directory)
+        || existing?.working_directory
+        || path.join(workspacePath, agentId);
 
     const settings = await mutateSettings(s => {
         if (!s.agents) s.agents = {};
         s.agents[agentId] = {
+            ...s.agents[agentId],
             name: body.name!,
             provider: body.provider!,
             model: body.model!,
             working_directory: workingDir,
             ...(body.prompt_file ? { prompt_file: body.prompt_file } : {}),
+            ...(body.heartbeat ? { heartbeat: body.heartbeat } : {}),
         };
     });
 
@@ -313,6 +322,16 @@ app.delete('/api/custom-providers/:id', async (c) => {
     const settings = getSettings();
     if (!settings.custom_providers?.[providerId]) {
         return fail(c, `custom provider '${providerId}' not found`, 404);
+    }
+    const agents = Object.entries(settings.agents || {})
+        .filter(([, agent]) => agent.provider === `custom:${providerId}`)
+        .map(([id]) => id);
+    if (agents.length > 0) {
+        return c.json({
+            ok: false,
+            error: `custom provider '${providerId}' is used by ${agents.join(', ')}`,
+            agents,
+        }, 409);
     }
     await mutateSettings(s => { delete s.custom_providers![providerId]; });
     log('INFO', `[API] Custom provider '${providerId}' deleted`);
