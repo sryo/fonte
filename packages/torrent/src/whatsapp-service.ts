@@ -33,6 +33,14 @@ function extFromMime(mime?: string): string {
 }
 
 export type WhatsAppStatus = 'disconnected' | 'connecting' | 'waiting_qr' | 'connected';
+export type WhatsAppDisconnectReason = 'logged_out' | 'qr_expired' | 'replaced' | 'connection_failed';
+
+export interface WhatsAppStatusInfo {
+    status: WhatsAppStatus;
+    linked: boolean;
+    qr?: string;
+    reason?: WhatsAppDisconnectReason;
+}
 
 interface PendingMessage {
     message: WAMessage;
@@ -48,14 +56,31 @@ export interface ChatSummary {
 }
 
 const baileysLogger = pino({ level: 'silent' });
+const PAIRING_READY_TIMEOUT_MS = 30_000;
 
 // Fetched once per process; reused across reconnects to avoid repeated network calls
 let cachedWaVersion: [number, number, number] | undefined;
+
+export function hasLinkedSession(): boolean {
+    try {
+        const creds = JSON.parse(fs.readFileSync(path.join(AUTH_DIR, 'creds.json'), 'utf8'));
+        return !!creds?.account;
+    } catch {
+        return false;
+    }
+}
+
+interface ReadyWaiter {
+    resolve: () => void;
+    reject: (err: Error) => void;
+}
 
 export class WhatsAppService {
     private sock: WASocket | null = null;
     private _status: WhatsAppStatus = 'disconnected';
     private _qr: string | null = null;
+    private _reason: WhatsAppDisconnectReason | null = null;
+    private _linked: boolean | null = null;
     private saveCreds: (() => Promise<void>) | null = null;
     private responsePoller: ReturnType<typeof setInterval> | null = null;
     private pending = new Map<string, PendingMessage>();
@@ -68,34 +93,46 @@ export class WhatsAppService {
     private readonly bootTime = Date.now();
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     private reconnectDelay = INITIAL_RECONNECT_MS;
-    private starting = false;
+    // Two sockets on one credential set get the device revoked, so every
+    // connect attempt (manual or reconnect) shares this in-flight promise, and
+    // stop() bumps the generation so an attempt still loading credentials
+    // never opens a socket afterwards.
+    private connecting: Promise<void> | null = null;
+    private generation = 0;
+    private readyWaiters = new Set<ReadyWaiter>();
 
     get status(): WhatsAppStatus { return this._status; }
     get qr(): string | null { return this._qr; }
+    get linked(): boolean { return this._linked ?? hasLinkedSession(); }
 
     async start(): Promise<void> {
-        if (this.sock || this.starting) return;
-        // A manual start supersedes any scheduled reconnect — letting the timer
-        // survive would open a second socket on the same credentials, and two
-        // live sessions on one key set is what gets the device revoked.
+        if (this.sock) return;
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
         }
-        this.starting = true;
+        this._reason = null;
         this._status = 'connecting';
-        try {
-            await this.connectInternal();
-        } catch (err) {
-            this._status = 'disconnected';
-            throw err;
-        } finally {
-            this.starting = false;
-        }
+        await this.connect();
     }
 
-    private async connectInternal(): Promise<void> {
-        if (this.sock) return; // one live socket per credential set, ever
+    private connect(): Promise<void> {
+        if (this.connecting) return this.connecting;
+        const generation = this.generation;
+        const attempt = this.connectInternal(generation)
+            .catch((err) => {
+                if (generation === this.generation && !this.sock) this._status = 'disconnected';
+                throw err;
+            })
+            .finally(() => {
+                if (this.connecting === attempt) this.connecting = null;
+            });
+        this.connecting = attempt;
+        return attempt;
+    }
+
+    private async connectInternal(generation: number): Promise<void> {
+        if (this.sock) return;
 
         // Remove the legacy whatsapp-web.js Chrome profile if present.
         try {
@@ -110,11 +147,14 @@ export class WhatsAppService {
         fs.mkdirSync(AUTH_DIR, { recursive: true });
         fs.mkdirSync(FILES_DIR, { recursive: true });
         const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+        if (generation !== this.generation) return;
         this.saveCreds = saveCreds;
+        this._linked = !!state.creds.account;
 
         if (!cachedWaVersion) {
             const versionResult = await fetchLatestWaWebVersion({}).catch(() => null);
             cachedWaVersion = versionResult?.version as [number, number, number] | undefined;
+            if (generation !== this.generation) return;
         }
         const version = cachedWaVersion;
 
@@ -131,6 +171,7 @@ export class WhatsAppService {
             syncFullHistory: false,
         });
         this.sock = sock;
+        let sawQr = false;
 
         sock.ev.on('creds.update', saveCreds);
 
@@ -139,15 +180,19 @@ export class WhatsAppService {
             const { connection, lastDisconnect, qr } = update;
 
             if (qr) {
+                sawQr = true;
                 this._qr = qr;
                 this._status = 'waiting_qr';
                 emitEvent('whatsapp:qr', { qr });
                 log('INFO', 'WhatsApp: QR code ready for scanning');
+                this.settleReadyWaiters();
             }
 
             if (connection === 'open') {
                 this._qr = null;
                 this._status = 'connected';
+                this._linked = true;
+                this._reason = null;
                 this.reconnectDelay = INITIAL_RECONNECT_MS;
                 emitEvent('whatsapp:ready', {});
                 log('INFO', 'WhatsApp: connected');
@@ -156,25 +201,38 @@ export class WhatsAppService {
 
             if (connection === 'close') {
                 this.stopResponsePoller();
+                this.sock = null;
+                this._qr = null;
+                this.settleReadyWaiters(new Error('WhatsApp closed before it was ready to pair. Try again.'));
                 const code = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
                 const loggedOut = code === DisconnectReason.loggedOut;
-                this._status = 'disconnected';
                 emitEvent('whatsapp:disconnected', { reason: code || 'unknown' });
                 log('INFO', `WhatsApp: disconnected (code=${code ?? 'n/a'}, loggedOut=${loggedOut})`);
 
                 if (loggedOut) {
-                    try {
-                        fs.rmSync(AUTH_DIR, { recursive: true, force: true });
-                    } catch (err) {
-                        log('WARN', `WhatsApp: auth wipe failed (stale creds may loop): ${(err as Error).message}`);
-                    }
+                    this.wipeAuth();
                     cachedWaVersion = undefined;
-                    log('INFO', 'WhatsApp: logged out — auth wiped, fresh QR will be needed');
-                    this.sock = null;
+                    this.settleDisconnected('logged_out');
+                    log('INFO', 'WhatsApp: logged out, auth wiped, fresh QR will be needed');
                     return;
                 }
 
-                this.sock = null;
+                if (code === DisconnectReason.restartRequired) {
+                    this.scheduleReconnect(0);
+                    return;
+                }
+
+                if (code === DisconnectReason.connectionReplaced) {
+                    this.settleDisconnected('replaced');
+                    return;
+                }
+
+                if (!state.creds.account) {
+                    this.wipeAuth();
+                    this.settleDisconnected(sawQr ? 'qr_expired' : 'connection_failed');
+                    return;
+                }
+
                 this.scheduleReconnect();
             }
         });
@@ -189,28 +247,77 @@ export class WhatsAppService {
         });
     }
 
-    private scheduleReconnect(): void {
+    private settleDisconnected(reason: WhatsAppDisconnectReason): void {
+        this._status = 'disconnected';
+        this._reason = reason;
+        if (reason === 'logged_out' || reason === 'qr_expired' || reason === 'connection_failed') {
+            this._linked = false;
+        }
+    }
+
+    private wipeAuth(): void {
+        try {
+            fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+        } catch (err) {
+            log('WARN', `WhatsApp: auth wipe failed (stale creds may loop): ${(err as Error).message}`);
+        }
+    }
+
+    private scheduleReconnect(delayOverride?: number): void {
         if (this.reconnectTimer) return;
+        this._status = 'connecting';
         // Exponential backoff: a flaky link (overnight sleep cycles) shouldn't
         // hammer WhatsApp with reconnects every few seconds for hours.
-        const delay = this.reconnectDelay;
-        this.reconnectDelay = Math.min(this.reconnectDelay * 2, MAX_RECONNECT_MS);
+        const delay = delayOverride ?? this.reconnectDelay;
+        if (delayOverride === undefined) {
+            this.reconnectDelay = Math.min(this.reconnectDelay * 2, MAX_RECONNECT_MS);
+        }
+        const generation = this.generation;
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
             log('INFO', `WhatsApp: attempting reconnect (next retry in ${Math.round(this.reconnectDelay / 1000)}s if this fails)`);
-            this.connectInternal().catch(err => {
+            this.connect().catch(err => {
                 log('ERROR', `WhatsApp reconnect failed: ${(err as Error).message}`);
-                this.scheduleReconnect();
+                if (generation === this.generation && !this.sock) this.scheduleReconnect();
             });
         }, delay);
     }
 
+    private waitUntilReadyToPair(): Promise<void> {
+        if (this._status === 'waiting_qr') return Promise.resolve();
+        return new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(() => {
+                this.readyWaiters.delete(waiter);
+                reject(new Error('WhatsApp took too long to get ready. Try again.'));
+            }, PAIRING_READY_TIMEOUT_MS);
+            const waiter: ReadyWaiter = {
+                resolve: () => { clearTimeout(timer); resolve(); },
+                reject: (err) => { clearTimeout(timer); reject(err); },
+            };
+            this.readyWaiters.add(waiter);
+        });
+    }
+
+    private settleReadyWaiters(err?: Error): void {
+        for (const waiter of this.readyWaiters) {
+            if (err) waiter.reject(err);
+            else waiter.resolve();
+        }
+        this.readyWaiters.clear();
+    }
+
     async requestPairingCode(phoneNumber: string): Promise<string> {
-        if (!this.sock) throw new Error('WhatsApp not started — call start() first');
         // Strip non-digits (UI may send "+1 415 …")
         const digits = phoneNumber.replace(/\D/g, '');
         if (!digits) throw new Error('Phone number must contain digits');
-        const code = await this.sock.requestPairingCode(digits);
+        if (this.linked) throw new Error('This device is already linked to WhatsApp');
+        await this.start();
+        // Baileys can only send the pairing request once the server has asked
+        // for a login (the first QR event); earlier, the socket is not open yet.
+        await this.waitUntilReadyToPair();
+        const sock = this.sock;
+        if (!sock) throw new Error('WhatsApp closed before it was ready to pair. Try again.');
+        const code = await sock.requestPairingCode(digits);
         log('INFO', `WhatsApp: pairing code requested for ${digits.slice(0, 3)}…`);
         return code;
     }
@@ -342,31 +449,43 @@ export class WhatsAppService {
      * explicit "unpair" flow, never in routine shutdown.
      */
     async stop(opts: { logout?: boolean } = {}): Promise<void> {
+        this.generation++;
+        this.connecting = null;
+        const wasRunning = !!this.sock || !!this.reconnectTimer || this._status !== 'disconnected';
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
         }
         this.stopResponsePoller();
+        this.settleReadyWaiters(new Error('WhatsApp was stopped'));
         const sock = this.sock;
         this.sock = null;
         if (sock) {
             if (opts.logout) {
                 try { await sock.logout(); } catch {}
-                try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch {}
             }
             try { sock.end(undefined); } catch {}
         }
+        if (opts.logout) {
+            this.wipeAuth();
+            this._linked = false;
+        }
         this._status = 'disconnected';
         this._qr = null;
+        this._reason = null;
         this.pending.clear();
         this.seenIds.clear();
-        log('INFO', opts.logout ? 'WhatsApp: unlinked and stopped' : 'WhatsApp: stopped (session kept)');
+        if (wasRunning || opts.logout) {
+            log('INFO', opts.logout ? 'WhatsApp: unlinked and stopped' : 'WhatsApp: stopped (session kept)');
+        }
     }
 
-    getStatusInfo(): { status: WhatsAppStatus; qr?: string } {
+    getStatusInfo(): WhatsAppStatusInfo {
         return {
             status: this._status,
+            linked: this.linked,
             ...(this._qr ? { qr: this._qr } : {}),
+            ...(this._reason && this._status === 'disconnected' ? { reason: this._reason } : {}),
         };
     }
 

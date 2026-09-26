@@ -1,10 +1,11 @@
 import { apiFetch } from "./client";
+import type { WhatsAppStatusInfo } from "../whatsapp-flow";
 
-export async function startWhatsApp(): Promise<{ ok: boolean; status: string }> {
+export async function startWhatsApp(): Promise<{ ok: boolean } & WhatsAppStatusInfo> {
   return apiFetch("/api/whatsapp/start", { method: "POST" });
 }
 
-export async function getWhatsAppStatus(): Promise<{ ok: boolean; status: string; qr?: string }> {
+export async function getWhatsAppStatus(): Promise<{ ok: boolean } & WhatsAppStatusInfo> {
   return apiFetch("/api/whatsapp/status");
 }
 

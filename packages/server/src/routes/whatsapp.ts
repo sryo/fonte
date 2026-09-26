@@ -9,15 +9,14 @@ app.post('/api/whatsapp/start', async (c) => {
     try {
         const service = getWhatsAppService();
         await service.start();
-        return ok(c, { status: service.status });
+        return ok(c, { ...service.getStatusInfo() });
     } catch (err) {
         return fail(c, (err as Error).message, 500);
     }
 });
 
 app.get('/api/whatsapp/status', (c) => {
-    const info = getWhatsAppService().getStatusInfo();
-    return ok(c, { status: info.status, qr: info.qr });
+    return ok(c, { ...getWhatsAppService().getStatusInfo() });
 });
 
 app.get('/api/whatsapp/qr', (c) => {
@@ -51,10 +50,10 @@ app.post('/api/whatsapp/disconnect', async (c) => {
 
 app.post('/api/whatsapp/pair', async (c) => {
     try {
-        const body = await c.req.json() as { phone: string };
-        if (!body.phone) return fail(c, 'phone is required');
+        const body = await c.req.json() as { phone?: unknown };
+        if (typeof body.phone !== 'string' || !/\d/.test(body.phone)) return fail(c, 'Enter a phone number with country code');
         const service = getWhatsAppService();
-        if (service.status === 'disconnected') await service.start();
+        if (service.linked) return fail(c, 'This device is already linked to WhatsApp', 409);
         const code = await service.requestPairingCode(body.phone);
         return ok(c, { code });
     } catch (err) {
@@ -78,12 +77,16 @@ app.get('/api/whatsapp/allowed-chat', (c) => {
 
 app.post('/api/whatsapp/allowed-chat', async (c) => {
     try {
-        const body = await c.req.json() as { allowed_chat: string | null };
+        const body = await c.req.json() as { allowed_chat?: unknown };
+        if (body.allowed_chat != null && typeof body.allowed_chat !== 'string') {
+            return fail(c, 'allowed_chat must be a chat id or null');
+        }
+        const allowedChat = body.allowed_chat || null;
         const next = await updateSettingsFile((settings) => ({
             ...settings,
-            whatsapp: { ...(settings.whatsapp || {}), allowed_chat: body.allowed_chat || null },
+            whatsapp: { ...(settings.whatsapp || {}), allowed_chat: allowedChat },
         }));
-        log('INFO', `[API] WhatsApp allowed_chat set to ${body.allowed_chat || '(none)'}`);
+        log('INFO', `[API] WhatsApp allowed_chat set to ${allowedChat || '(none)'}`);
         return ok(c, { allowed_chat: next.whatsapp?.allowed_chat ?? null });
     } catch (err) {
         return fail(c, (err as Error).message, 500);

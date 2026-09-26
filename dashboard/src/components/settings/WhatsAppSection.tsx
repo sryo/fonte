@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   startWhatsApp,
   getWhatsAppStatus,
@@ -26,83 +26,104 @@ import {
 } from "@/components/ui/select";
 import { Section } from "@/components/ui/section";
 import { Spinner } from "@/components/ui/feedback";
+import {
+  chatOptions,
+  disconnectMessage,
+  keepPairingCode,
+  parseWhatsAppStatus,
+  startingLabel,
+  whatsAppPanel,
+  type WhatsAppStatusInfo,
+} from "@/lib/whatsapp-flow";
 
 export function WhatsAppSection() {
-  const [status, setStatus] = useState<string>("disconnected");
-  const [qr, setQr] = useState<string | null>(null);
-  const [connectLoading, setConnectLoading] = useState(false);
+  const [info, setInfo] = useState<WhatsAppStatusInfo>({ status: "disconnected", linked: false });
+  const [busy, setBusy] = useState(false);
+  const [pairing, setPairing] = useState(false);
   const [pairingLoading, setPairingLoading] = useState(false);
-  const [showPairing, setShowPairing] = useState(false);
   const [phone, setPhone] = useState("");
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [pairingError, setPairingError] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [unlinkOpen, setUnlinkOpen] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const applyStatus = useCallback((next: WhatsAppStatusInfo) => {
+    setInfo(next);
+    setPairingCode((code) => keepPairingCode(code, next.status));
+    if (next.status === "connected") setPairing(false);
+  }, []);
+
+  const refresh = useCallback(async () => {
+    try {
+      applyStatus(parseWhatsAppStatus(await getWhatsAppStatus()));
+    } catch {}
+  }, [applyStatus]);
 
   useEffect(() => {
     let mounted = true;
     const poll = async () => {
       try {
         const data = await getWhatsAppStatus();
-        if (!mounted) return;
-        setStatus(data.status);
-        if (data.qr) setQr(data.qr);
-        else setQr(null);
-      } catch {
-        if (mounted) setStatus("disconnected");
-      }
+        if (mounted) applyStatus(parseWhatsAppStatus(data));
+      } catch {}
     };
     poll();
     const id = setInterval(poll, 2000);
     return () => { mounted = false; clearInterval(id); };
-  }, []);
+  }, [applyStatus]);
 
-  useEffect(() => {
-    if (qr && canvasRef.current) {
-      import("qrcode").then((QRCode) => {
-        QRCode.toCanvas(canvasRef.current, qr, {
-          width: 240,
-          margin: 2,
-          color: { dark: "#000000", light: "#ffffff" },
-        });
+  const drawQr = useCallback((canvas: HTMLCanvasElement | null) => {
+    const qr = info.qr;
+    if (!canvas || !qr) return;
+    import("qrcode").then((QRCode) => {
+      QRCode.toCanvas(canvas, qr, {
+        width: 240,
+        margin: 2,
+        color: { dark: "#000000", light: "#ffffff" },
       });
-    }
-  }, [qr]);
+    });
+  }, [info.qr]);
+
+  const resetPairing = () => {
+    setPairing(false);
+    setPairingCode(null);
+    setPairingError(null);
+  };
 
   const handleConnect = async () => {
-    setConnectLoading(true);
+    setBusy(true);
     setConnectError(null);
     try {
-      await startWhatsApp();
+      applyStatus(parseWhatsAppStatus(await startWhatsApp()));
     } catch (err) {
       setConnectError((err as Error).message);
     }
-    setConnectLoading(false);
+    setBusy(false);
   };
 
-  // Routine stop — the paired session survives.
-  const handleDisconnect = async () => {
-    setConnectLoading(true);
+  const handleStop = async () => {
+    setBusy(true);
     setConnectError(null);
     try {
       await stopWhatsApp();
-      setStatus("disconnected");
-      setQr(null);
-      setShowPairing(false);
-      setPairingCode(null);
+      resetPairing();
+      await refresh();
     } catch (err) {
       setConnectError((err as Error).message);
     }
-    setConnectLoading(false);
+    setBusy(false);
   };
 
   const handleUnlink = async () => {
-    await unlinkWhatsApp();
-    setStatus("disconnected");
-    setQr(null);
-    setShowPairing(false);
-    setPairingCode(null);
+    setConnectError(null);
+    try {
+      await unlinkWhatsApp();
+    } catch (err) {
+      setConnectError((err as Error).message);
+      throw err;
+    }
+    resetPairing();
+    await refresh();
   };
 
   const handleRequestPairing = async () => {
@@ -112,11 +133,20 @@ export function WhatsAppSection() {
     try {
       const res = await requestWhatsAppPairingCode(phone.trim());
       setPairingCode(res.code);
+      await refresh();
     } catch (err) {
       setPairingError((err as Error).message);
     }
     setPairingLoading(false);
   };
+
+  const handleCancelPairing = async () => {
+    if (pairingCode) await handleStop();
+    else resetPairing();
+  };
+
+  const panel = whatsAppPanel({ status: info.status, linked: info.linked, pairing });
+  const reasonMessage = disconnectMessage(info.reason);
 
   return (
     <Section
@@ -129,44 +159,56 @@ export function WhatsAppSection() {
       description="Control Fonte from your phone"
     >
       <div className="space-y-4">
-        {status === "disconnected" && (
+        {panel === "link" && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Connect WhatsApp to manage torrents and get notifications on your phone.
             </p>
+            {reasonMessage && <p className="text-xs text-destructive">{reasonMessage}</p>}
             {connectError && <p className="text-xs text-destructive">{connectError}</p>}
             <div className="flex gap-2">
               <Button
-                onClick={handleConnect}
-                disabled={connectLoading}
-              >
-                {connectLoading ? "Connecting…" : "Connect with QR"}
-              </Button>
-              <Button
                 variant="outline"
-                onClick={() => { setShowPairing(true); setPairingCode(null); }}
-                disabled={connectLoading}
+                onClick={() => { setPairing(true); setPairingCode(null); setPairingError(null); }}
+                disabled={busy}
               >
                 Pair with phone number
+              </Button>
+              <Button onClick={handleConnect} disabled={busy}>
+                {busy ? "Connecting…" : "Connect with QR"}
               </Button>
             </div>
           </div>
         )}
 
-        {status === "connecting" && (
+        {panel === "paused" && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Paused. Your phone stays linked, so reconnecting needs no QR code.
+            </p>
+            {reasonMessage && <p className="text-xs text-destructive">{reasonMessage}</p>}
+            {connectError && <p className="text-xs text-destructive">{connectError}</p>}
+            <Button onClick={handleConnect} disabled={busy}>
+              {busy ? "Reconnecting…" : "Reconnect"}
+            </Button>
+          </div>
+        )}
+
+        {panel === "starting" && (
           <div className="text-center py-4 space-y-3">
             <Spinner className="mx-auto text-done" />
-            <p className="text-sm text-muted-foreground">Initializing WhatsApp…</p>
-            <Button variant="ghost" size="sm" onClick={handleDisconnect} disabled={connectLoading}>
+            <p className="text-sm text-muted-foreground">{startingLabel(info.linked)}</p>
+            {connectError && <p className="text-xs text-destructive">{connectError}</p>}
+            <Button variant="ghost" size="sm" onClick={handleStop} disabled={busy}>
               Cancel
             </Button>
           </div>
         )}
 
-        {status === "waiting_qr" && !showPairing && (
+        {panel === "qr" && (
           <div className="text-center space-y-3">
             <div className="inline-block rounded-xl border bg-white p-3">
-              <canvas ref={canvasRef} />
+              <canvas ref={drawQr} />
             </div>
             <div>
               <p className="text-sm font-medium">Scan this QR code</p>
@@ -174,10 +216,19 @@ export function WhatsAppSection() {
                 Open WhatsApp &rarr; Settings &rarr; Linked Devices &rarr; Link a Device
               </p>
             </div>
+            {connectError && <p className="text-xs text-destructive">{connectError}</p>}
+            <div className="flex justify-center gap-2">
+              <Button variant="ghost" onClick={handleStop} disabled={busy} className="text-muted-foreground">
+                Cancel
+              </Button>
+              <Button variant="outline" onClick={() => setPairing(true)} disabled={busy}>
+                Use phone number instead
+              </Button>
+            </div>
           </div>
         )}
 
-        {showPairing && status !== "connected" && (
+        {panel === "pairing" && (
           <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
             {!pairingCode ? (
               <>
@@ -191,24 +242,29 @@ export function WhatsAppSection() {
                   placeholder="14155551234"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleRequestPairing(); }}
                   className="font-mono"
                 />
+                {info.reason === "qr_expired" && !pairingError && (
+                  <p className="text-xs text-destructive">{reasonMessage}</p>
+                )}
                 {pairingError && (
                   <p className="text-xs text-destructive">{pairingError}</p>
                 )}
                 <div className="flex justify-end gap-2 pt-1">
                   <Button
                     variant="ghost"
-                    onClick={() => { setShowPairing(false); setPhone(""); setPairingError(null); }}
+                    onClick={handleCancelPairing}
+                    disabled={busy}
                     className="text-muted-foreground"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleRequestPairing}
-                    disabled={pairingLoading || !phone.trim()}
+                    disabled={pairingLoading || busy || !phone.trim()}
                   >
-                    {pairingLoading ? "Requesting..." : "Get pairing code"}
+                    {pairingLoading ? "Requesting…" : "Get pairing code"}
                   </Button>
                 </div>
               </>
@@ -221,12 +277,32 @@ export function WhatsAppSection() {
                 <p className="text-xs text-muted-foreground">
                   On your phone: <strong>WhatsApp → Settings → Linked Devices → Link a Device → Link with phone number instead</strong>. Code expires in ~60s.
                 </p>
+                {pairingError && (
+                  <p className="text-xs text-destructive">{pairingError}</p>
+                )}
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    variant="ghost"
+                    onClick={handleCancelPairing}
+                    disabled={busy}
+                    className="text-muted-foreground"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleRequestPairing}
+                    disabled={pairingLoading || busy}
+                  >
+                    {pairingLoading ? "Requesting…" : "New code"}
+                  </Button>
+                </div>
               </>
             )}
           </div>
         )}
 
-        {status === "connected" && (
+        {panel === "connected" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -237,8 +313,8 @@ export function WhatsAppSection() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleDisconnect}
-                  disabled={connectLoading}
+                  onClick={handleStop}
+                  disabled={busy}
                   className="text-xs text-muted-foreground"
                 >
                   Disconnect
@@ -247,13 +323,14 @@ export function WhatsAppSection() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setUnlinkOpen(true)}
-                  disabled={connectLoading}
+                  disabled={busy}
                   className="text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 >
                   Unlink device
                 </Button>
               </div>
             </div>
+            {connectError && <p className="text-xs text-destructive">{connectError}</p>}
             <WhatsAppChatPicker />
           </div>
         )}
@@ -262,7 +339,7 @@ export function WhatsAppSection() {
       <ConfirmDialog
         open={unlinkOpen}
         title="Unlink this device?"
-        message="WhatsApp will revoke the link and wipe the saved session — reconnecting requires scanning a new QR code. To stop temporarily, use Disconnect instead."
+        message="WhatsApp will revoke the link and wipe the saved session. Reconnecting requires scanning a new QR code. To stop temporarily, use Disconnect instead."
         confirmLabel="Unlink"
         destructive
         busyLabel="Unlinking…"
@@ -320,7 +397,7 @@ function WhatsAppChatPicker() {
         {saving && <span className="text-xs text-muted-foreground">Saving…</span>}
       </div>
       <p className="text-xs text-muted-foreground">
-        Only messages from this chat will be sent to the agent. Defaults to none — pick a chat to enable.
+        Only messages from this chat are sent to the agent. Pick a chat to enable.
       </p>
       {saveError && <p className="text-xs text-destructive">{saveError}</p>}
       {loading ? (
@@ -332,7 +409,7 @@ function WhatsAppChatPicker() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">Ignore everything</SelectItem>
-            {chats.map((c) => (
+            {chatOptions(chats, selected).map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
                 {c.isGroup ? " · group" : ""}
