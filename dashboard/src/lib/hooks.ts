@@ -18,7 +18,6 @@ export function usePollingEffect(fn: () => void, intervalMs: number) {
 export function usePolling<T>(
   fetcher: () => Promise<T>,
   intervalMs: number,
-  deps: unknown[] = [],
   /** Keep the previous object identity when nothing changed, so consumers skip re-renders. */
   isEqual?: (prev: T | null, next: T) => boolean
 ): { data: T | null; error: string | null; loading: boolean; refresh: () => void } {
@@ -26,12 +25,18 @@ export function usePolling<T>(
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
+  const latest = useRef({ fetcher, isEqual });
+
+  useEffect(() => {
+    latest.current = { fetcher, isEqual };
+  });
 
   const refresh = useCallback(async () => {
     try {
-      const result = await fetcher();
+      const result = await latest.current.fetcher();
       if (mountedRef.current) {
-        setData((prev) => (isEqual && isEqual(prev, result) ? prev : result));
+        const same = latest.current.isEqual;
+        setData((prev) => (same && same(prev, result) ? prev : result));
         setError(null);
       }
     } catch (err) {
@@ -41,8 +46,7 @@ export function usePolling<T>(
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;

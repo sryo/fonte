@@ -57,12 +57,14 @@ export interface ListenPort {
   checkedAt: number;
 }
 
-export async function getSystemStatus(): Promise<{
+export interface SystemStatus {
   ok: boolean;
   uptime: number;
   server: { running: boolean; port: number };
   listenPort?: ListenPort;
-}> {
+}
+
+export async function getSystemStatus(): Promise<SystemStatus> {
   return apiFetch("/api/status");
 }
 

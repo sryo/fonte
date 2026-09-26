@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { getTorrentStats, getTorrents } from "@/lib/api";
 import { formatSpeed, formatBytes } from "@/lib/format";
+import { usePollingEffect } from "@/lib/hooks";
 import { ProgressBar } from "@/components/ui/progress-bar";
 
 export function StatusStrip() {
@@ -42,11 +43,7 @@ export function StatusStrip() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 2000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+  usePollingEffect(fetchData, 2000);
 
   if (activeTorrents === 0) return null;
 

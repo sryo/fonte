@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 
 // localStorage-backed state. Initializes with the default and reads storage in
-// a mount effect so SSR markup stays stable (same pattern as indexer-banner);
-// the stored value lands one frame after hydration.
+// a mount effect so SSR markup stays stable; the stored value lands one frame
+// after hydration.
 export function usePersistedState<T>(
   key: string,
   defaultValue: T,

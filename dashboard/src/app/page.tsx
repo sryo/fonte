@@ -206,7 +206,9 @@ export default function HomePage() {
       setLoading(false);
     }
   }, [filterHidden]);
-  fetchAllRef.current = fetchAll;
+  useEffect(() => {
+    fetchAllRef.current = fetchAll;
+  }, [fetchAll]);
 
   // Held true from queue-drag pickup until the commit settles, so a poll
   // can't rewrite the row mid-drag.
@@ -392,12 +394,7 @@ export default function HomePage() {
   // you're currently on in the "+" configurator.
   const pillAvailable = (key: PillKey) =>
     key === "all" || (counts[key] > 0 && (key === "issues" || visiblePills.includes(key)));
-  useEffect(() => {
-    if (pill !== "all" && !pillAvailable(pill)) {
-      setPill("all");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pill, counts.active, counts.seeding, counts.paused, counts.finished, counts.issues, counts.watching, visiblePills]);
+  if (!pillAvailable(pill)) setPill("all");
 
   const showDownloads = pill !== "watching";
   const showWatching = pill === "all" || pill === "watching";

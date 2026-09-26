@@ -17,6 +17,7 @@ import {
   type WatchlistResultRecord,
 } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/format";
+import { usePollingEffect } from "@/lib/hooks";
 import { RELEASE_SORT_OPTIONS, type ReleaseSortKey } from "@/lib/release-order";
 import { usePersistedState } from "@/hooks/use-persisted-state";
 import { DetailHero } from "@/components/shared/detail-hero";
@@ -72,18 +73,17 @@ export default function WatchlistDetailPage() {
     }
   }, [id]);
 
+  usePollingEffect(fetchData, 10000);
+
   useEffect(() => {
     mountedRef.current = true;
-    fetchData();
     // Opening the page counts as seeing its results; the home card's
     // "N new" badge resets on the next poll.
     markWatchlistResultsViewed(id).catch(() => {});
-    const interval = setInterval(fetchData, 10000);
     return () => {
       mountedRef.current = false;
-      clearInterval(interval);
     };
-  }, [fetchData, id]);
+  }, [id]);
 
   const handleSearch = async () => {
     setSearching(true);

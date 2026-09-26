@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePolling, timeAgo } from "@/lib/hooks";
+import { usePolling } from "@/lib/hooks";
 import { formatDuration, formatSeconds } from "@/lib/format";
 import {
   getQueueStatus,
@@ -14,6 +14,7 @@ import {
   setApiBase,
   type QueueStatus,
   type ProcessingMessage,
+  type SystemStatus,
 } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -157,7 +158,7 @@ function MiniStat({ label, value, accent }: { label: string; value: number; acce
   );
 }
 
-function DaemonSection({ status, refresh }: { status: any; refresh: () => void }) {
+function DaemonSection({ status, refresh }: { status: SystemStatus | null; refresh: () => void }) {
   const [restarting, setRestarting] = useState(false);
 
   const handleRestart = async () => {

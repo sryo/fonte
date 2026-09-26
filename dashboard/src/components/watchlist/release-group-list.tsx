@@ -103,7 +103,7 @@ export function ReleaseGroupList({
           {rowError?.key === r.id && <p className="text-xs text-destructive">{rowError.message}</p>}
         </div>
         {blocked && (
-          <span className="shrink-0 text-[11px] text-muted-foreground">won't auto-add</span>
+          <span className="shrink-0 text-[11px] text-muted-foreground">won&apos;t auto-add</span>
         )}
         <div className="flex shrink-0 items-center">
           {vote("up")}

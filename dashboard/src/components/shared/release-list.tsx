@@ -110,7 +110,7 @@ export function ReleaseList<T extends ReleaseItem>({
                 </span>
                 {r.indexer && <> · {r.indexer}</>}
                 {r.publishDate && <> · {formatShortRelativeTime(r.publishDate)}</>}
-                {rejected && <> · won't auto-add</>}
+                {rejected && <> · won&apos;t auto-add</>}
               </p>
               {rowError?.key === key && (
                 <p className="text-xs text-destructive">{rowError.message}</p>

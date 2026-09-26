@@ -25,6 +25,7 @@ import { MiddleTruncate } from "@/components/ui/middle-truncate";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatBytes } from "@/lib/format";
 import { useHotkey } from "@/components/hotkeys-provider";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { useIsMac, modKeyLabel } from "@/hooks/use-platform";
 import { useSlidingIndicator } from "@/hooks/use-sliding-indicator";
 
@@ -57,7 +58,7 @@ export function TopBar({ onOpenChat }: TopBarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
   const isMac = useIsMac();
 
   // Smart-bar state
@@ -84,8 +85,6 @@ export function TopBar({ onOpenChat }: TopBarProps) {
     )?.href ?? "";
   const { containerRef: navRef, indicatorRef: navIndicatorRef } =
     useSlidingIndicator<HTMLSpanElement>(activeNav, "", true);
-
-  useEffect(() => setMounted(true), []);
 
   useHotkey({
     id: "focus-search",

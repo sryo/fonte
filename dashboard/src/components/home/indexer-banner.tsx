@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Plug, Warning } from "@phosphor-icons/react";
 import { restartJackett, type IndexerStatus } from "@/lib/api";
+import { usePersistedState } from "@/hooks/use-persisted-state";
 import { Callout } from "@/components/ui/callout";
 
 const DISMISS_KEY = "fonte.indexer-banner-dismissed";
@@ -23,13 +24,11 @@ export function IndexerBanner({
   status: IndexerStatus | null;
   onRestarted?: () => void;
 }) {
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setDismissed(localStorage.getItem(DISMISS_KEY) === "true");
-    }
-  }, []);
+  const [dismissed, setDismissed] = usePersistedState<boolean>(
+    DISMISS_KEY,
+    false,
+    (v): v is boolean => typeof v === "boolean"
+  );
 
   if (status === null || status.configured) return null;
 
@@ -41,18 +40,11 @@ export function IndexerBanner({
 
   if (dismissed) return null;
 
-  const dismiss = () => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(DISMISS_KEY, "true");
-    }
-    setDismissed(true);
-  };
-
   return (
     <Callout
       tone="neutral"
       action={<OpenJackettLink jackettUrl={jackettUrl} />}
-      onDismiss={dismiss}
+      onDismiss={() => setDismissed(true)}
     >
       <div className="flex items-center gap-3">
         <Plug className="h-5 w-5 shrink-0" weight="bold" />
