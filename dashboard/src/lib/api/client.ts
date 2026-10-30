@@ -1,15 +1,23 @@
-const DEFAULT_API_BASE = "http://localhost:3777";
 const STORAGE_KEY = "fonte_api_base";
+
+/**
+ * The build-time API base, before any localStorage override. Both env reads
+ * are inlined at build time (FONTE_API_PORT via next.config env), so they must
+ * stay literal `process.env.NAME` accesses and can't be overridden later.
+ */
+export function defaultApiBase(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  return `http://localhost:${process.env.FONTE_API_PORT || "3777"}`;
+}
 
 /** Resolve the API base URL. Priority: env > localStorage > default. */
 export function getApiBase(): string {
-  // NEXT_PUBLIC_* is inlined at build time, so it can't be overridden later.
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   if (typeof window !== "undefined") {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) return stored;
   }
-  return DEFAULT_API_BASE;
+  return defaultApiBase();
 }
 
 /** Persist a custom API base URL in localStorage. Pass null to reset to default. */

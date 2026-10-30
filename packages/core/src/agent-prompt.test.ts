@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { AgentConfig, TeamConfig } from './types';
 
 const PROMPT_FILE = path.resolve(__dirname, '../prompts/agent.md');
@@ -61,6 +61,37 @@ describe('runtime agent prompt', () => {
         expect(prompt).not.toContain(devOnlyHeading!);
         expect(prompt).not.toContain('npm run check');
         expect(prompt).not.toContain('launchd');
+    });
+
+    describe('API base', () => {
+        afterEach(() => {
+            vi.stubEnv('FONTE_API_PORT', '3777');
+        });
+
+        it('builds the same prompt with FONTE_API_PORT unset as with 3777', () => {
+            vi.stubEnv('FONTE_API_PORT', undefined);
+            const unset = agentModule.buildSystemPrompt('fonte', agentDir, agents, teams);
+            vi.stubEnv('FONTE_API_PORT', '3777');
+            const explicit = agentModule.buildSystemPrompt('fonte', agentDir, agents, teams);
+
+            expect(unset).toBe(explicit);
+            const builtinHead = agentModule.BUILTIN_AGENT_INSTRUCTIONS.split('<!-- TEAMMATES_START -->')[0];
+            expect(builtinHead).toContain('http://localhost:3777/api/search');
+            expect(unset.startsWith(builtinHead)).toBe(true);
+        });
+
+        it('points every API example at FONTE_API_PORT and changes nothing else', () => {
+            vi.stubEnv('FONTE_API_PORT', undefined);
+            const defaultPrompt = agentModule.buildSystemPrompt('fonte', agentDir, agents, teams);
+            vi.stubEnv('FONTE_API_PORT', '3901');
+            const devPrompt = agentModule.buildSystemPrompt('fonte', agentDir, agents, teams);
+
+            expect(devPrompt).not.toContain('3777');
+            for (const endpoint of ['/api/search', '/api/torrents', '/api/automations', '/api/responses']) {
+                expect(devPrompt).toContain(`http://localhost:3901${endpoint}`);
+            }
+            expect(devPrompt.split('http://localhost:3901').join('http://localhost:3777')).toBe(defaultPrompt);
+        });
     });
 
     it('stays within the system prompt size budget', () => {

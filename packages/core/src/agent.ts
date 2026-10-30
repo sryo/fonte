@@ -22,6 +22,12 @@ export const BUILTIN_AGENT_INSTRUCTIONS = fs.readFileSync(
     path.resolve(__dirname, '../prompts/agent.md'),
     'utf8',
 );
+const DEFAULT_API_BASE = 'http://localhost:3777';
+
+function apiBaseUrl(): string {
+    return `http://localhost:${process.env.FONTE_API_PORT || '3777'}`;
+}
+
 const BUILTIN_AGENT_INSTRUCTIONS_HASH = crypto
     .createHash('sha256')
     .update(BUILTIN_AGENT_INSTRUCTIONS)
@@ -150,7 +156,8 @@ export function buildSystemPrompt(
     configSystemPrompt?: string,
     configPromptFile?: string
 ): string {
-    let prompt = BUILTIN_AGENT_INSTRUCTIONS;
+    const apiBase = apiBaseUrl();
+    let prompt = BUILTIN_AGENT_INSTRUCTIONS.split(DEFAULT_API_BASE).join(apiBase);
 
     const startMarker = '<!-- TEAMMATES_START -->';
     const endMarker = '<!-- TEAMMATES_END -->';
@@ -221,16 +228,16 @@ export function buildSystemPrompt(
 
 ## Torrent Management API
 
-You can manage torrent downloads via HTTP API at http://localhost:${process.env.FONTE_API_PORT || '3777'}.
+You can manage torrent downloads via HTTP API at ${apiBase}.
 
 **Add a torrent:**
 \`\`\`
-curl -X POST http://localhost:3777/api/torrents -H "Content-Type: application/json" -d '{"magnetUri": "magnet:?xt=urn:btih:..."}'
+curl -X POST ${apiBase}/api/torrents -H "Content-Type: application/json" -d '{"magnetUri": "magnet:?xt=urn:btih:..."}'
 \`\`\`
 
 **List all torrents:**
 \`\`\`
-curl http://localhost:3777/api/torrents
+curl ${apiBase}/api/torrents
 \`\`\`
 
 **Get torrent details:** \`GET /api/torrents/{id}\`
@@ -274,7 +281,7 @@ DELETE /api/automations/:id            Remove
 
 Example:
 \`\`\`
-curl -X POST http://localhost:3777/api/automations -H "Content-Type: application/json" \\
+curl -X POST ${apiBase}/api/automations -H "Content-Type: application/json" \\
   -d '{"name": "Subtitles for new episodes", "trigger": {"type": "event", "event": "torrent:completed"}, "prompt": "Fetch English subtitles for the completed torrent. Stay quiet if none are needed."}'
 \`\`\`
 `;
@@ -325,6 +332,7 @@ curl -X POST http://localhost:3777/api/automations -H "Content-Type: application
     const cacheInput = JSON.stringify({
         agentId,
         builtin: BUILTIN_AGENT_INSTRUCTIONS_HASH,
+        apiBase,
         teammateBlock: block,
         memoryTree,
         soulContent: soulCacheContent,

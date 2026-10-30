@@ -12,6 +12,7 @@ import {
   checkConnection,
   getApiBase,
   setApiBase,
+  defaultApiBase,
   type QueueStatus,
   type ProcessingMessage,
   type SystemStatus,
@@ -78,8 +79,7 @@ function DisconnectedSplash({ onReconnect }: { onReconnect: () => void }) {
   }
 
   function handleReset() {
-    const defaultUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3777";
-    setApiUrl(defaultUrl);
+    setApiUrl(defaultApiBase());
     setApiBase(null);
   }
 
@@ -104,7 +104,7 @@ function DisconnectedSplash({ onReconnect }: { onReconnect: () => void }) {
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleConnect()}
-              placeholder="http://localhost:3777"
+              placeholder={defaultApiBase()}
               className="flex-1 px-3 py-2 text-sm border bg-background rounded"
             />
             <button
@@ -115,7 +115,7 @@ function DisconnectedSplash({ onReconnect }: { onReconnect: () => void }) {
               {checking ? <Spinner size="xs" /> : "Connect"}
             </button>
           </div>
-          {apiUrl !== (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3777") && (
+          {apiUrl !== defaultApiBase() && (
             <button onClick={handleReset} className="text-xs text-muted-foreground hover:text-primary">
               Reset to default
             </button>
@@ -253,7 +253,7 @@ function ApiConnectionSection() {
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
-              placeholder="http://localhost:3777"
+              placeholder={defaultApiBase()}
               className="flex-1 px-2.5 py-1.5 text-sm border bg-background rounded"
             />
             <button

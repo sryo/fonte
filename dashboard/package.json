@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",
-    "postbuild": "cp package.json next.config.ts tsconfig.json \"$HOME/.fonte/dashboard-app/\" && rsync -a --delete public/ \"$HOME/.fonte/dashboard-app/public/\"",
+    "postbuild": "node scripts/postbuild.mjs",
     "start": "next start",
     "lint": "eslint"
   },
