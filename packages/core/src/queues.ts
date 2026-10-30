@@ -8,7 +8,8 @@ import { EventEmitter } from 'events';
 import { FONTE_HOME } from './config';
 import { log } from './logging';
 import { Migration, applyPragmas, maintainDb, runMigrations } from './sqlite-migrate';
-import { MessageJobData, ResponseJobData } from './types';
+import { MessageJobData, MessageLane, ResponseJobData } from './types';
+import type { StoredAgentSession } from './agent-session';
 
 const QUEUE_DB_PATH = path.join(FONTE_HOME, 'fonte.db');
 const BACKUP_DIR = path.join(FONTE_HOME, 'backups');
@@ -86,6 +87,33 @@ const QUEUE_MIGRATIONS: Migration[] = [
             if (!amCols.some(c => c.name === 'kind')) {
                 db.exec("ALTER TABLE agent_messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'");
             }
+        },
+    },
+    {
+        version: 2,
+        name: 'agent sessions',
+        up(db) {
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS agent_sessions (
+                    agent_id TEXT NOT NULL,
+                    lane TEXT NOT NULL,
+                    provider TEXT NOT NULL,
+                    session_id TEXT NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    PRIMARY KEY (agent_id, lane)
+                );
+            `);
+            // Only the Claude adapter reported session ids before this version. The
+            // background lane is left to start its own conversation.
+            db.exec(`
+                INSERT OR IGNORE INTO agent_sessions (agent_id,lane,provider,session_id,updated_at)
+                SELECT m.agent, 'user', 'anthropic', m.session_id, m.updated_at FROM messages m
+                WHERE m.id IN (
+                    SELECT MAX(id) FROM messages
+                    WHERE agent IS NOT NULL AND lane='user' AND session_id IS NOT NULL
+                    GROUP BY agent
+                );
+            `);
         },
     },
 ];
@@ -260,6 +288,29 @@ export function recoverStaleMessages(thresholdMs = 10 * 60 * 1000): number {
         .run(Date.now(), cutoff).changes;
 }
 
+// ── Agent sessions (provider conversation per agent and lane) ───────────────
+
+export function getAgentSession(agentId: string, lane: MessageLane): StoredAgentSession | null {
+    const row = getDb().prepare(
+        `SELECT provider, session_id FROM agent_sessions WHERE agent_id=? AND lane=?`
+    ).get(agentId, lane) as { provider: string; session_id: string } | undefined;
+    return row ? { provider: row.provider, sessionId: row.session_id } : null;
+}
+
+export function setAgentSession(agentId: string, lane: MessageLane, provider: string, sessionId: string): void {
+    getDb().prepare(
+        `INSERT INTO agent_sessions (agent_id,lane,provider,session_id,updated_at) VALUES (?,?,?,?,?)
+         ON CONFLICT(agent_id,lane) DO UPDATE SET provider=excluded.provider,session_id=excluded.session_id,updated_at=excluded.updated_at`
+    ).run(agentId, lane, provider, sessionId, Date.now());
+}
+
+/** Without a lane, clears every lane of the agent. */
+export function clearAgentSessions(agentId: string, lane?: MessageLane): number {
+    return lane
+        ? getDb().prepare(`DELETE FROM agent_sessions WHERE agent_id=? AND lane=?`).run(agentId, lane).changes
+        : getDb().prepare(`DELETE FROM agent_sessions WHERE agent_id=?`).run(agentId).changes;
+}
+
 // ── Responses ───────────────────────────────────────────────────────────────
 
 export function enqueueResponse(data: ResponseJobData): number {
@@ -349,9 +400,10 @@ export function deleteAgentMessagesFrom(agentId: string, fromRowId: number): num
 
 export function getAgentMessages(agentId: string, limit = 100, sinceId = 0): any[] {
     // sessionId rides along for edit-and-rerun; it goes null once the source
-    // messages row is pruned.
+    // messages row is pruned, and is never a background-lane session, which a
+    // chat must not fork from.
     return getDb().prepare(
-        `SELECT am.*, m.session_id AS sessionId
+        `SELECT am.*, CASE WHEN m.lane='user' THEN m.session_id END AS sessionId
          FROM agent_messages am
          LEFT JOIN messages m ON m.message_id = am.message_id
          WHERE am.agent_id=? AND am.id>? ORDER BY am.created_at DESC LIMIT ?`

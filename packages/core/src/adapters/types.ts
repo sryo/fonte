@@ -7,6 +7,7 @@ export interface InvokeOptions {
     workingDir: string;
     systemPrompt: string;
     model: string;
+    /** Only read by adapters without explicit sessions (OpenCode): skip continuing the directory's last conversation. */
     shouldReset: boolean;
     envOverrides: Record<string, string>;
     onEvent?: (text: string) => void;
@@ -16,7 +17,7 @@ export interface InvokeOptions {
     onToolResult?: (toolUseId: string, isError: boolean) => void;
     /** Provider conversation id, when the stream announces one. */
     onSessionId?: (sessionId: string) => void;
-    /** Fork from this provider session instead of continuing the last one. */
+    /** Continue this provider session; without one, adapters that support sessions start a new conversation. */
     resumeSessionId?: string;
 }
 

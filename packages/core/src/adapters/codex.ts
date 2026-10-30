@@ -24,15 +24,11 @@ export const codexAdapter: AgentAdapter = {
     providers: ['openai'],
 
     async invoke(opts: InvokeOptions): Promise<string> {
-        const { agentId, message, workingDir, systemPrompt, model, shouldReset, envOverrides, onEvent } = opts;
+        const { agentId, message, workingDir, systemPrompt, model, envOverrides, onEvent, onSessionId, resumeSessionId } = opts;
         log('DEBUG', `Using Codex CLI (agent: ${agentId})`);
 
         const args = ['exec'];
-        if (shouldReset) {
-            log('INFO', `Resetting Codex conversation for agent: ${agentId}`);
-        } else {
-            args.push('resume', '--last');
-        }
+        if (resumeSessionId) args.push('resume', resumeSessionId);
         if (model) args.push('--model', model);
         if (systemPrompt) args.push('-c', `developer_instructions=${systemPrompt}`);
         args.push('--skip-git-repo-check', '--dangerously-bypass-approvals-and-sandbox', '--json', '--', message);
@@ -42,6 +38,7 @@ export const codexAdapter: AgentAdapter = {
         const readLine = (line: string, onText?: (text: string) => void) => {
             let json: any;
             try { json = JSON.parse(line); } catch { return; }
+            if (json.type === 'thread.started' && typeof json.thread_id === 'string') onSessionId?.(json.thread_id);
             errorText = extractErrorText(json) ?? errorText;
             const text = extractEventText(json);
             if (text) {

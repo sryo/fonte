@@ -19,6 +19,7 @@ import {
     insertAgentMessage, deleteAgentMessagesByMessageId, updateAgentToolMessage,
     registerSystemPromptSection,
     deadLetterMessage, toAgentRunError, describeAgentFailure, AgentRunError,
+    runInAgentSession, sessionLane, getAgentSession, setAgentSession, clearAgentSessions,
     acquireInstanceLock,
 } from '@fonte/core';
 import { startApiServer } from '@fonte/server';
@@ -104,11 +105,15 @@ async function processMessage(dbMsg: any): Promise<void> {
     if ((dbMsg.recovery ?? 0) > 0) message = RECOVERY_PREAMBLE + message;
 
     emitEvent('agent:invoke', { agentId, agentName: agent.name, fromAgent: data.fromAgent || null });
-    let sessionId: string | null = null;
-    let response = '';
-    let runError: AgentRunError | null = null;
-    try {
-        response = await invokeAgent(agent, agentId, message, workspacePath, shouldReset, agents, {}, {
+    const provider = agent.provider || 'anthropic';
+    const run = await runInAgentSession({
+        agentId,
+        lane: sessionLane(dbMsg.lane),
+        provider,
+        explicitSessionId: dbMsg.resume_session_id,
+        reset: shouldReset,
+        store: { get: getAgentSession, set: setAgentSession, clear: clearAgentSessions },
+        run: (resumeSessionId, onSessionId) => invokeAgent(agent, agentId, message, workspacePath, shouldReset, agents, {}, {
             onEvent: (text) => {
                 log('INFO', `Agent ${agentId}: ${text}`);
                 insertAgentMessage({ agentId, role: 'assistant', channel, sender: agentId, messageId, content: text });
@@ -116,8 +121,8 @@ async function processMessage(dbMsg: any): Promise<void> {
                 // Don't send intermediate chunks to the channel: some adapters emit the
                 // full response as one chunk, which would duplicate the final send below.
             },
-            resumeSessionId: dbMsg.resume_session_id ?? undefined,
-            onSessionId: (id) => { sessionId = id; },
+            resumeSessionId,
+            onSessionId,
             onTool: (name, input, toolUseId) => {
                 let content = JSON.stringify({ name, input, toolUseId });
                 if (content.length > TOOL_ROW_MAX_CHARS) {
@@ -131,13 +136,13 @@ async function processMessage(dbMsg: any): Promise<void> {
                 updateAgentToolMessage(agentId, messageId, toolUseId, { status: isError ? 'failed' : 'done' });
                 emitEvent('agent:progress', { agentId, agentName: agent.name, toolResult: toolUseId, failed: isError, messageId });
             },
-        });
-    } catch (error) {
-        runError = toAgentRunError(error);
-    }
+        }),
+    });
+    const response = run.ok ? run.value : '';
+    const runError: AgentRunError | null = run.ok ? null : toAgentRunError(run.error);
 
     // Session persists even for stopped runs, so an edit can fork from them.
-    if (sessionId) setMessageSessionId(dbMsg.id, sessionId);
+    if (run.sessionId) setMessageSessionId(dbMsg.id, run.sessionId);
     const statusAfterRun = getMessageStatus(dbMsg.id);
     // A stopped run must never deliver its partial answer to any channel.
     if (statusAfterRun === 'cancelled') {
@@ -150,7 +155,6 @@ async function processMessage(dbMsg: any): Promise<void> {
         return;
     }
     if (runError) {
-        const provider = agent.provider || 'anthropic';
         const providerLabel = provider === 'openai' ? 'Codex' : provider === 'opencode' ? 'OpenCode' : provider === 'gemini' ? 'Gemini' : 'Claude';
         log('ERROR', `${providerLabel} error (agent: ${agentId}, ${runError.kind}): ${runError.message}`);
         const { summary, remedy } = describeAgentFailure(runError.kind, providerLabel, runError.message);

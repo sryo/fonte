@@ -15,6 +15,7 @@ export * from './reveal';
 export * from './router';
 export * from './invoke';
 export * from './agent-failure';
+export * from './agent-session';
 export * from './adapters';
 export * from './plugins';
 

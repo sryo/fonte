@@ -49,24 +49,14 @@ export const claudeAdapter: AgentAdapter = {
     providers: ['anthropic'],
 
     async invoke(opts: InvokeOptions): Promise<string> {
-        const { agentId, message, workingDir, systemPrompt, model, shouldReset, envOverrides, onEvent, onTool, onToolResult, onSessionId, resumeSessionId } = opts;
+        const { agentId, message, workingDir, systemPrompt, model, envOverrides, onEvent, onTool, onToolResult, onSessionId, resumeSessionId } = opts;
         const env = { IS_SANDBOX: '1', ...envOverrides };
         log('DEBUG', `Using Claude provider (agent: ${agentId})`);
-
-        const continueConversation = !shouldReset;
-        if (shouldReset) {
-            log('INFO', `Resetting conversation for agent: ${agentId}`);
-        }
 
         const args = ['--dangerously-skip-permissions'];
         if (model) args.push('--model', model);
         if (systemPrompt) args.push('--system-prompt', systemPrompt);
-        if (resumeSessionId) {
-            // Forking an earlier conversation (edit-and-rerun) trumps plain continue.
-            args.push('--resume', resumeSessionId);
-        } else if (continueConversation) {
-            args.push('-c');
-        }
+        if (resumeSessionId) args.push('--resume', resumeSessionId);
 
         if (onEvent) {
             args.push('--output-format', 'stream-json', '--verbose', '-p', '--', message);
