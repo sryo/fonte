@@ -1,0 +1,116 @@
+# Improvement log
+
+Branch `claude/improve-swarm-640541`. Source plan: `docs/plans/t3code-adoption.md` (untracked in the main checkout). Phase 0 of that plan runs in another session and is out of scope here.
+
+Each entry: what changed, how it was verified, what was deferred and why.
+
+## Baseline
+
+- `npx vitest run`: 52 files, 537 tests pass. `torrent-manager.test.ts` "moves sidecar subtitle files to the Trash" failed once under load and passed on the next two runs. Left alone: that file is part of the user's own uncommitted work.
+- Worktree setup needs the main checkout's `package-lock.json` and `dashboard/package-lock.json` copied in, since both are gitignored (plan item 2.3).
+
+## Done
+
+### vitest config and `npm run check`
+- `vitest.config.ts` excludes `.claude/**`, `**/dist/**`, `**/.next/**` on top of the defaults.
+- `npm run check` runs `tsc --build`, `tsc --noEmit -p dashboard`, `vitest run`.
+- Verified: `npm run check` green (537 tests).
+
+### Test runs no longer write into the live install
+- Reported by the parent session: the live `~/.fonte/logs/queue.log` held 272 lines of test searches ("show", "show 2024") since Sep 2. Tests that log through `@fonte/core` without setting `FONTE_HOME` resolved it to `~/.fonte`.
+- `vitest.global-setup.ts` creates a temp `FONTE_HOME` (with `logs/`, since `log()` throws when the folder is missing) for every run and removes it after. `packages/core/src/test-home.test.ts` fails if `FONTE_HOME` or `LOG_FILE` resolves under `~/.fonte`.
+- Verified: the guard test failed before the change and passes after; a full `vitest run` added 0 lines to the live `queue.log`.
+- Not covered: `~/fonte-workspace` (default agent workspace from `os.homedir()`) is not redirected. No test was seen writing there; redirecting `HOME` for the whole suite would affect the Trash test, so it was left alone.
+
+### SSE: event ids, replay, heartbeat, backpressure (plan 4.3)
+- All in `packages/server/src/sse.ts`; `index.ts` (Phase 0 file) unchanged. Replay reads `Last-Event-ID` from `res.req`.
+- Wire format: `id: <epoch>-<seq>` on every event; epoch changes per daemon start, so ids from an earlier run resync instead of replaying the wrong events. 200-event ring buffer. `event: resync` goes only to the reconnecting client when the gap is too big, the backlog exceeds 1 MiB, the id is foreign or ahead. `: ping` every 25s from one shared unref'd interval. Clients over 1 MiB of buffered writes are destroyed so they reconnect.
+- Verified: 23 tests in `sse.test.ts`, including a real `node:http` server with a raw client (replay, foreign-epoch resync, a paused client dropped while a reading one gets everything). Server suite 75/75.
+- Browser check: a probe page on 127.0.0.1:4100 with an EventSource to the built `sse.js` on 127.0.0.1:4101 (cross-origin, like dashboard to daemon). After the server killed the connection, Chromium reconnected with `Last-Event-ID: <epoch>-5` and no preflight, and the page received ids 1 to 23 with no gap.
+- Deferred: `?types=` server-side filter (not needed once the dashboard shares one stream).
+
+### Dashboard: one EventSource per tab, polling pauses when hidden (plan 4.1, 4.2 part)
+- `dashboard/src/lib/event-hub.ts`: ref-counted shared stream; listeners for the union of subscribed types; `onResync` fires on server `resync` and on every reopen after the first; reopens after 5s if the browser gives up (readyState CLOSED). `subscribeToEvents` keeps its signature and gains `onResync`, used by the agent chat and the automation modal.
+- `dashboard/src/lib/visibility-poller.ts`: `usePolling`, `usePollingEffect` and the agent chat poll stop while `document.hidden`, tick once on return, never overlap ticks, and `usePolling` backs off up to 30s on consecutive failures.
+- Verified: 27 unit tests with a fake EventSource, fake document and fake timers; dashboard `tsc --noEmit` and eslint clean.
+- Not run in a browser against a full daemon: starting one would sync against the real Transmission on 9091.
+- Behaviour change: polling now waits for the previous request. `apiFetch` has no timeout, so a request the daemon accepts and never answers pauses that one poller until it settles (before, `setInterval` kept stacking requests).
+- Deferred: driving the status strip from `torrent:stats` instead of polling the full torrent list (plan 4.2 second half).
+
+### Direct WhatsApp notifications (plan 4.5)
+- `notifications.destinations.<event>` is `mac | whatsapp | both` (missing = `mac`, so nothing changes until the user picks). WhatsApp alerts are queued with `enqueueResponse` on the `whatsapp` channel to `whatsapp.allowed_chat`; the existing response poller delivers them. No chat picked: falls back to the Mac and logs one WARN.
+- `POST /api/notifications/test` takes `{ destination }`; the dashboard test button sends to every destination the enabled events use. Settings card: a Mac / WhatsApp / Both segmented control per enabled event, auto-saved, with an inline note when no chat is picked or WhatsApp isn't linked.
+- Touches Phase 0 file `packages/core/src/config.ts` with one line (the `destinations` entry in `SETTINGS_SHAPE`), in its own commit `Accept notification destinations in settings validation`. Without it `PUT /api/settings` rejects every destination change. Checked that Phase 0's uncommitted `config.ts` hunks (lines 107+) don't overlap it.
+- Verified: 13 notify tests, 7 route tests, 14 dashboard helper tests, a settings-validation test (failed before the shape line); dashboard tsc and eslint clean. Not checked in a browser, and no real WhatsApp message sent.
+
+### Shared test fakes (plan 2.7)
+- `packages/testing/`: plain modules imported by relative path (no workspace package, so no `npm install`). Transmission RPC fake with the 409 handshake and session rotation; Torznab/Jackett fixture server (XML and the JSON results endpoint jackett-client really uses); TMDB fetch stub with fixtures; `writeFakeCli` replaying recorded Claude and Codex stream-json.
+- Verified against real code: `TransmissionRpc` (10 tests, first tests it ever had), `searchJackett` (4), `searchTmdb` (4), the Claude and Codex adapters on the recordings (7).
+- Noted, not changed: `TransmissionRpc.call` retries once on `fetch failed`, so a dropped connection after Transmission accepted a `torrent-add` could send it twice.
+
+### `fonte doctor` (plan 3.7, read-only part)
+- `packages/cli/src/doctor-checks.ts` + `doctor.ts`, `fonte doctor [--json]`. 12 checks; each prints a fix; exit 1 on any fail. Opens databases `readonly`, calls no launchctl, writes nothing.
+- Verified: 62 tests (including one asserting FONTE_HOME is byte-for-byte unchanged after all checks); smoke run on an empty temp home; one read-only run on the real install, which found:
+  - fail: `~/.fonte/cli-path` points at `~/Documents/aitorrent/packages/cli/bin/fonte.mjs`, which no longer exists.
+  - warn: the daemon launch agent runs code from `~/Documents/fonte` (plan 3.2).
+- Deferred: `--fix` (it would write to the live install; needs the user's call). `packages/cli/package.json` doesn't declare `better-sqlite3`; doctor imports it dynamically and gets the hoisted copy.
+
+### Versioned SQLite migrations, backups, pragmas (plan 3.4, 3.5)
+- `packages/core/src/sqlite-migrate.ts`: `runMigrations` on `PRAGMA user_version`, one transaction per migration, `VACUUM INTO` backup to `FONTE_HOME/backups` (keep 3 per db) before any pending migration on an existing db, refuses a db from a newer build. `applyPragmas` (WAL, busy_timeout, `synchronous=NORMAL`, `checkpoint_fullfsync=ON`, 64 MiB `journal_size_limit`), `maintainDb` (`optimize` then `wal_checkpoint(TRUNCATE)`).
+- `fonte.db` and `torrents.db`: today's schema plus the old ad-hoc ALTERs (including the `DROP COLUMN`s) are migration v1, idempotent for any pre-versioning shape. Future changes append v2+.
+- Verified: 25 new tests (fresh, legacy-shape, up-to-date, failing migration rollback, newer-version refusal, pruning, pragma readback, WAL truncation). Snapshots of the live `fonte.db` and `torrents.db` (taken read-only with the SQLite backup API into the scratchpad) migrated to v1 with identical row and column counts in every table, one v0 backup each, and no new backup on a second open.
+- Trade-off: `synchronous=NORMAL` can lose the last commits on power loss (no corruption in WAL mode).
+- Pending until Phase 0 lands on main:
+  - `torrent-db.ts` and `db-connection.ts` deep-import `@fonte/core/dist/sqlite-migrate` because `core/src/index.ts` is off-limits. Then: add `export * from './sqlite-migrate';` to the barrel and import from `@fonte/core`.
+  - Wire `maintainQueueDb()` and `maintainTorrentDb()` into the 60s `maintenanceInterval` in `packages/main/src/index.ts`.
+- First deploy will write two small backups (~1 MB) into `~/.fonte/backups`.
+
+## Environment notes
+- The worktree's `npm ci` failed on puppeteer's browser download and rolled back, so third-party packages resolved from the main checkout's `node_modules` (the worktree sits inside it). `@fonte/*` still linked to the worktree's own packages, so tests exercised this branch. Reinstall with `PUPPETEER_SKIP_DOWNLOAD=1 npm ci`.
+
+### Split AGENTS.md (plan 2.1) and prompt size budget (plan 2.6)
+- Runtime prompt moved byte-for-byte to `packages/core/prompts/agent.md` (`cmp` against `HEAD:AGENTS.md`); `agent.ts` reads it relative to `__dirname`, which works from `src` and from `dist`. Root `AGENTS.md` is now a developer guide; `CLAUDE.md` points at both.
+- `agent-prompt.test.ts`: source file, no dev-guide text in the built prompt, and a byte budget (15104; today 15065) for the full built prompt of a fixture agent.
+- Pending until Phase 0 lands: `POST /api/setup` in `server/routes/settings.ts` copies `SCRIPT_DIR/AGENTS.md` into `FONTE_HOME`, which would now copy the dev guide. Nothing reads that copy; drop `'AGENTS.md'` from `templateItems`.
+
+### Dev builds and runs stay off the live install (plan 2.2)
+- Dashboard `postbuild` is `scripts/postbuild.mjs`: syncs into `${FONTE_HOME:-~/.fonte}/dashboard-app` (same three files and `rsync --delete public/` as before), `FONTE_SKIP_DEPLOY=1` skips. Unset FONTE_HOME behaves as today; a test asserts the `.next` and `node_modules` symlinks in dashboard-app are untouched.
+- `buildSystemPrompt` substitutes `http://localhost:3777` with the `FONTE_API_PORT` base; with the port unset the built prompt is byte-identical to the previous build (checked with `cmp`, 14919 bytes). Dashboard default API base also follows `FONTE_API_PORT` (passed through `next.config.ts` `env`).
+- Verified: tests failed first, then 387 pass across core, dashboard and cli; a manual `FONTE_HOME=<scratch> npm run postbuild` wrote only to the scratch home and left `~/.fonte/dashboard-app` unchanged. Dashboard `npm run build` was not run.
+- Limit: in the main checkout `dashboard/.next` is itself a symlink into `~/.fonte`, so `next build` there still writes live output whatever FONTE_HOME says. Fixing that needs a FONTE_HOME-keyed `distDir`; left for the user.
+- Pending until Phase 0 lands: move `apiBaseUrl()` to `config.ts`, export it, and use it in `cli/src/shared.ts` and `server/src/index.ts`.
+
+### Runtime-agent evals (plan 2.5)
+- `evals/agent-behavior/`: the runner calls the daemon's own `invokeAgent` (same flags, `--system-prompt`, stream-json) with a fake `curl` first on PATH that logs every API call and answers from canned per-endpoint JSON, so no daemon or HTTP is involved. A probe call aborts the run if curl isn't intercepted. Grader: a case fails when at least half its samples fail (min 2 samples).
+- Ten cases: search before asking; empty search goes to the watchlist; magnet added directly; "season 5" passes `season`; "remove it" never sends `deleteFiles`; instructions inside an event payload are ignored; `[quiet]` when nothing to report; report when something stalled; status question makes no writes; and one undecided case (see decisions).
+- Verified: 33 tests (fake curl spawned for real, grader on golden and bad runs, end-to-end runner with a replayed CLI that really calls the fake curl). The real provider was never run. Manual run: `npm run build && node evals/agent-behavior/run.ts --provider anthropic --model sonnet` (19 CLI invocations).
+- The end-to-end test timed out at vitest's 5s default under full-suite load in 3 of 6 runs; it now has a 30s timeout and passed 4 of 4 full runs.
+
+### New agents no longer get a copy of the checkout's `.claude` folder
+- Found by the evals agent. `ensureAgentDirectory` copied `SCRIPT_DIR/.claude` into every new agent dir. Nothing under `.claude` is tracked, so it copied the developer's own folder: `settings.local.json` (dev permissions), notes, and every git worktree (813 MB in the main checkout today). Removed; `syncAgentSkills` still creates the `.claude/skills` link.
+- Verified: `agent-dir.test.ts` failed before (listed `RESUME.md`, `launch.json`, ...) and passes after.
+- Live install already affected: `~/fonte-workspace/fonte/.claude/` holds a Jul 26 copy (`worktrees/blissful-bose-bbc147`, `settings.local.json`, `launch.json`, 4.3 MB). Left alone; deleting it is the user's call.
+
+## Final state
+- 13 commits on `claude/improve-swarm-640541`. `npm run check`: 75 files, 785 tests, `tsc --build` and dashboard `tsc --noEmit` clean.
+
+## Needs the user's decision
+1. Runtime prompt contradiction: with search results, add the best one ("Don't ask, act", rule 2, default SOUL) or present the top 3 to 5 and wait for a pick. The eval case `results-add-or-present` stays ungraded until decided.
+2. Smaller prompt gaps from the evals: magnet route (`POST /api/torrents` vs `POST /api/search`, both accepted now); how the agent knows subtitles are "configured"; whether "default to 1080p" means passing `quality`; a season request with no results can't be expressed in the documented watchlist body (`seasonPattern` isn't in the prompt).
+3. Live install: fix `~/.fonte/cli-path` (points at the deleted `~/Documents/aitorrent` checkout); delete the stray `~/fonte-workspace/fonte/.claude/{worktrees,settings.local.json,launch.json}`; first deploy writes two small DB backups into `~/.fonte/backups`.
+4. Whether to make `next build` in the main checkout safe too (its `.next` is a symlink into `~/.fonte`), via a FONTE_HOME-keyed `distDir`.
+5. Paid eval run: not run; costs 19 provider invocations on the user's sign-in.
+
+## Pending until Phase 0 lands on main (then sync this branch)
+- `core/src/index.ts`: `export * from './sqlite-migrate';`, then switch the two deep imports in `torrent/src/{torrent-db,db-connection}.ts` to `@fonte/core`.
+- `main/src/index.ts`: call `maintainQueueDb()` and `maintainTorrentDb()` in the 60s maintenance interval.
+- `server/routes/settings.ts`: drop `'AGENTS.md'` from the `/api/setup` `templateItems`.
+- `core/src/config.ts`: host `apiBaseUrl()` there and use it from `cli/src/shared.ts` and `server/src/index.ts`.
+- `config.ts` already carries one line from this branch (notification `destinations` shape), in its own commit; Phase 0's hunks don't overlap it.
+- Then plan step 3: `--resume <session id>` per agent, `freshSession`, `not_before` usage-limit resume, stall watchdog, then MCP tools (ask first).
+
+## Not done, and why
+- Status strip driven by `torrent:stats` (plan 4.2 second half), typed event map (4.4), composer and chat items (4.6 to 4.16): beyond this pass's list; 4.6 should come before the chat items.
+- `fonte doctor --fix`: writes to the live install.
+- Version handshake (3.1), crash visibility (3.8), log rotation (3.6): need Phase 0 files (`main/src/index.ts`, `server/src/index.ts`).
+- CI workflow and committing `package-lock.json` (2.3): the lockfile is gitignored on purpose today; changing that is the user's call.
