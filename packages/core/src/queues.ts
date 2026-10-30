@@ -6,83 +6,105 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import { EventEmitter } from 'events';
 import { FONTE_HOME } from './config';
+import { log } from './logging';
+import { Migration, applyPragmas, maintainDb, runMigrations } from './sqlite-migrate';
 import { MessageJobData, ResponseJobData } from './types';
 
 const QUEUE_DB_PATH = path.join(FONTE_HOME, 'fonte.db');
+const BACKUP_DIR = path.join(FONTE_HOME, 'backups');
 const MAX_RETRIES = 5;
 
 let db: Database.Database | null = null;
 export const queueEvents = new EventEmitter();
 
+// Append only; never edit a shipped migration. v1 stays idempotent because
+// databases from before versioning arrive at user_version 0 in any older shape.
+const QUEUE_MIGRATIONS: Migration[] = [
+    {
+        version: 1,
+        name: 'baseline schema',
+        up(db) {
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    message_id TEXT NOT NULL UNIQUE,
+                    channel TEXT NOT NULL, sender TEXT NOT NULL, sender_id TEXT,
+                    message TEXT NOT NULL, agent TEXT,
+                    from_agent TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    retry_count INTEGER NOT NULL DEFAULT 0, last_error TEXT,
+                    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS responses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    message_id TEXT NOT NULL,
+                    channel TEXT NOT NULL, sender TEXT NOT NULL, sender_id TEXT,
+                    message TEXT NOT NULL, original_message TEXT NOT NULL,
+                    agent TEXT, files TEXT, metadata TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    created_at INTEGER NOT NULL, acked_at INTEGER
+                );
+                CREATE TABLE IF NOT EXISTS agent_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    agent_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    channel TEXT NOT NULL,
+                    sender TEXT NOT NULL,
+                    message_id TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_msg_status ON messages(status, agent, created_at);
+                CREATE INDEX IF NOT EXISTS idx_resp_channel ON responses(channel, status);
+                CREATE INDEX IF NOT EXISTS idx_agent_messages_agent ON agent_messages(agent_id, created_at);
+            `);
+
+            const respCols = db.prepare("PRAGMA table_info(responses)").all() as { name: string }[];
+            if (!respCols.some(c => c.name === 'metadata')) {
+                db.exec('ALTER TABLE responses ADD COLUMN metadata TEXT');
+            }
+            const msgCols = db.prepare("PRAGMA table_info(messages)").all() as { name: string }[];
+            if (msgCols.some(c => c.name === 'files')) {
+                db.exec('ALTER TABLE messages DROP COLUMN files');
+            }
+            if (msgCols.some(c => c.name === 'conversation_id')) {
+                db.exec('ALTER TABLE messages DROP COLUMN conversation_id');
+            }
+            if (!msgCols.some(c => c.name === 'session_id')) {
+                db.exec('ALTER TABLE messages ADD COLUMN session_id TEXT');
+            }
+            if (!msgCols.some(c => c.name === 'resume_session_id')) {
+                db.exec('ALTER TABLE messages ADD COLUMN resume_session_id TEXT');
+            }
+            if (!msgCols.some(c => c.name === 'lane')) {
+                db.exec("ALTER TABLE messages ADD COLUMN lane TEXT NOT NULL DEFAULT 'user'");
+            }
+            if (!msgCols.some(c => c.name === 'recovery')) {
+                db.exec('ALTER TABLE messages ADD COLUMN recovery INTEGER NOT NULL DEFAULT 0');
+            }
+            const amCols = db.prepare("PRAGMA table_info(agent_messages)").all() as { name: string }[];
+            if (!amCols.some(c => c.name === 'kind')) {
+                db.exec("ALTER TABLE agent_messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'");
+            }
+        },
+    },
+];
+
 export function initQueueDb(): void {
     if (db) return;
-    db = new Database(QUEUE_DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('busy_timeout = 5000');
+    const conn = new Database(QUEUE_DB_PATH);
+    try {
+        applyPragmas(conn);
+        runMigrations(conn, QUEUE_MIGRATIONS, { dbPath: QUEUE_DB_PATH, backupDir: BACKUP_DIR, log });
+    } catch (err) {
+        conn.close();
+        throw err;
+    }
+    db = conn;
+}
 
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            message_id TEXT NOT NULL UNIQUE,
-            channel TEXT NOT NULL, sender TEXT NOT NULL, sender_id TEXT,
-            message TEXT NOT NULL, agent TEXT,
-            from_agent TEXT,
-            status TEXT NOT NULL DEFAULT 'pending',
-            retry_count INTEGER NOT NULL DEFAULT 0, last_error TEXT,
-            created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS responses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            message_id TEXT NOT NULL,
-            channel TEXT NOT NULL, sender TEXT NOT NULL, sender_id TEXT,
-            message TEXT NOT NULL, original_message TEXT NOT NULL,
-            agent TEXT, files TEXT, metadata TEXT,
-            status TEXT NOT NULL DEFAULT 'pending',
-            created_at INTEGER NOT NULL, acked_at INTEGER
-        );
-        CREATE TABLE IF NOT EXISTS agent_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            agent_id TEXT NOT NULL,
-            role TEXT NOT NULL,
-            channel TEXT NOT NULL,
-            sender TEXT NOT NULL,
-            message_id TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at INTEGER NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_msg_status ON messages(status, agent, created_at);
-        CREATE INDEX IF NOT EXISTS idx_resp_channel ON responses(channel, status);
-        CREATE INDEX IF NOT EXISTS idx_agent_messages_agent ON agent_messages(agent_id, created_at);
-    `);
-
-    // Migrations for existing databases
-    const respCols = db.prepare("PRAGMA table_info(responses)").all() as { name: string }[];
-    if (!respCols.some(c => c.name === 'metadata')) {
-        db.exec('ALTER TABLE responses ADD COLUMN metadata TEXT');
-    }
-    const msgCols = db.prepare("PRAGMA table_info(messages)").all() as { name: string }[];
-    if (msgCols.some(c => c.name === 'files')) {
-        db.exec('ALTER TABLE messages DROP COLUMN files');
-    }
-    if (msgCols.some(c => c.name === 'conversation_id')) {
-        db.exec('ALTER TABLE messages DROP COLUMN conversation_id');
-    }
-    if (!msgCols.some(c => c.name === 'session_id')) {
-        db.exec('ALTER TABLE messages ADD COLUMN session_id TEXT');
-    }
-    if (!msgCols.some(c => c.name === 'resume_session_id')) {
-        db.exec('ALTER TABLE messages ADD COLUMN resume_session_id TEXT');
-    }
-    if (!msgCols.some(c => c.name === 'lane')) {
-        db.exec("ALTER TABLE messages ADD COLUMN lane TEXT NOT NULL DEFAULT 'user'");
-    }
-    if (!msgCols.some(c => c.name === 'recovery')) {
-        db.exec('ALTER TABLE messages ADD COLUMN recovery INTEGER NOT NULL DEFAULT 0');
-    }
-    const amCols = db.prepare("PRAGMA table_info(agent_messages)").all() as { name: string }[];
-    if (!amCols.some(c => c.name === 'kind')) {
-        db.exec("ALTER TABLE agent_messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'text'");
-    }
+export function maintainQueueDb(): void {
+    if (db) maintainDb(db);
 }
 
 function getDb(): Database.Database {

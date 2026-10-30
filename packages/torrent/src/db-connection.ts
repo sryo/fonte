@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { FONTE_HOME } from '@fonte/core';
+import { applyPragmas, maintainDb } from '@fonte/core/dist/sqlite-migrate';
 
 const DB_PATH = path.join(FONTE_HOME, 'torrents.db');
 
@@ -9,15 +10,17 @@ let db: Database.Database | null = null;
 export function initDb(): Database.Database {
     if (db) return db;
     db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('busy_timeout = 5000');
-    db.pragma('foreign_keys = ON');
+    applyPragmas(db, { foreignKeys: true });
     return db;
 }
 
 export function getDb(): Database.Database {
     if (!db) throw new Error('DB not initialized. Call initTorrentDb() first.');
     return db;
+}
+
+export function maintainTorrentDb(): void {
+    if (db) maintainDb(db);
 }
 
 export function closeDb(): void {

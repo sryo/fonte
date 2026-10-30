@@ -1,234 +1,251 @@
 import { TorrentStatus, TorrentRecord, TorrentFileRecord } from './types';
 import path from 'path';
-import { FONTE_HOME } from '@fonte/core';
+import { FONTE_HOME, log } from '@fonte/core';
+import { Migration, runMigrations } from '@fonte/core/dist/sqlite-migrate';
 import { initDb, getDb, closeDb } from './db-connection';
 import { DEFAULT_AUTOMATION_AGENT, backfillLegacyTriggers, importLegacySchedules } from './automation-db';
 import { extractInfoHash } from './search-aggregator';
 
+// Append only; never edit a shipped migration. v1 stays idempotent because
+// databases from before versioning arrive at user_version 0 in any older shape.
+const TORRENT_MIGRATIONS: Migration[] = [
+    {
+        version: 1,
+        name: 'baseline schema',
+        up(db) {
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS torrents (
+                    id TEXT PRIMARY KEY,
+                    info_hash TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL DEFAULT '',
+                    magnet_uri TEXT,
+                    status TEXT NOT NULL DEFAULT 'adding',
+                    progress REAL NOT NULL DEFAULT 0,
+                    download_speed REAL NOT NULL DEFAULT 0,
+                    upload_speed REAL NOT NULL DEFAULT 0,
+                    downloaded INTEGER NOT NULL DEFAULT 0,
+                    uploaded INTEGER NOT NULL DEFAULT 0,
+                    size INTEGER NOT NULL DEFAULT 0,
+                    num_peers INTEGER NOT NULL DEFAULT 0,
+                    save_path TEXT NOT NULL,
+                    tags TEXT,
+                    error_message TEXT,
+                    added_at INTEGER NOT NULL,
+                    completed_at INTEGER,
+                    stalled_since INTEGER,
+                    queue_position INTEGER,
+                    bandwidth_priority INTEGER NOT NULL DEFAULT 0,
+                    swarm_seeders INTEGER,
+                    swarm_leechers INTEGER,
+                    trackers_reporting INTEGER,
+                    trackers_total INTEGER,
+                    updated_at INTEGER NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS torrent_files (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    torrent_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    size INTEGER NOT NULL DEFAULT 0,
+                    progress REAL NOT NULL DEFAULT 0,
+                    selected INTEGER NOT NULL DEFAULT 1,
+                    priority INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY (torrent_id) REFERENCES torrents(id) ON DELETE CASCADE
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_torrents_status ON torrents(status);
+                CREATE INDEX IF NOT EXISTS idx_torrents_info_hash ON torrents(info_hash);
+                CREATE INDEX IF NOT EXISTS idx_torrent_files_torrent ON torrent_files(torrent_id);
+
+                CREATE TABLE IF NOT EXISTS watchlist (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    media_type TEXT NOT NULL DEFAULT 'movie',
+                    year INTEGER,
+                    season_pattern TEXT,
+                    quality TEXT NOT NULL DEFAULT '1080p',
+                    search_query TEXT NOT NULL,
+                    category INTEGER NOT NULL DEFAULT 2000,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    status TEXT NOT NULL DEFAULT 'watching',
+                    last_checked_at INTEGER,
+                    last_match_at INTEGER,
+                    matched_torrent_id TEXT,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_watchlist_status ON watchlist(status, enabled);
+
+                CREATE TABLE IF NOT EXISTS watchlist_results (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    watchlist_id TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    magnet_uri TEXT NOT NULL,
+                    seeders INTEGER DEFAULT 0,
+                    leechers INTEGER DEFAULT 0,
+                    size INTEGER DEFAULT 0,
+                    quality_match REAL DEFAULT 0,
+                    publish_date INTEGER,
+                    indexer TEXT,
+                    was_selected INTEGER DEFAULT 0,
+                    found_at INTEGER NOT NULL,
+                    FOREIGN KEY (watchlist_id) REFERENCES watchlist(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_wl_results_watchlist ON watchlist_results(watchlist_id);
+
+                CREATE TABLE IF NOT EXISTS torrent_subtitles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    torrent_id TEXT NOT NULL,
+                    file_path TEXT NOT NULL,
+                    language TEXT NOT NULL,
+                    is_original INTEGER NOT NULL DEFAULT 0,
+                    source_subtitle_id INTEGER,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    error_message TEXT,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    FOREIGN KEY (torrent_id) REFERENCES torrents(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_subtitles_torrent ON torrent_subtitles(torrent_id);
+
+                CREATE TABLE IF NOT EXISTS automation_rules (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT DEFAULT '',
+                    trigger_type TEXT NOT NULL,
+                    trigger_config TEXT DEFAULT '{}',
+                    conditions TEXT DEFAULT '[]',
+                    actions TEXT DEFAULT '[]',
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    last_triggered_at INTEGER,
+                    trigger_count INTEGER NOT NULL DEFAULT 0,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_automation_enabled ON automation_rules(enabled);
+                CREATE INDEX IF NOT EXISTS idx_automation_trigger ON automation_rules(trigger_type);
+
+                CREATE TABLE IF NOT EXISTS automation_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    rule_id TEXT NOT NULL,
+                    trigger_event TEXT NOT NULL,
+                    conditions_met INTEGER NOT NULL DEFAULT 1,
+                    actions_executed TEXT DEFAULT '[]',
+                    error_message TEXT,
+                    executed_at INTEGER NOT NULL,
+                    FOREIGN KEY (rule_id) REFERENCES automation_rules(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_auto_logs_rule ON automation_logs(rule_id);
+            `);
+
+            const wlCols = db.prepare("PRAGMA table_info(watchlist)").all() as { name: string }[];
+            if (!wlCols.some(c => c.name === 'poster_url')) {
+                db.exec('ALTER TABLE watchlist ADD COLUMN poster_url TEXT');
+            }
+
+            if (!wlCols.some(c => c.name === 'results_viewed_at')) {
+                db.exec('ALTER TABLE watchlist ADD COLUMN results_viewed_at INTEGER');
+            }
+            if (!wlCols.some(c => c.name === 'last_error')) {
+                db.exec('ALTER TABLE watchlist ADD COLUMN last_error TEXT');
+                db.exec('ALTER TABLE watchlist ADD COLUMN last_error_at INTEGER');
+                db.exec('ALTER TABLE watchlist ADD COLUMN fail_count INTEGER NOT NULL DEFAULT 0');
+            }
+
+            // found_at refreshes on every re-find; first_found_at is needed to tell
+            // new results from re-found ones.
+            const wlResultCols = db.prepare("PRAGMA table_info(watchlist_results)").all() as { name: string }[];
+            if (!wlResultCols.some(c => c.name === 'first_found_at')) {
+                db.exec('ALTER TABLE watchlist_results ADD COLUMN first_found_at INTEGER');
+                db.exec('UPDATE watchlist_results SET first_found_at = found_at WHERE first_found_at IS NULL');
+            }
+
+            if (!wlResultCols.some(c => c.name === 'feedback')) {
+                db.exec('ALTER TABLE watchlist_results ADD COLUMN feedback INTEGER NOT NULL DEFAULT 0');
+            }
+
+            if (!wlResultCols.some(c => c.name === 'auto_blocked')) {
+                db.exec('ALTER TABLE watchlist_results ADD COLUMN auto_blocked INTEGER NOT NULL DEFAULT 0');
+            }
+
+            if (!wlResultCols.some(c => c.name === 'info_hash')) {
+                db.exec('ALTER TABLE watchlist_results ADD COLUMN info_hash TEXT');
+                const rows = db.prepare('SELECT id, magnet_uri FROM watchlist_results').all() as { id: number; magnet_uri: string }[];
+                const setHash = db.prepare('UPDATE watchlist_results SET info_hash = ? WHERE id = ?');
+                for (const row of rows) {
+                    const hash = extractInfoHash(row.magnet_uri);
+                    if (hash) setHash.run(hash, row.id);
+                }
+            }
+            db.exec('CREATE INDEX IF NOT EXISTS idx_wl_results_hash ON watchlist_results(info_hash)');
+
+            const torrentCols = db.prepare("PRAGMA table_info(torrents)").all() as { name: string }[];
+            if (!torrentCols.some(c => c.name === 'poster_url')) {
+                db.exec('ALTER TABLE torrents ADD COLUMN poster_url TEXT');
+            }
+
+            if (!torrentCols.some(c => c.name === 'stalled_since')) {
+                db.exec('ALTER TABLE torrents ADD COLUMN stalled_since INTEGER');
+            }
+
+            if (!torrentCols.some(c => c.name === 'queue_position')) {
+                db.exec('ALTER TABLE torrents ADD COLUMN queue_position INTEGER');
+            }
+
+            if (!torrentCols.some(c => c.name === 'bandwidth_priority')) {
+                db.exec('ALTER TABLE torrents ADD COLUMN bandwidth_priority INTEGER NOT NULL DEFAULT 0');
+            }
+
+            for (const col of ['swarm_seeders', 'swarm_leechers', 'trackers_reporting', 'trackers_total']) {
+                if (!torrentCols.some(c => c.name === col)) {
+                    db.exec(`ALTER TABLE torrents ADD COLUMN ${col} INTEGER`);
+                }
+            }
+
+            const fileCols = db.prepare("PRAGMA table_info(torrent_files)").all() as { name: string }[];
+            if (!fileCols.some(c => c.name === 'priority')) {
+                db.exec('ALTER TABLE torrent_files ADD COLUMN priority INTEGER NOT NULL DEFAULT 0');
+            }
+
+            const autoRuleCols = db.prepare("PRAGMA table_info(automation_rules)").all() as { name: string }[];
+            if (!autoRuleCols.some(c => c.name === 'prompt')) {
+                db.exec("ALTER TABLE automation_rules ADD COLUMN prompt TEXT DEFAULT ''");
+            }
+            if (!autoRuleCols.some(c => c.name === 'trigger')) {
+                db.exec('ALTER TABLE automation_rules ADD COLUMN trigger TEXT');
+            }
+            if (!autoRuleCols.some(c => c.name === 'agent_id')) {
+                db.exec(`ALTER TABLE automation_rules ADD COLUMN agent_id TEXT NOT NULL DEFAULT '${DEFAULT_AUTOMATION_AGENT}'`);
+            }
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS automation_runs (
+                    id TEXT PRIMARY KEY,
+                    rule_id TEXT NOT NULL,
+                    trigger TEXT NOT NULL,
+                    event_summary TEXT,
+                    message_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    detail TEXT,
+                    started_at INTEGER NOT NULL,
+                    finished_at INTEGER,
+                    FOREIGN KEY (rule_id) REFERENCES automation_rules(id) ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS idx_auto_runs_rule ON automation_runs(rule_id, started_at);
+                CREATE INDEX IF NOT EXISTS idx_auto_runs_message ON automation_runs(message_id);
+            `);
+        },
+    },
+];
+
 export function initTorrentDb(): void {
     const db = initDb();
-
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS torrents (
-            id TEXT PRIMARY KEY,
-            info_hash TEXT NOT NULL UNIQUE,
-            name TEXT NOT NULL DEFAULT '',
-            magnet_uri TEXT,
-            status TEXT NOT NULL DEFAULT 'adding',
-            progress REAL NOT NULL DEFAULT 0,
-            download_speed REAL NOT NULL DEFAULT 0,
-            upload_speed REAL NOT NULL DEFAULT 0,
-            downloaded INTEGER NOT NULL DEFAULT 0,
-            uploaded INTEGER NOT NULL DEFAULT 0,
-            size INTEGER NOT NULL DEFAULT 0,
-            num_peers INTEGER NOT NULL DEFAULT 0,
-            save_path TEXT NOT NULL,
-            tags TEXT,
-            error_message TEXT,
-            added_at INTEGER NOT NULL,
-            completed_at INTEGER,
-            stalled_since INTEGER,
-            queue_position INTEGER,
-            bandwidth_priority INTEGER NOT NULL DEFAULT 0,
-            swarm_seeders INTEGER,
-            swarm_leechers INTEGER,
-            trackers_reporting INTEGER,
-            trackers_total INTEGER,
-            updated_at INTEGER NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS torrent_files (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            torrent_id TEXT NOT NULL,
-            name TEXT NOT NULL,
-            path TEXT NOT NULL,
-            size INTEGER NOT NULL DEFAULT 0,
-            progress REAL NOT NULL DEFAULT 0,
-            selected INTEGER NOT NULL DEFAULT 1,
-            priority INTEGER NOT NULL DEFAULT 0,
-            FOREIGN KEY (torrent_id) REFERENCES torrents(id) ON DELETE CASCADE
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_torrents_status ON torrents(status);
-        CREATE INDEX IF NOT EXISTS idx_torrents_info_hash ON torrents(info_hash);
-        CREATE INDEX IF NOT EXISTS idx_torrent_files_torrent ON torrent_files(torrent_id);
-
-        CREATE TABLE IF NOT EXISTS watchlist (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            media_type TEXT NOT NULL DEFAULT 'movie',
-            year INTEGER,
-            season_pattern TEXT,
-            quality TEXT NOT NULL DEFAULT '1080p',
-            search_query TEXT NOT NULL,
-            category INTEGER NOT NULL DEFAULT 2000,
-            enabled INTEGER NOT NULL DEFAULT 1,
-            status TEXT NOT NULL DEFAULT 'watching',
-            last_checked_at INTEGER,
-            last_match_at INTEGER,
-            matched_torrent_id TEXT,
-            created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_watchlist_status ON watchlist(status, enabled);
-
-        CREATE TABLE IF NOT EXISTS watchlist_results (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            watchlist_id TEXT NOT NULL,
-            title TEXT NOT NULL,
-            magnet_uri TEXT NOT NULL,
-            seeders INTEGER DEFAULT 0,
-            leechers INTEGER DEFAULT 0,
-            size INTEGER DEFAULT 0,
-            quality_match REAL DEFAULT 0,
-            publish_date INTEGER,
-            indexer TEXT,
-            was_selected INTEGER DEFAULT 0,
-            found_at INTEGER NOT NULL,
-            FOREIGN KEY (watchlist_id) REFERENCES watchlist(id) ON DELETE CASCADE
-        );
-        CREATE INDEX IF NOT EXISTS idx_wl_results_watchlist ON watchlist_results(watchlist_id);
-
-        CREATE TABLE IF NOT EXISTS torrent_subtitles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            torrent_id TEXT NOT NULL,
-            file_path TEXT NOT NULL,
-            language TEXT NOT NULL,
-            is_original INTEGER NOT NULL DEFAULT 0,
-            source_subtitle_id INTEGER,
-            status TEXT NOT NULL DEFAULT 'pending',
-            error_message TEXT,
-            created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL,
-            FOREIGN KEY (torrent_id) REFERENCES torrents(id) ON DELETE CASCADE
-        );
-        CREATE INDEX IF NOT EXISTS idx_subtitles_torrent ON torrent_subtitles(torrent_id);
-
-        CREATE TABLE IF NOT EXISTS automation_rules (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            description TEXT DEFAULT '',
-            trigger_type TEXT NOT NULL,
-            trigger_config TEXT DEFAULT '{}',
-            conditions TEXT DEFAULT '[]',
-            actions TEXT DEFAULT '[]',
-            enabled INTEGER NOT NULL DEFAULT 1,
-            last_triggered_at INTEGER,
-            trigger_count INTEGER NOT NULL DEFAULT 0,
-            created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_automation_enabled ON automation_rules(enabled);
-        CREATE INDEX IF NOT EXISTS idx_automation_trigger ON automation_rules(trigger_type);
-
-        CREATE TABLE IF NOT EXISTS automation_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            rule_id TEXT NOT NULL,
-            trigger_event TEXT NOT NULL,
-            conditions_met INTEGER NOT NULL DEFAULT 1,
-            actions_executed TEXT DEFAULT '[]',
-            error_message TEXT,
-            executed_at INTEGER NOT NULL,
-            FOREIGN KEY (rule_id) REFERENCES automation_rules(id) ON DELETE CASCADE
-        );
-        CREATE INDEX IF NOT EXISTS idx_auto_logs_rule ON automation_logs(rule_id);
-    `);
-
-    const wlCols = db.prepare("PRAGMA table_info(watchlist)").all() as { name: string }[];
-    if (!wlCols.some(c => c.name === 'poster_url')) {
-        db.exec('ALTER TABLE watchlist ADD COLUMN poster_url TEXT');
+    try {
+        runMigrations(db, TORRENT_MIGRATIONS, { dbPath: db.name, backupDir: path.join(FONTE_HOME, 'backups'), log });
+    } catch (err) {
+        closeDb();
+        throw err;
     }
-
-    if (!wlCols.some(c => c.name === 'results_viewed_at')) {
-        db.exec('ALTER TABLE watchlist ADD COLUMN results_viewed_at INTEGER');
-    }
-    if (!wlCols.some(c => c.name === 'last_error')) {
-        db.exec('ALTER TABLE watchlist ADD COLUMN last_error TEXT');
-        db.exec('ALTER TABLE watchlist ADD COLUMN last_error_at INTEGER');
-        db.exec('ALTER TABLE watchlist ADD COLUMN fail_count INTEGER NOT NULL DEFAULT 0');
-    }
-
-    // found_at refreshes on every re-find; first_found_at is needed to tell
-    // new results from re-found ones.
-    const wlResultCols = db.prepare("PRAGMA table_info(watchlist_results)").all() as { name: string }[];
-    if (!wlResultCols.some(c => c.name === 'first_found_at')) {
-        db.exec('ALTER TABLE watchlist_results ADD COLUMN first_found_at INTEGER');
-        db.exec('UPDATE watchlist_results SET first_found_at = found_at WHERE first_found_at IS NULL');
-    }
-
-    if (!wlResultCols.some(c => c.name === 'feedback')) {
-        db.exec('ALTER TABLE watchlist_results ADD COLUMN feedback INTEGER NOT NULL DEFAULT 0');
-    }
-
-    if (!wlResultCols.some(c => c.name === 'auto_blocked')) {
-        db.exec('ALTER TABLE watchlist_results ADD COLUMN auto_blocked INTEGER NOT NULL DEFAULT 0');
-    }
-
-    if (!wlResultCols.some(c => c.name === 'info_hash')) {
-        db.exec('ALTER TABLE watchlist_results ADD COLUMN info_hash TEXT');
-        const rows = db.prepare('SELECT id, magnet_uri FROM watchlist_results').all() as { id: number; magnet_uri: string }[];
-        const setHash = db.prepare('UPDATE watchlist_results SET info_hash = ? WHERE id = ?');
-        for (const row of rows) {
-            const hash = extractInfoHash(row.magnet_uri);
-            if (hash) setHash.run(hash, row.id);
-        }
-    }
-    db.exec('CREATE INDEX IF NOT EXISTS idx_wl_results_hash ON watchlist_results(info_hash)');
-
-    const torrentCols = db.prepare("PRAGMA table_info(torrents)").all() as { name: string }[];
-    if (!torrentCols.some(c => c.name === 'poster_url')) {
-        db.exec('ALTER TABLE torrents ADD COLUMN poster_url TEXT');
-    }
-
-    if (!torrentCols.some(c => c.name === 'stalled_since')) {
-        db.exec('ALTER TABLE torrents ADD COLUMN stalled_since INTEGER');
-    }
-
-    if (!torrentCols.some(c => c.name === 'queue_position')) {
-        db.exec('ALTER TABLE torrents ADD COLUMN queue_position INTEGER');
-    }
-
-    if (!torrentCols.some(c => c.name === 'bandwidth_priority')) {
-        db.exec('ALTER TABLE torrents ADD COLUMN bandwidth_priority INTEGER NOT NULL DEFAULT 0');
-    }
-
-    for (const col of ['swarm_seeders', 'swarm_leechers', 'trackers_reporting', 'trackers_total']) {
-        if (!torrentCols.some(c => c.name === col)) {
-            db.exec(`ALTER TABLE torrents ADD COLUMN ${col} INTEGER`);
-        }
-    }
-
-    const fileCols = db.prepare("PRAGMA table_info(torrent_files)").all() as { name: string }[];
-    if (!fileCols.some(c => c.name === 'priority')) {
-        db.exec('ALTER TABLE torrent_files ADD COLUMN priority INTEGER NOT NULL DEFAULT 0');
-    }
-
-    const autoRuleCols = db.prepare("PRAGMA table_info(automation_rules)").all() as { name: string }[];
-    if (!autoRuleCols.some(c => c.name === 'prompt')) {
-        db.exec("ALTER TABLE automation_rules ADD COLUMN prompt TEXT DEFAULT ''");
-    }
-    if (!autoRuleCols.some(c => c.name === 'trigger')) {
-        db.exec('ALTER TABLE automation_rules ADD COLUMN trigger TEXT');
-    }
-    if (!autoRuleCols.some(c => c.name === 'agent_id')) {
-        db.exec(`ALTER TABLE automation_rules ADD COLUMN agent_id TEXT NOT NULL DEFAULT '${DEFAULT_AUTOMATION_AGENT}'`);
-    }
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS automation_runs (
-            id TEXT PRIMARY KEY,
-            rule_id TEXT NOT NULL,
-            trigger TEXT NOT NULL,
-            event_summary TEXT,
-            message_id TEXT NOT NULL,
-            status TEXT NOT NULL,
-            detail TEXT,
-            started_at INTEGER NOT NULL,
-            finished_at INTEGER,
-            FOREIGN KEY (rule_id) REFERENCES automation_rules(id) ON DELETE CASCADE
-        );
-        CREATE INDEX IF NOT EXISTS idx_auto_runs_rule ON automation_runs(rule_id, started_at);
-        CREATE INDEX IF NOT EXISTS idx_auto_runs_message ON automation_runs(message_id);
-    `);
     backfillLegacyTriggers();
     importLegacySchedules(path.join(FONTE_HOME, 'schedules.json'));
 
