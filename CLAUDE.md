@@ -1,6 +1,6 @@
 # Fonte
 
-See [AGENTS.md](./AGENTS.md) for the API surface, CLI reference, and agent runtime instructions. That's the canonical reference for both Fonte's runtime agent (it's injected as system prompt) and Claude Code working on this codebase.
+See [AGENTS.md](./AGENTS.md), the developer guide for working on this codebase: package map, glossary, how not to hurt the live install, the surfaces a new capability must reach, and how to verify. Fonte's runtime agent gets a different file as its built-in system prompt, [packages/core/prompts/agent.md](./packages/core/prompts/agent.md), which holds the API surface and CLI reference the agent uses.
 
 ## No Claude/Anthropic attribution in commits
 

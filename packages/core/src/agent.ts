@@ -14,10 +14,14 @@ You are Fonte's assistant. Be direct and concise. Act immediately on requests â€
 `;
 
 /**
- * Built-in agent instructions read from the AGENTS.md template at SCRIPT_DIR.
+ * Built-in agent instructions from packages/core/prompts/agent.md, resolved
+ * relative to this file so it works from both src (tests) and dist (daemon).
  * Teammate markers are replaced at runtime by buildSystemPrompt().
  */
-export const BUILTIN_AGENT_INSTRUCTIONS = fs.readFileSync(path.join(SCRIPT_DIR, 'AGENTS.md'), 'utf8');
+export const BUILTIN_AGENT_INSTRUCTIONS = fs.readFileSync(
+    path.resolve(__dirname, '../prompts/agent.md'),
+    'utf8',
+);
 const BUILTIN_AGENT_INSTRUCTIONS_HASH = crypto
     .createHash('sha256')
     .update(BUILTIN_AGENT_INSTRUCTIONS)
