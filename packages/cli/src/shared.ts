@@ -2,14 +2,14 @@ import * as p from '@clack/prompts';
 import fs from 'fs';
 import http from 'http';
 import path from 'path';
-import { Settings, SETTINGS_FILE, FONTE_HOME, SCRIPT_DIR, writeSettingsAtomic } from '@fonte/core';
+import { Settings, SETTINGS_FILE, FONTE_HOME, SCRIPT_DIR, writeSettingsAtomic, apiBaseUrl, apiPort } from '@fonte/core';
 
 export { SETTINGS_FILE, FONTE_HOME, SCRIPT_DIR };
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 
-export const API_PORT = process.env.FONTE_API_PORT || '3777';
-export const API_URL = `http://localhost:${API_PORT}`;
+export const API_PORT = String(apiPort());
+export const API_URL = apiBaseUrl();
 
 export function apiRequest<T = any>(method: string, apiPath: string, body?: unknown): Promise<T> {
     return new Promise((resolve, reject) => {

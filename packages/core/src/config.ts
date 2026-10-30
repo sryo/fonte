@@ -6,6 +6,14 @@ import { Settings, AgentConfig, TeamConfig, MODEL_ALIASES } from './types';
 export const SCRIPT_DIR = path.resolve(__dirname, '../../..');
 export const FONTE_HOME = process.env.FONTE_HOME
     || path.join(require('os').homedir(), '.fonte');
+export function apiPort(): number {
+    return parseInt(process.env.FONTE_API_PORT || '3777', 10);
+}
+
+export function apiBaseUrl(): string {
+    return `http://localhost:${apiPort()}`;
+}
+
 export const LOG_FILE = path.join(FONTE_HOME, 'logs/queue.log');
 export const SETTINGS_FILE = path.join(FONTE_HOME, 'settings.json');
 export const CHATS_DIR = path.join(FONTE_HOME, 'chats');

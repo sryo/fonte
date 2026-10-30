@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { AgentConfig, TeamConfig } from './types';
-import { SCRIPT_DIR, FONTE_HOME } from './config';
+import { SCRIPT_DIR, FONTE_HOME, apiBaseUrl } from './config';
 import { loadMemoryIndex } from './memory';
 import { log } from './logging';
 
@@ -23,10 +23,6 @@ export const BUILTIN_AGENT_INSTRUCTIONS = fs.readFileSync(
     'utf8',
 );
 const DEFAULT_API_BASE = 'http://localhost:3777';
-
-function apiBaseUrl(): string {
-    return `http://localhost:${process.env.FONTE_API_PORT || '3777'}`;
-}
 
 const BUILTIN_AGENT_INSTRUCTIONS_HASH = crypto
     .createHash('sha256')

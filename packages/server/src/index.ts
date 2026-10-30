@@ -11,7 +11,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import { RESPONSE_ALREADY_SENT } from '@hono/node-server/utils/response';
-import { log } from '@fonte/core';
+import { apiPort, log } from '@fonte/core';
 import { getTorrentManager } from '@fonte/torrent';
 import { addSSEClient, removeSSEClient } from './sse';
 import { ok, fail } from './http';
@@ -33,7 +33,7 @@ import automationsRoutes from './routes/automations';
 import whatsappRoutes from './routes/whatsapp';
 import notificationsRoutes from './routes/notifications';
 
-const API_PORT = parseInt(process.env.FONTE_API_PORT || '3777', 10);
+const API_PORT = apiPort();
 // Loopback-only by default: the API has no authentication, so exposing it
 // beyond this machine (or to arbitrary web origins) hands out full control.
 const API_HOST = process.env.FONTE_API_HOST || '127.0.0.1';
