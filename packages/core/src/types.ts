@@ -152,6 +152,8 @@ export interface MessageJobData {
     fromAgent?: string;
     /** Fork the provider conversation from this session (edit-and-rerun). */
     resumeSessionId?: string;
+    /** Run this one message in a new provider conversation, leaving the agent's own untouched. */
+    freshSession?: boolean;
     /** 'user' (default) runs before 'background' (automations) in the agent's queue. */
     lane?: MessageLane;
 }

@@ -111,6 +111,7 @@ async function processMessage(dbMsg: any): Promise<void> {
         lane: sessionLane(dbMsg.lane),
         provider,
         explicitSessionId: dbMsg.resume_session_id,
+        fresh: dbMsg.fresh_session === 1,
         reset: shouldReset,
         store: { get: getAgentSession, set: setAgentSession, clear: clearAgentSessions },
         run: (resumeSessionId, onSessionId) => invokeAgent(agent, agentId, message, workspacePath, shouldReset, agents, {}, {

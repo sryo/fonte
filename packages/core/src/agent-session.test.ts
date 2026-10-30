@@ -38,6 +38,15 @@ const base = (store: AgentSessionStore, lane: MessageLane = 'user') => ({
 });
 
 describe('runInAgentSession', () => {
+    it('runs a fresh-session message in a new conversation and leaves the lane alone', async () => {
+        const store = memoryStore({ 'a/user': { provider: 'anthropic', sessionId: 'chat' } });
+        const { calls, run } = fakeRun([{ session: 'one-off' }]);
+        const outcome = await runInAgentSession({ ...base(store), fresh: true, run });
+        expect(calls).toEqual([{ resume: undefined }]);
+        expect(outcome.sessionId).toBe('one-off');
+        expect(store.get('a', 'user')).toEqual({ provider: 'anthropic', sessionId: 'chat' });
+    });
+
     it('starts a new conversation when nothing is stored, then remembers it', async () => {
         const store = memoryStore();
         const { calls, run } = fakeRun([{ session: 's1', value: 'hello' }]);

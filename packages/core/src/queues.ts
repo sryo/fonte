@@ -116,6 +116,16 @@ const QUEUE_MIGRATIONS: Migration[] = [
             `);
         },
     },
+    {
+        version: 3,
+        name: 'fresh-session messages',
+        up(db) {
+            const cols = db.prepare('PRAGMA table_info(messages)').all() as { name: string }[];
+            if (!cols.some(c => c.name === 'fresh_session')) {
+                db.exec('ALTER TABLE messages ADD COLUMN fresh_session INTEGER NOT NULL DEFAULT 0');
+            }
+        },
+    },
 ];
 
 export function initQueueDb(): void {
@@ -146,10 +156,11 @@ export function enqueueMessage(data: MessageJobData): number | null {
     const now = Date.now();
     try {
         const r = getDb().prepare(
-            `INSERT INTO messages (message_id,channel,sender,sender_id,message,agent,from_agent,resume_session_id,lane,status,created_at,updated_at)
-             VALUES (?,?,?,?,?,?,?,?,?,'pending',?,?)`
+            `INSERT INTO messages (message_id,channel,sender,sender_id,message,agent,from_agent,resume_session_id,fresh_session,lane,status,created_at,updated_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,'pending',?,?)`
         ).run(data.messageId, data.channel, data.sender, data.senderId ?? null, data.message,
-            data.agent ?? null, data.fromAgent ?? null, data.resumeSessionId ?? null, data.lane ?? 'user', now, now);
+            data.agent ?? null, data.fromAgent ?? null, data.resumeSessionId ?? null, data.freshSession ? 1 : 0,
+            data.lane ?? 'user', now, now);
         queueEvents.emit('message:enqueued', { id: r.lastInsertRowid, agent: data.agent });
         return r.lastInsertRowid as number;
     } catch (err: any) {

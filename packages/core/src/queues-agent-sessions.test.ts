@@ -101,3 +101,16 @@ describe('agent session store', () => {
         expect(rows.find(r => r.content === 'auto').sessionId).toBeNull();
     });
 });
+
+describe('fresh-session messages', () => {
+    it('keep the freshSession flag on the queued row', () => {
+        q.initQueueDb();
+        const fresh = q.enqueueMessage({ messageId: 'm-fresh', channel: 'api', sender: 'me', message: 'hi', agent: 'a', freshSession: true })!;
+        const normal = q.enqueueMessage({ messageId: 'm-normal', channel: 'api', sender: 'me', message: 'hi', agent: 'a' })!;
+        const db = new Database(dbPath, { readonly: true });
+        const flag = (id: number) => (db.prepare('SELECT fresh_session FROM messages WHERE id=?').get(id) as { fresh_session: number }).fresh_session;
+        expect(flag(fresh)).toBe(1);
+        expect(flag(normal)).toBe(0);
+        db.close();
+    });
+});

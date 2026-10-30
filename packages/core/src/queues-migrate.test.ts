@@ -90,7 +90,7 @@ function buildLegacyDb(): void {
 
 const EXPECTED = {
     messages: ['id', 'message_id', 'channel', 'sender', 'sender_id', 'message', 'agent', 'from_agent', 'status',
-        'retry_count', 'last_error', 'created_at', 'updated_at', 'session_id', 'resume_session_id', 'lane', 'recovery'],
+        'retry_count', 'last_error', 'created_at', 'updated_at', 'session_id', 'resume_session_id', 'lane', 'recovery', 'fresh_session'],
     responses: ['id', 'message_id', 'channel', 'sender', 'sender_id', 'message', 'original_message', 'agent',
         'files', 'metadata', 'status', 'created_at', 'acked_at'],
     agentMessages: ['id', 'agent_id', 'role', 'channel', 'sender', 'message_id', 'content', 'created_at', 'kind'],

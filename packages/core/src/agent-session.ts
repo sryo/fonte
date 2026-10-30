@@ -41,6 +41,8 @@ export async function runInAgentSession<T>(opts: {
     lane: MessageLane;
     provider: string;
     explicitSessionId?: string | null;
+    /** A one-off conversation: nothing is resumed and the lane keeps its session. */
+    fresh?: boolean;
     reset: boolean;
     store: AgentSessionStore;
     run: (resumeSessionId: string | undefined, onSessionId: (sessionId: string) => void) => Promise<T>;
@@ -50,7 +52,7 @@ export async function runInAgentSession<T>(opts: {
         log('INFO', `Resetting conversations for agent: ${agentId}`);
         store.clear(agentId);
     }
-    const stored = store.get(agentId, lane);
+    const stored = opts.fresh ? null : store.get(agentId, lane);
     const resume = opts.explicitSessionId || (stored?.provider === provider ? stored.sessionId : undefined);
 
     const attempt = async (resumeSessionId: string | undefined): Promise<AgentSessionRun<T>> => {
@@ -61,7 +63,7 @@ export async function runInAgentSession<T>(opts: {
         } catch (error) {
             return { ok: false, error, sessionId };
         } finally {
-            if (sessionId) store.set(agentId, lane, provider, sessionId);
+            if (sessionId && !opts.fresh) store.set(agentId, lane, provider, sessionId);
         }
     };
 
