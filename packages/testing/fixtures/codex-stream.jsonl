@@ -1,0 +1,7 @@
+{"type":"thread.started","thread_id":"0199d1e2-7c4b-7a10-8f3e-5b2a9c6d4e11"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"**Checking the torrent list**"}}
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"bash -lc 'fonte torrent list --json'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"bash -lc 'fonte torrent list --json'","aggregated_output":"[{\"id\":\"t1\",\"name\":\"Some Show S01E01\",\"status\":\"downloading\",\"progress\":0.42}]\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"One torrent is downloading: Some Show S01E01, 42% done."}}
+{"type":"turn.completed","usage":{"input_tokens":14210,"cached_input_tokens":12800,"output_tokens":96}}

@@ -1,0 +1,148 @@
+{
+  "search/movie": {
+    "blade runner": {
+      "page": 1,
+      "results": [
+        {
+          "adult": false,
+          "backdrop_path": "/eIi3klFf7mp3oL5EEF4mLIDs26r.jpg",
+          "genre_ids": [878, 18, 53],
+          "id": 78,
+          "original_language": "en",
+          "original_title": "Blade Runner",
+          "overview": "In the smog-choked dystopian Los Angeles of 2019, blade runner Rick Deckard is called out of retirement to terminate a quartet of replicants.",
+          "popularity": 61.2,
+          "poster_path": "/63N9uy8nd9j7Eog2axPQ8lbr3Wj.jpg",
+          "release_date": "1982-06-25",
+          "title": "Blade Runner",
+          "video": false,
+          "vote_average": 7.9,
+          "vote_count": 14321
+        },
+        {
+          "adult": false,
+          "backdrop_path": "/ilRyazdMJwN05exqhwK4tMKBYZs.jpg",
+          "genre_ids": [878, 18],
+          "id": 335984,
+          "original_language": "en",
+          "original_title": "Blade Runner 2049",
+          "overview": "Thirty years after the events of the first film, a new blade runner unearths a long-buried secret.",
+          "popularity": 72.4,
+          "poster_path": "/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
+          "release_date": "2017-10-04",
+          "title": "Blade Runner 2049",
+          "video": false,
+          "vote_average": 7.6,
+          "vote_count": 13987
+        }
+      ],
+      "total_pages": 1,
+      "total_results": 2
+    }
+  },
+  "search/tv": {
+    "severance": {
+      "page": 1,
+      "results": [
+        {
+          "adult": false,
+          "backdrop_path": "/npD65vPa4vvn1ZHpp3o05A5vdKT.jpg",
+          "first_air_date": "2022-02-17",
+          "genre_ids": [18, 9648, 10765],
+          "id": 95396,
+          "name": "Severance",
+          "origin_country": ["US"],
+          "original_language": "en",
+          "original_name": "Severance",
+          "overview": "Mark leads a team of office workers whose memories have been surgically divided between their work and personal lives.",
+          "popularity": 120.5,
+          "poster_path": "/pPHpeI2X1qEd1CS1SeyrdhZ4qnT.jpg",
+          "vote_average": 8.4,
+          "vote_count": 2763
+        }
+      ],
+      "total_pages": 1,
+      "total_results": 1
+    }
+  },
+  "search/multi": {
+    "blade runner": {
+      "page": 1,
+      "results": [
+        {
+          "id": 78,
+          "media_type": "movie",
+          "original_language": "en",
+          "original_title": "Blade Runner",
+          "poster_path": "/63N9uy8nd9j7Eog2axPQ8lbr3Wj.jpg",
+          "release_date": "1982-06-25",
+          "title": "Blade Runner"
+        },
+        {
+          "id": 335984,
+          "media_type": "movie",
+          "original_language": "en",
+          "original_title": "Blade Runner 2049",
+          "poster_path": "/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg",
+          "release_date": "2017-10-04",
+          "title": "Blade Runner 2049"
+        },
+        {
+          "gender": 2,
+          "id": 578,
+          "known_for_department": "Directing",
+          "media_type": "person",
+          "name": "Ridley Scott",
+          "profile_path": "/zABJmN9opmqD4orWl3KSdCaSo7Q.jpg"
+        },
+        {
+          "first_air_date": "2021-11-13",
+          "id": 119051,
+          "media_type": "tv",
+          "name": "Blade Runner: Black Lotus",
+          "original_language": "en",
+          "original_name": "Blade Runner: Black Lotus",
+          "poster_path": "/ia2EkxQnN8mCMmd2V6WyqHfSaYT.jpg"
+        }
+      ],
+      "total_pages": 1,
+      "total_results": 4
+    }
+  },
+  "find": {
+    "tt0083658": {
+      "movie_results": [
+        {
+          "id": 78,
+          "media_type": "movie",
+          "original_language": "en",
+          "original_title": "Blade Runner",
+          "poster_path": "/63N9uy8nd9j7Eog2axPQ8lbr3Wj.jpg",
+          "release_date": "1982-06-25",
+          "title": "Blade Runner"
+        }
+      ],
+      "person_results": [],
+      "tv_results": [],
+      "tv_episode_results": [],
+      "tv_season_results": []
+    },
+    "tt11280740": {
+      "movie_results": [],
+      "person_results": [],
+      "tv_results": [
+        {
+          "first_air_date": "2022-02-17",
+          "id": 95396,
+          "media_type": "tv",
+          "name": "Severance",
+          "original_language": "en",
+          "original_name": "Severance",
+          "poster_path": "/pPHpeI2X1qEd1CS1SeyrdhZ4qnT.jpg"
+        }
+      ],
+      "tv_episode_results": [],
+      "tv_season_results": []
+    }
+  }
+}
