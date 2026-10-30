@@ -175,3 +175,16 @@ describe('legacy key migration', () => {
         expect((await res.json()).settings.watchlist).toEqual({ check_interval_minutes: 15 });
     });
 });
+
+describe('POST /api/setup', () => {
+    it('copies nothing from the checkout into FONTE_HOME', async () => {
+        const res = await app.request('/api/setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+        });
+        expect(res.status).toBe(200);
+        expect(fs.existsSync(path.join(tmpHome, 'AGENTS.md'))).toBe(false);
+        expect(fs.existsSync(path.join(tmpHome, '.claude'))).toBe(false);
+    });
+});

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { Hono } from 'hono';
 import { Settings } from '@fonte/core';
-import { FONTE_HOME, getSettings, validateSettings, updateSettingsFile, expandHomePath, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH, redactSettings, restoreRedacted } from '@fonte/core';
+import { FONTE_HOME, getSettings, validateSettings, updateSettingsFile, expandHomePath, ensureAgentDirectory, SOUL_PATH, redactSettings, restoreRedacted } from '@fonte/core';
 import { log } from '@fonte/core';
 import { ok, fail } from '../http';
 
@@ -68,19 +68,6 @@ app.post('/api/setup', async (c) => {
 
     fs.mkdirSync(path.join(FONTE_HOME, 'logs'), { recursive: true });
     fs.mkdirSync(path.join(FONTE_HOME, 'files'), { recursive: true });
-
-    const templateItems = ['.claude', 'heartbeat.md', 'AGENTS.md'];
-    for (const item of templateItems) {
-        const srcPath = path.join(SCRIPT_DIR, item);
-        const destPath = path.join(FONTE_HOME, item);
-        if (fs.existsSync(srcPath)) {
-            if (fs.statSync(srcPath).isDirectory()) {
-                copyDirSync(srcPath, destPath);
-            } else {
-                fs.copyFileSync(srcPath, destPath);
-            }
-        }
-    }
 
     const workspacePath = settings.workspace?.path;
     if (workspacePath) {
