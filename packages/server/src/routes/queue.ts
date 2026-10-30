@@ -5,7 +5,7 @@ import {
     ackResponse, enqueueResponse,
     getDeadMessages, retryDeadMessage, deleteDeadMessage,
     getProcessingMessages, getProcessingMessage, failMessage, cancelMessage,
-    getActiveAgentIds, killAgentProcess, queueEvents,
+    getActiveAgentIds, killAgentProcess, queueEvents, deleteAgentMessagesByMessageId,
 } from '@fonte/core';
 import { ok, fail } from '../http';
 
@@ -173,6 +173,7 @@ export function createQueueRoutes() {
         const agent = msg.agent || 'default';
         cancelMessage(id);
         const processKilled = msg.status === 'processing' ? killAgentProcess(agent) : false;
+        if (msg.status !== 'processing') deleteAgentMessagesByMessageId(agent, msg.message_id, 'user');
         emitEvent('agent:cancelled', { agentId: agent, messageId: msg.message_id });
 
         log('INFO', `[API] Cancelled run for ${agent} (message ${id}), process killed: ${processKilled}`);

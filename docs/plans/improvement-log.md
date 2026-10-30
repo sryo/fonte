@@ -197,3 +197,11 @@ Each entry: what changed, how it was verified, what was deferred and why.
 
 ## Deployed 2026-10-30
 - `main` fast-forwarded to fc77e83 (4.6, 4.8, 4.7, 4.9). Dashboard rebuilt and com.fonte.dashboard restarted. The daemon was not restarted, since no daemon code changed.
+
+## Edit a queued message (plan 4.11, 2026-10-30)
+- Clicking a queued message's text cancels it and moves the text into the composer, with focus there. A pencil shows on hover. If something is already typed, the queued text goes on a new line below it, so nothing is lost. A send the daemon hasn't listed yet (no queue id) can't be edited, the same as it can't be cancelled.
+- Daemon change: `POST /api/queue/processing/:id/cancel` now deletes the user row of a message that never started. The queued text no longer stays in the transcript after a cancel (this also applies to the existing ✕). A running message keeps its row. Deploying this needs a daemon restart.
+- The hook's `cancelQueued` also drops the matching outbox entry, so a cancelled local send doesn't come back as "Queued".
+- Tests: `packages/server/src/routes/queue.test.ts` (2) and composer cases (`withQueuedText`, edit control only on rows with a queue id), written first. `npm run check`: 92 files, 939 tests.
+- Verified by hand against the API-only test server: with one running turn and one queued message, clicking the queued one put "Find dune in 4k" in the focused composer, removed it from the queue and the transcript, and marked it `cancelled`. The running turn stayed `pending` and visible.
+- Not deployed.

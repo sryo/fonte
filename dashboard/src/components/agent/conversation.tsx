@@ -23,7 +23,7 @@ import {
   SystemNote,
   ToolActivity,
 } from "@/components/agent/tool-activity";
-import { useAgentChat, type ChatMessage } from "@/hooks/use-agent-chat";
+import { useAgentChat, type ChatMessage, type QueuedMessage } from "@/hooks/use-agent-chat";
 import { useDelayedFlag } from "@/hooks/use-delayed-flag";
 import { useInputHistory } from "@/hooks/use-input-history";
 import { modKeyLabel, useIsMac } from "@/hooks/use-platform";
@@ -74,10 +74,14 @@ export function isStopAndSend(
   );
 }
 
+export function withQueuedText(input: string, content: string): string {
+  return input.trim() ? `${input}\n${content}` : content;
+}
+
 export function useChatComposer(chat: AgentChat) {
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { startEditing, cancelEditing, send, sending, sentHistory, editingRowId } = chat;
+  const { startEditing, cancelEditing, cancelQueued, send, sending, sentHistory, editingRowId } = chat;
   const recall = useInputHistory(sentHistory, input, setInput, editingRowId == null);
 
   const beginEdit = useCallback(
@@ -105,7 +109,21 @@ export function useChatComposer(chat: AgentChat) {
     [input, sending, send]
   );
 
-  return { input, setInput, inputRef, recall, beginEdit, endEdit, submit };
+  const editQueued = useCallback(
+    async (queued: QueuedMessage) => {
+      if (queued.queueId == null) return;
+      try {
+        await cancelQueued(queued.queueId);
+      } catch {
+        return;
+      }
+      setInput((current) => withQueuedText(current, queued.content));
+      inputRef.current?.focus();
+    },
+    [cancelQueued]
+  );
+
+  return { input, setInput, inputRef, recall, beginEdit, endEdit, submit, editQueued };
 }
 
 export type ChatComposer = ReturnType<typeof useChatComposer>;
@@ -305,7 +323,7 @@ export function AgentComposer({
   agentName: string;
 }) {
   const { run, stopping, stop, queued, cancellingId, cancelQueued, sending, editingRowId, disconnected } = chat;
-  const { input, setInput, inputRef, recall, endEdit, submit } = composer;
+  const { input, setInput, inputRef, recall, endEdit, submit, editQueued } = composer;
   const runShown = useDelayedFlag(run != null);
   const sendingShown = useDelayedFlag(sending);
   const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
@@ -411,6 +429,7 @@ export function AgentComposer({
         <QueuedRow
           key={q.key}
           content={q.content}
+          onEdit={q.queueId != null ? () => void editQueued(q) : undefined}
           onCancel={q.queueId != null ? () => cancelQueued(q.queueId!) : undefined}
           cancelling={q.queueId != null && cancellingId === q.queueId}
         />

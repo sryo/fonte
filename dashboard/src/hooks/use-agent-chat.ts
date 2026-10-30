@@ -336,12 +336,14 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
       setCancellingId(queueId);
       try {
         await cancelAgentRun(queueId);
+        const messageId = processing.find((p) => p.id === queueId)?.messageId;
+        if (messageId) setOutbox((prev) => prev.filter((o) => o.messageId !== messageId));
         await refresh();
       } finally {
         setCancellingId((id) => (id === queueId ? null : id));
       }
     },
-    [refresh]
+    [processing, refresh]
   );
 
   const reset = useCallback(async () => {

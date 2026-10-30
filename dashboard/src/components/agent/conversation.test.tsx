@@ -6,6 +6,7 @@ import {
   AgentTranscript,
   composerButton,
   isStopAndSend,
+  withQueuedText,
   useChatComposer,
   type AgentChat,
   type ConversationLayout,
@@ -115,6 +116,16 @@ describe.each(layouts)("AgentComposer (%s)", (layout) => {
     expect(composer(chat, layout)).toContain("next one");
   });
 
+  it("lets a queued message the daemon has seen be edited", () => {
+    const chat = fakeChat({
+      queued: [
+        { key: "q1", queueId: 7, messageId: "m1", content: "seen" },
+        { key: "q2", queueId: null, messageId: "m2", content: "not seen yet" },
+      ],
+    });
+    expect(composer(chat, layout).match(/aria-label="Edit queued message"/g)).toHaveLength(1);
+  });
+
   it("says the daemon is unreachable once the chat reports it", () => {
     const notice = "Can&#x27;t reach the daemon. Messages send when it&#x27;s back.";
     expect(composer(fakeChat({ error: "Failed to fetch" }), layout)).not.toContain(notice);
@@ -154,6 +165,17 @@ describe("composerButton", () => {
     expect(composerButton({ running: false, input: "hi", sending: true, stopping: false })).toEqual({
       mode: "send", icon: "stop", tooltip: "Sending...", disabled: true, sendNow: false,
     });
+  });
+});
+
+describe("withQueuedText", () => {
+  it("fills an empty composer", () => {
+    expect(withQueuedText("", "find dune")).toBe("find dune");
+    expect(withQueuedText("  ", "find dune")).toBe("find dune");
+  });
+
+  it("keeps what is already typed and adds the queued text below it", () => {
+    expect(withQueuedText("in 4k", "find dune")).toBe("in 4k\nfind dune");
   });
 });
 

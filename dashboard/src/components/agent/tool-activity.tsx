@@ -7,6 +7,7 @@ import {
   FileText,
   Globe,
   MagnifyingGlass,
+  PencilSimple,
   Terminal,
   UsersThree,
   Wrench,
@@ -228,19 +229,35 @@ export function SendStatus({
 /** A message accepted by the queue that the agent hasn't picked up yet. */
 export function QueuedRow({
   content,
+  onEdit,
   onCancel,
   cancelling,
 }: {
   content: string;
+  onEdit?: () => void;
   onCancel?: () => void;
   cancelling?: boolean;
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2 text-xs">
       <span className="shrink-0 font-semibold text-muted-foreground">Queued</span>
-      <span className="min-w-0 flex-1 truncate text-foreground/80" title={content}>
-        {content}
-      </span>
+      {onEdit ? (
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={cancelling}
+          aria-label="Edit queued message"
+          title={content}
+          className="group/queued flex min-w-0 flex-1 items-center gap-1.5 rounded text-left text-foreground/80 hover:text-foreground transition-colors disabled:opacity-50"
+        >
+          <span className="min-w-0 truncate">{content}</span>
+          <PencilSimple className="size-3 shrink-0 opacity-0 transition-opacity group-hover/queued:opacity-60 group-focus-visible/queued:opacity-60" />
+        </button>
+      ) : (
+        <span className="min-w-0 flex-1 truncate text-foreground/80" title={content}>
+          {content}
+        </span>
+      )}
       {onCancel && (
         <button
           type="button"
