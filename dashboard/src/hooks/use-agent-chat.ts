@@ -71,6 +71,7 @@ const CHAT_EVENT_TYPES = [
   "agent:response",
   "agent:cancelled",
   "agent:error",
+  "agent:paused",
 ];
 
 function eventTargets(event: EventData, agentId: string): boolean {

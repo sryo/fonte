@@ -126,6 +126,29 @@ const QUEUE_MIGRATIONS: Migration[] = [
             }
         },
     },
+    {
+        version: 4,
+        name: 'rate-limit pauses',
+        up(db) {
+            const cols = db.prepare('PRAGMA table_info(messages)').all() as { name: string }[];
+            if (!cols.some(c => c.name === 'not_before')) {
+                db.exec('ALTER TABLE messages ADD COLUMN not_before INTEGER');
+            }
+            if (!cols.some(c => c.name === 'paused_ms')) {
+                db.exec('ALTER TABLE messages ADD COLUMN paused_ms INTEGER NOT NULL DEFAULT 0');
+            }
+            if (!cols.some(c => c.name === 'unknown_resets')) {
+                db.exec('ALTER TABLE messages ADD COLUMN unknown_resets INTEGER NOT NULL DEFAULT 0');
+            }
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS provider_pauses (
+                    provider TEXT PRIMARY KEY,
+                    until INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                );
+            `);
+        },
+    },
 ];
 
 export function initQueueDb(): void {
@@ -171,44 +194,48 @@ export function enqueueMessage(data: MessageJobData): number | null {
     }
 }
 
-export function getPendingAgents(): string[] {
+// A pending row held by a rate-limit pause is not due until its not_before.
+const DUE = '(not_before IS NULL OR not_before<=?)';
+
+export function getPendingAgents(now = Date.now()): string[] {
     return (getDb().prepare(
-        `SELECT DISTINCT COALESCE(agent,'default') as agent FROM messages WHERE status='pending'`
-    ).all() as { agent: string }[]).map(r => r.agent);
+        `SELECT DISTINCT COALESCE(agent,'default') as agent FROM messages WHERE status='pending' AND ${DUE}`
+    ).all(now) as { agent: string }[]).map(r => r.agent);
 }
 
 /**
- * Claim the next pending message for an agent: user-lane rows first, then by
- * arrival, so a person typing never waits behind a queue of background wakes.
+ * Claim the next due pending message for an agent: user-lane rows first, then
+ * by arrival, so a person typing never waits behind a queue of background wakes.
  */
-export function claimNextPendingMessage(agentId: string): any | null {
+export function claimNextPendingMessage(agentId: string, now = Date.now()): any | null {
     const d = getDb();
     return d.transaction(() => {
         const row = d.prepare(
-            `SELECT * FROM messages WHERE status='pending' AND (agent=? OR (agent IS NULL AND ?='default'))
+            `SELECT * FROM messages WHERE status='pending' AND ${DUE} AND (agent=? OR (agent IS NULL AND ?='default'))
              ORDER BY CASE lane WHEN 'user' THEN 0 ELSE 1 END, created_at LIMIT 1`
-        ).get(agentId, agentId) as any;
+        ).get(now, agentId, agentId) as any;
         if (!row) return null;
         d.prepare(`UPDATE messages SET status='queued',updated_at=? WHERE id=?`).run(Date.now(), row.id);
         return { ...row, status: 'queued' };
     }).immediate();
 }
 
-export function oldestPendingUserMessageAge(agentId: string): number | null {
+/** How long the longest-waiting due user-lane message has waited, counted from when it became due. */
+export function oldestPendingUserMessageAge(agentId: string, now = Date.now()): number | null {
     const row = getDb().prepare(
-        `SELECT MIN(created_at) AS oldest FROM messages WHERE status='pending' AND lane='user' AND (agent=? OR (agent IS NULL AND ?='default'))`
-    ).get(agentId, agentId) as { oldest: number | null };
-    return row?.oldest == null ? null : Date.now() - row.oldest;
+        `SELECT MIN(MAX(created_at, COALESCE(not_before, 0))) AS oldest FROM messages
+         WHERE status='pending' AND lane='user' AND ${DUE} AND (agent=? OR (agent IS NULL AND ?='default'))`
+    ).get(now, agentId, agentId) as { oldest: number | null };
+    return row?.oldest == null ? null : now - row.oldest;
 }
 
-export function claimAllPendingMessages(agentId: string): any[] {
+export function claimAllPendingMessages(agentId: string, now = Date.now()): any[] {
     const d = getDb();
     return d.transaction(() => {
         const rows = d.prepare(
-            `SELECT * FROM messages WHERE status='pending' AND (agent=? OR (agent IS NULL AND ?='default')) ORDER BY created_at`
-        ).all(agentId, agentId) as any[];
+            `SELECT * FROM messages WHERE status='pending' AND ${DUE} AND (agent=? OR (agent IS NULL AND ?='default')) ORDER BY created_at`
+        ).all(now, agentId, agentId) as any[];
         if (rows.length === 0) return [];
-        const now = Date.now();
         const ids = rows.map((r: any) => r.id);
         d.prepare(`UPDATE messages SET status='queued',updated_at=? WHERE id IN (${ids.map(() => '?').join(',')})`).run(now, ...ids);
         return rows.map((r: any) => ({ ...r, status: 'queued' }));
@@ -244,6 +271,21 @@ export function deadLetterMessage(rowId: number, error: string): boolean {
     return getDb().prepare(
         `UPDATE messages SET status='dead',retry_count=retry_count+1,last_error=?,updated_at=? WHERE id=? AND status IN ('queued','processing')`
     ).run(error, Date.now(), rowId).changes > 0;
+}
+
+/**
+ * Rate-limit pause: a running row goes back to pending, held until
+ * `notBefore`, retry count untouched. `paused_ms` adds up how long it has been
+ * held in total; `unknown_resets` counts back-to-back pauses whose reset time
+ * the provider never gave.
+ */
+export function requeueMessageAt(rowId: number, notBefore: number, error: string, opts: { unknownReset: boolean }): boolean {
+    const now = Date.now();
+    return getDb().prepare(
+        `UPDATE messages SET status='pending',not_before=?,last_error=?,paused_ms=paused_ms+?,
+            unknown_resets=CASE WHEN ? THEN unknown_resets+1 ELSE 0 END,updated_at=?
+         WHERE id=? AND status IN ('queued','processing')`
+    ).run(notBefore, error, Math.max(0, notBefore - now), opts.unknownReset ? 1 : 0, now, rowId).changes > 0;
 }
 
 export function getMessageStatus(rowId: number): string | null {
@@ -322,6 +364,24 @@ export function clearAgentSessions(agentId: string, lane?: MessageLane): number 
         : getDb().prepare(`DELETE FROM agent_sessions WHERE agent_id=?`).run(agentId).changes;
 }
 
+// ── Provider pauses (a usage limit holds every agent on that provider) ─────
+
+/** Holds the provider until `until`; an existing later pause wins. */
+export function setProviderPause(provider: string, until: number): void {
+    getDb().prepare(
+        `INSERT INTO provider_pauses (provider,until,updated_at) VALUES (?,?,?)
+         ON CONFLICT(provider) DO UPDATE SET until=MAX(until,excluded.until),updated_at=excluded.updated_at`
+    ).run(provider, until, Date.now());
+}
+
+/** Active pauses by provider (until, epoch ms). Expired ones are deleted on the way. */
+export function getProviderPauses(now = Date.now()): Map<string, number> {
+    const d = getDb();
+    d.prepare(`DELETE FROM provider_pauses WHERE until<=?`).run(now);
+    const rows = d.prepare(`SELECT provider, until FROM provider_pauses`).all() as { provider: string; until: number }[];
+    return new Map(rows.map(r => [r.provider, r.until]));
+}
+
 // ── Responses ───────────────────────────────────────────────────────────────
 
 export function enqueueResponse(data: ResponseJobData): number {
@@ -372,7 +432,9 @@ export function getDeadMessages(): any[] {
 }
 
 export function retryDeadMessage(rowId: number): boolean {
-    const changed = getDb().prepare(`UPDATE messages SET status='pending',retry_count=0,updated_at=? WHERE id=? AND status='dead'`).run(Date.now(), rowId).changes > 0;
+    const changed = getDb().prepare(
+        `UPDATE messages SET status='pending',retry_count=0,not_before=NULL,paused_ms=0,unknown_resets=0,updated_at=? WHERE id=? AND status='dead'`
+    ).run(Date.now(), rowId).changes > 0;
     if (changed) queueEvents.emit('message:enqueued', { id: rowId });
     return changed;
 }

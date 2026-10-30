@@ -14,6 +14,10 @@ const ERROR_TURN_KINDS: Record<string, AgentFailureKind> = {
     overloaded: 'rate_limit',
 };
 
+function rejectedResetMs(info: any): number | undefined {
+    return info?.status === 'rejected' && Number.isFinite(info.resetsAt) ? info.resetsAt * 1000 : undefined;
+}
+
 /**
  * Extract displayable text from a Claude stream-json event. Tool-use blocks
  * go to `onTool` when provided, else render as legacy `[tool: X]` markers.
@@ -66,10 +70,24 @@ export const claudeAdapter: AgentAdapter = {
             let failure = null as AgentRunError | null;
             // A failed API call can still come back as a non-error result.
             let apiFailed = false;
+            // A rejected rate_limit_event or the error turn's own copy of it says when the limit lifts.
+            let limitResetsAt: number | undefined;
+            let errorTurnResetsAt: number | undefined;
+            let overloaded = false;
+            const withReset = (error: AgentRunError) => {
+                const resetsAt = errorTurnResetsAt ?? (overloaded ? undefined : limitResetsAt);
+                return error.kind === 'rate_limit' && resetsAt !== undefined
+                    ? new AgentRunError(error.message, error.kind, { resetsAt })
+                    : error;
+            };
             const { promise, signalDone } = runCommandStreaming('claude', args, (line) => {
                 try {
                     const json = JSON.parse(line);
                     if (json.session_id && onSessionId) onSessionId(json.session_id);
+                    if (json.type === 'rate_limit_event') {
+                        limitResetsAt = rejectedResetMs(json.rate_limit_info) ?? limitResetsAt;
+                        return;
+                    }
                     if (json.type === 'result') {
                         const resultText = typeof json.result === 'string' ? json.result : '';
                         const isApiError = json.terminal_reason === 'api_error' || /^\s*API Error:/.test(resultText);
@@ -88,6 +106,8 @@ export const claudeAdapter: AgentAdapter = {
                     }
                     const text = extractEventText(json, onTool, onToolResult);
                     if (json.type === 'assistant' && typeof json.error === 'string') {
+                        errorTurnResetsAt = rejectedResetMs(json.api_error_params?.rate_limit_info) ?? errorTurnResetsAt;
+                        overloaded = json.error === 'overloaded';
                         failure = new AgentRunError(text || json.error, ERROR_TURN_KINDS[json.error]);
                         return;
                     }
@@ -110,11 +130,11 @@ export const claudeAdapter: AgentAdapter = {
                 // Older CLIs don't tag the error turn and leave stderr empty, so
                 // the last text they printed is the real error.
                 const killed = (err as { signal?: string }).signal !== undefined;
-                throw failure ?? new AgentRunError(killed ? (err as Error).message : response || (err as Error).message);
+                throw withReset(failure ?? new AgentRunError(killed ? (err as Error).message : response || (err as Error).message));
             }
             // An error result with a clean exit and no recognisable cause (max
             // turns) still carries the partial answer.
-            if (failure && (failure.kind !== 'unknown' || apiFailed)) throw failure;
+            if (failure && (failure.kind !== 'unknown' || apiFailed)) throw withReset(failure);
 
             return response || NO_RESPONSE;
         }

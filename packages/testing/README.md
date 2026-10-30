@@ -53,3 +53,5 @@ const cli = writeFakeCli(binDir, 'claude', { lines: loadRecording('claude-stream
 await getAdapter('anthropic')!.invoke({ ...opts, envOverrides: { PATH: `${binDir}:${process.env.PATH}` } });
 expect(cli.invocations()[0].argv).toContain('stream-json');
 ```
+
+`claude-usage-limit`, `claude-usage-limit-legacy` and `codex-usage-limit` are synthetic: built by hand from the stream schema and message strings inside Claude Code 2.1.312 and codex-cli 0.154.0, not captured from a run that actually hit a limit.

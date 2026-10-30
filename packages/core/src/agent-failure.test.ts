@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AgentRunError, classifyAgentFailure, describeAgentFailure, toAgentRunError } from './agent-failure';
+import { AgentRunError, classifyAgentFailure, describeAgentFailure, parseUsageLimitReset, toAgentRunError } from './agent-failure';
 
 describe('classifyAgentFailure', () => {
     it('recognises the Claude CLI auth line and API auth errors', () => {
@@ -12,6 +12,8 @@ describe('classifyAgentFailure', () => {
         expect(classifyAgentFailure('Your credit balance is too low to access the Anthropic API')).toBe('billing');
         expect(classifyAgentFailure('API Error: 429 rate_limit_error')).toBe('rate_limit');
         expect(classifyAgentFailure('Overloaded')).toBe('rate_limit');
+        expect(classifyAgentFailure("You've hit your 5-hour limit · resets 3pm (Europe/Madrid)")).toBe('rate_limit');
+        expect(classifyAgentFailure("You've hit your usage limit. Upgrade to Plus to continue using Codex")).toBe('rate_limit');
     });
 
     it('recognises the watchdog stopping a silent run', () => {
@@ -59,5 +61,57 @@ describe('toAgentRunError', () => {
         expect(toAgentRunError('boom').message).toBe('boom');
         expect(new AgentRunError('401 ' + 'x'.repeat(5000)).message.length).toBe(2000);
         expect(new AgentRunError('x'.repeat(5000) + ' 401').kind).toBe('auth');
+    });
+});
+
+describe('parseUsageLimitReset', () => {
+    const now = new Date(2026, 9, 30, 13, 20, 0).getTime();
+    const local = (month: number, day: number, h: number, m = 0, year = 2026) => new Date(year, month, day, h, m).getTime();
+
+    it('reads the epoch seconds older Claude CLIs append to the limit message', () => {
+        expect(parseUsageLimitReset('Claude AI usage limit reached|1798732800', now)).toBe(1798732800_000);
+    });
+
+    it("reads Claude's reset time in the zone it names", () => {
+        const madrid = parseUsageLimitReset("You've hit your 5-hour limit · resets 3pm (Europe/Madrid)", Date.UTC(2026, 9, 30, 10, 0));
+        expect(madrid).toBe(Date.UTC(2026, 9, 30, 14, 0));
+        const tomorrow = parseUsageLimitReset("You've hit your 5-hour limit · resets 9:30am (America/New_York)", Date.UTC(2026, 9, 30, 20, 0));
+        expect(tomorrow).toBe(Date.UTC(2026, 9, 31, 13, 30));
+        const dated = parseUsageLimitReset("You've hit your weekly limit · resets Nov 3, 3pm (Europe/Madrid) · progress saved", Date.UTC(2026, 9, 30, 10, 0));
+        expect(dated).toBe(Date.UTC(2026, 10, 3, 14, 0));
+        const nextYear = parseUsageLimitReset("You've hit your weekly limit · resets Jan 2, 2027, 6:30pm (UTC)", Date.UTC(2026, 11, 30, 10, 0));
+        expect(nextYear).toBe(Date.UTC(2027, 0, 2, 18, 30));
+    });
+
+    it("falls back to local time when Claude names no zone or one it can't resolve", () => {
+        expect(parseUsageLimitReset("You've hit your 5-hour limit · resets 3pm", now)).toBe(local(9, 30, 15));
+        expect(parseUsageLimitReset("You've hit your 5-hour limit · resets 3pm (Nowhere/Atlantis)", now)).toBe(local(9, 30, 15));
+    });
+
+    it("reads Codex's local try-again time, rolling a past time to tomorrow", () => {
+        expect(parseUsageLimitReset("You've hit your usage limit. Upgrade to Plus to continue using Codex (https://chatgpt.com/explore/plus), or try again at 3:42 PM.", now))
+            .toBe(local(9, 30, 15, 42));
+        expect(parseUsageLimitReset("You've hit your usage limit. Try again at 9:05 AM.", now)).toBe(local(9, 31, 9, 5));
+        expect(parseUsageLimitReset("You've hit your usage limit. Try again at Nov 2nd, 2026 4:15 PM.", now)).toBe(local(10, 2, 16, 15));
+    });
+
+    it('adds up a try-again-in duration', () => {
+        expect(parseUsageLimitReset('Rate limit reached. Please try again in 20s.', now)).toBe(now + 20_000);
+        expect(parseUsageLimitReset('Too many requests, try again in 2 hours 5 minutes', now)).toBe(now + 125 * 60_000);
+        expect(parseUsageLimitReset('try again in 1.5 seconds', now)).toBe(now + 1_500);
+    });
+
+    it('finds nothing in text without a reset', () => {
+        expect(parseUsageLimitReset('API Error: 429 rate_limit_error', now)).toBeUndefined();
+        expect(parseUsageLimitReset('Overloaded', now)).toBeUndefined();
+    });
+});
+
+describe('AgentRunError.resetsAt', () => {
+    it('keeps a reset the adapter passes and otherwise reads one from a rate-limit message', () => {
+        expect(new AgentRunError('anything', 'rate_limit', { resetsAt: 1234 }).resetsAt).toBe(1234);
+        expect(new AgentRunError('Claude AI usage limit reached|1798732800').resetsAt).toBe(1798732800_000);
+        expect(new AgentRunError('Claude AI usage limit reached|1798732800', 'billing').resetsAt).toBeUndefined();
+        expect(new AgentRunError('API Error: 429').resetsAt).toBeUndefined();
     });
 });

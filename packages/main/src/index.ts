@@ -19,6 +19,7 @@ import {
     insertAgentMessage, deleteAgentMessagesByMessageId, updateAgentToolMessage,
     registerSystemPromptSection,
     deadLetterMessage, toAgentRunError, describeAgentFailure, AgentRunError,
+    requeueMessageAt, setProviderPause, getProviderPauses, planRateLimitRetry, formatPauseNotice,
     runInAgentSession, sessionLane, getAgentSession, setAgentSession, clearAgentSessions,
     acquireInstanceLock,
 } from '@fonte/core';
@@ -156,7 +157,28 @@ async function processMessage(dbMsg: any): Promise<void> {
         return;
     }
     if (runError) {
-        const providerLabel = provider === 'openai' ? 'Codex' : provider === 'opencode' ? 'OpenCode' : provider === 'gemini' ? 'Gemini' : 'Claude';
+        const providerLabel = providerLabelFor(provider);
+        if (runError.kind === 'rate_limit') {
+            const now = Date.now();
+            const plan = planRateLimitRetry({
+                resetsAt: runError.resetsAt, now,
+                pausedSoFarMs: dbMsg.paused_ms ?? 0, consecutiveUnknown: dbMsg.unknown_resets ?? 0,
+            });
+            if (plan.action === 'requeue') {
+                if (!requeueMessageAt(dbMsg.id, plan.until, runError.message, { unknownReset: plan.resetsAt === undefined })) return;
+                setProviderPause(provider, plan.until);
+                const notice = formatPauseNotice({ providerLabel, until: plan.until, resetsAt: plan.resetsAt, now });
+                log('WARN', `${providerLabel} rate limit (agent: ${agentId}): ${runError.message}. Holding ${provider} until ${new Date(plan.until).toISOString()}`);
+                deleteAgentMessagesByMessageId(agentId, messageId, 'assistant');
+                insertAgentMessage({ agentId, role: 'assistant', channel, sender: agentId, messageId, content: notice, kind: 'system' });
+                emitEvent('agent:paused', { agentId, agentName: agent.name, provider, until: plan.until, messageId });
+                await sendDirectResponse(notice, {
+                    channel, sender, senderId: data.senderId,
+                    messageId, originalMessage: rawMessage, agentId,
+                });
+                return;
+            }
+        }
         log('ERROR', `${providerLabel} error (agent: ${agentId}, ${runError.kind}): ${runError.message}`);
         const { summary, remedy } = describeAgentFailure(runError.kind, providerLabel, runError.message);
         emitEvent('agent:error', { agentId, agentName: agent.name, messageId, channel, error: summary });
@@ -198,6 +220,17 @@ async function processMessage(dbMsg: any): Promise<void> {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+function providerLabelFor(provider: string): string {
+    return provider === 'openai' ? 'Codex' : provider === 'opencode' ? 'OpenCode' : provider === 'gemini' ? 'Gemini' : 'Claude';
+}
+
+/** The provider a queued agent id runs on; unknown ids fall back the way processMessage routes them. */
+function providerForAgent(agentId: string): string {
+    const agents = getAgents(getSettings());
+    const agent = agents[agentId] ?? agents.fonte ?? Object.values(agents)[0];
+    return agent?.provider || 'anthropic';
+}
+
 async function sendDirectResponse(
     response: string,
     ctx: { channel: string; sender: string; senderId?: string | null; messageId: string; originalMessage: string; agentId: string }
@@ -223,15 +256,20 @@ const agentKillEpoch = new Map<string, number>();
 async function processQueue(): Promise<void> {
     const pendingAgents = getPendingAgents();
     if (pendingAgents.length === 0) return;
+    // A usage limit covers the whole provider account, so its agents' messages
+    // stay pending, untouched, until the pause ends.
+    const pauses = getProviderPauses();
 
     for (const agentId of pendingAgents) {
         if (agentChains.has(agentId)) continue;
+        if (pauses.has(providerForAgent(agentId))) continue;
 
         // One claim per turn, user lane first, so a message that arrives while a
         // batch of background wakes is queued still runs before them.
         const newChain = (async () => {
             const epoch = agentKillEpoch.get(agentId) || 0;
             for (;;) {
+                if (getProviderPauses().has(providerForAgent(agentId))) break;
                 const msg = claimNextPendingMessage(agentId);
                 if (!msg) break;
                 if (getMessageStatus(msg.id) === 'cancelled') continue;
