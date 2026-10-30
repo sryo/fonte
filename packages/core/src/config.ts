@@ -46,6 +46,7 @@ const SETTINGS_SHAPE: Shape = {
     notifications: {
         enabled: 'boolean', torrent_completed: 'boolean', watchlist_match: 'boolean',
         automation_failed: 'boolean',
+        destinations: { torrent_completed: 'string', watchlist_match: 'string', automation_failed: 'string' },
     },
     libraries: 'record',
     whatsapp: { allowed_chat: 'string', allowed_participants: 'string[]' },
