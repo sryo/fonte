@@ -278,7 +278,7 @@ export function AgentComposer({
   layout: ConversationLayout;
   agentName: string;
 }) {
-  const { run, stopping, stop, queued, cancellingId, cancelQueued, sending, editingRowId } = chat;
+  const { run, stopping, stop, queued, cancellingId, cancelQueued, sending, editingRowId, disconnected } = chat;
   const { input, setInput, inputRef, recall, endEdit, submit } = composer;
   const button = composerButton({ running: run != null, input, sending, stopping });
   const panel = layout === "panel";
@@ -290,6 +290,13 @@ export function AgentComposer({
       <span className="font-black text-ghost tabular-nums">
         <Elapsed since={run.startedAt} />
       </span>
+    </div>
+  );
+
+  const unreachable = disconnected && (
+    <div role="status" className={cn("flex items-center gap-2 text-xs text-muted-foreground", inset)}>
+      <span aria-hidden className="h-1.5 w-1.5 shrink-0 bg-destructive" />
+      Can&apos;t reach the daemon. Messages send when it&apos;s back.
     </div>
   );
 
@@ -364,6 +371,7 @@ export function AgentComposer({
   if (panel) {
     return (
       <div className="border-t shrink-0">
+        {unreachable}
         {working}
         {editing}
         <div className="px-4 py-3">
@@ -376,6 +384,7 @@ export function AgentComposer({
 
   return (
     <div className="absolute bottom-4 left-6 right-6 z-10 space-y-2">
+      {unreachable}
       {working}
       {editing}
       {prompt}

@@ -169,3 +169,11 @@ Each entry: what changed, how it was verified, what was deferred and why.
 - Tests: `conversation.test.tsx` (19, server-rendered, both layouts), written before the component. Root `vitest.config.ts` now resolves the dashboard's `@/` alias so component tests can import it. `npm run check`: 89 files, 916 tests.
 - Verified by hand in Chrome against an API-only server on port 3901 with a temp FONTE_HOME and seeded messages (the full daemon would talk to the real Transmission, whose address is hardcoded): the agent page opens at the newest message with the composer pinned, sending keeps it at the bottom and shows the timer, and the panel opens at the bottom with the input focused and one edit button. The built-in browser pane couldn't check scrolling, since it pauses animation frames while hidden.
 - Not deployed.
+
+## Disconnected notice at the composer (plan 4.8, 2026-10-30)
+- When the chat's poll has failed for 5 seconds, the composer shows "Can't reach the daemon. Messages send when it's back." It is the same in the panel and on the agent page, and it clears on the first successful poll.
+- To make that copy true, a send that fails because the daemon is unreachable (fetch threw a `TypeError`) now stays "Sending" and is resent, in order, after the next successful poll. A send the daemon rejected still shows "Couldn't send" with Retry. Resends reuse the same messageId, so the daemon's duplicate check keeps them from landing twice. Outbox rules moved to `dashboard/src/lib/outbox.ts`.
+- The agent page's "Connected / Disconnected" dot is unchanged and still flips on the first failed poll.
+- Tests: `lib/outbox.test.ts` (6) and two composer cases, written first. `npm run check`: 90 files, 924 tests.
+- Verified by hand against the API-only test server: after the API stopped, the notice appeared at 6s (absent at 0 to 5s). A message sent while it was down showed "Sending", then reached the server exactly once within one poll of the API returning, and the notice cleared.
+- Not deployed.

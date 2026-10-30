@@ -17,14 +17,9 @@ import {
 import { groupActivity, isTextRow, type TranscriptEvent } from "@/lib/agent-activity";
 import { buildSentHistory } from "@/lib/input-history";
 import { startPolling } from "@/lib/visibility-poller";
+import { afterSendError, takeWaiting, type Outbound, type SendPhase } from "@/lib/outbox";
 
-/**
- * pending: POST in flight, or accepted and waiting for its agent_messages echo.
- * queued: accepted while a run was active, so the agent hasn't picked it up.
- * failed: POST rejected or the network dropped. A row whose message_id shows up
- * in agent_messages is echoed and leaves the outbox.
- */
-export type SendPhase = "pending" | "queued" | "failed";
+export type { SendPhase };
 
 export interface ChatMessage {
   /** agent_messages row id, or `local-<messageId>` for an unechoed send. */
@@ -48,17 +43,8 @@ export interface QueuedMessage {
   content: string;
 }
 
-interface Outbound {
-  messageId: string;
-  content: string;
-  createdAt: number;
-  phase: SendPhase;
-  error?: string;
-  /** Edit-and-rerun origin: truncate from this row before sending. */
-  rerunFrom?: number;
-}
-
 const POLL_MS = 3000;
+const DISCONNECT_NOTICE_MS = 5000;
 const SSE_DEBOUNCE_MS = 150;
 
 // agent:progress is deliberately outside DEFAULT_EVENT_TYPES; the chat wants
@@ -119,6 +105,8 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
   const [processing, setProcessing] = useState<ProcessingMessage[]>([]);
   const [outbox, setOutbox] = useState<Outbound[]>([]);
   const [pollError, setPollError] = useState<string | null>(null);
+  const [unreachableSince, setUnreachableSince] = useState<number | null>(null);
+  const [noticeDueFor, setNoticeDueFor] = useState<number | null>(null);
   const [inFlightSends, setInFlightSends] = useState(0);
   const [stopping, setStopping] = useState(false);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
@@ -131,6 +119,8 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
   const refreshing = useRef(false);
   const dirty = useRef(false);
   const sseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const outboxRef = useRef(outbox);
+  const resendWaitingRef = useRef<() => void>(() => {});
 
   // Switching agents drops the previous transcript in the same render.
   const [shownAgent, setShownAgent] = useState(agentId);
@@ -141,11 +131,25 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
     setOutbox([]);
     setEditingRowId(null);
     setPollError(null);
+    setUnreachableSince(null);
   }
 
   useEffect(() => {
     agentRef.current = agentId;
   }, [agentId]);
+
+  useEffect(() => {
+    outboxRef.current = outbox;
+  }, [outbox]);
+
+  useEffect(() => {
+    if (unreachableSince == null) return;
+    const id = setTimeout(
+      () => setNoticeDueFor(unreachableSince),
+      Math.max(0, unreachableSince + DISCONNECT_NOTICE_MS - Date.now())
+    );
+    return () => clearTimeout(id);
+  }, [unreachableSince]);
 
   const refresh = useCallback(async () => {
     if (refreshing.current) {
@@ -167,13 +171,18 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
         const mine = procs.filter((p) => p.agent === agentId);
         setProcessing((prev) => (sameProcessing(prev, mine) ? prev : mine));
         setPollError(null);
+        setUnreachableSince(null);
         const echoed = new Set(ordered.map((r) => r.message_id));
         setOutbox((prev) =>
           prev.some((o) => echoed.has(o.messageId)) ? prev.filter((o) => !echoed.has(o.messageId)) : prev
         );
       } while (dirty.current);
+      resendWaitingRef.current();
     } catch (err) {
-      if (agentRef.current === agentId) setPollError((err as Error).message);
+      if (agentRef.current === agentId) {
+        setPollError((err as Error).message);
+        setUnreachableSince((since) => since ?? Date.now());
+      }
     } finally {
       refreshing.current = false;
     }
@@ -265,7 +274,7 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
         patchOutbound(messageId, { phase: runRef.current ? "queued" : "pending", error: undefined });
         await refresh();
       } catch (err) {
-        patchOutbound(messageId, { phase: "failed", error: (err as Error).message });
+        patchOutbound(messageId, afterSendError(err));
       } finally {
         setInFlightSends((n) => n - 1);
       }
@@ -290,6 +299,21 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
     },
     [editingRowId, deliver]
   );
+
+  const resendWaiting = useCallback(() => {
+    const { waiting, outbox: next } = takeWaiting(outboxRef.current);
+    if (waiting.length === 0) return;
+    outboxRef.current = next;
+    const resent = new Set(waiting.map((o) => o.messageId));
+    setOutbox((prev) => prev.map((o) => (o.waiting && resent.has(o.messageId) ? { ...o, waiting: false } : o)));
+    void (async () => {
+      for (const o of waiting) await deliver(o);
+    })();
+  }, [deliver]);
+
+  useEffect(() => {
+    resendWaitingRef.current = resendWaiting;
+  }, [resendWaiting]);
 
   const retry = useCallback(
     (messageId: string) => {
@@ -430,5 +454,6 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
     failureRetry,
     sentHistory,
     error: pollError,
+    disconnected: unreachableSince != null && noticeDueFor === unreachableSince,
   };
 }

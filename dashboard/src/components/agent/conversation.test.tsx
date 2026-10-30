@@ -106,6 +106,12 @@ describe.each(layouts)("AgentComposer (%s)", (layout) => {
     expect(composer(chat, layout)).toContain("next one");
   });
 
+  it("says the daemon is unreachable once the chat reports it", () => {
+    const notice = "Can&#x27;t reach the daemon. Messages send when it&#x27;s back.";
+    expect(composer(fakeChat({ error: "Failed to fetch" }), layout)).not.toContain(notice);
+    expect(composer(fakeChat({ error: "Failed to fetch", disconnected: true }), layout)).toContain(notice);
+  });
+
   it("addresses the agent by name", () => {
     expect(composer(fakeChat(), layout)).toContain('placeholder="Message Fonte Agent…"');
   });
