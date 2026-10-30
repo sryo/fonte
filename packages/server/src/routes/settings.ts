@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { Hono } from 'hono';
 import { Settings } from '@fonte/core';
-import { FONTE_HOME, getSettings, validateSettings, updateSettingsFile, expandHomePath, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH } from '@fonte/core';
+import { FONTE_HOME, getSettings, validateSettings, updateSettingsFile, expandHomePath, ensureAgentDirectory, copyDirSync, SCRIPT_DIR, SOUL_PATH, redactSettings, restoreRedacted } from '@fonte/core';
 import { log } from '@fonte/core';
 import { ok, fail } from '../http';
 
@@ -32,7 +32,7 @@ function expandSettingsPaths(settings: Settings): void {
 const app = new Hono();
 
 app.get('/api/settings', (c) => {
-    return ok(c, { settings: getSettings() });
+    return ok(c, { settings: redactSettings(getSettings()) });
 });
 
 app.put('/api/settings', async (c) => {
@@ -48,20 +48,22 @@ app.put('/api/settings', async (c) => {
         return fail(c, [...typeErrors, ...warnings].join('; '));
     }
     const merged = await updateSettingsFile((current) => {
-        const next = { ...current, ...(body as Settings) };
+        const next = { ...current, ...restoreRedacted(body as Settings, current) };
         expandSettingsPaths(next);
         return next;
     });
     log('INFO', '[API] Settings updated');
-    return ok(c, { settings: merged });
+    return ok(c, { settings: redactSettings(merged) });
 });
 
 app.post('/api/setup', async (c) => {
-    const settings = (await c.req.json()) as Settings;
+    let settings = (await c.req.json()) as Settings;
 
-    expandSettingsPaths(settings);
-
-    await updateSettingsFile(() => settings);
+    await updateSettingsFile((current) => {
+        settings = restoreRedacted(settings, current);
+        expandSettingsPaths(settings);
+        return settings;
+    });
     log('INFO', '[API] Setup: settings.json written');
 
     fs.mkdirSync(path.join(FONTE_HOME, 'logs'), { recursive: true });
@@ -92,7 +94,7 @@ app.post('/api/setup', async (c) => {
     }
 
     log('INFO', '[API] Setup complete');
-    return ok(c, { settings });
+    return ok(c, { settings: redactSettings(settings) });
 });
 
 app.get('/api/soul', (c) => {

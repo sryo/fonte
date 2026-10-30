@@ -7,6 +7,7 @@
 
 export * from './types';
 export * from './config';
+export * from './secrets';
 export * from './logging';
 export * from './notify';
 export * from './reveal';

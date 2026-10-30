@@ -4,7 +4,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { Hono } from 'hono';
 import { AgentConfig, CustomProvider } from '@fonte/core';
-import { getSettings, getAgents, ensureAgentDirectory, expandHomePath } from '@fonte/core';
+import { getSettings, getAgents, ensureAgentDirectory, expandHomePath, redactSettings, REDACTED } from '@fonte/core';
 import { log } from '@fonte/core';
 import { mutateSettings } from './settings';
 import { ok, fail, requireEntity } from '../http';
@@ -289,7 +289,7 @@ app.put('/api/agents/:id/heartbeat', requireAgent, async (c) => {
 
 app.get('/api/custom-providers', (c) => {
     const settings = getSettings();
-    return ok(c, { providers: settings.custom_providers || {} });
+    return ok(c, { providers: redactSettings(settings.custom_providers || {}) });
 });
 
 app.put('/api/custom-providers/:id', async (c) => {
@@ -302,19 +302,25 @@ app.put('/api/custom-providers/:id', async (c) => {
         return fail(c, 'harness must be "claude" or "codex"');
     }
 
+    const stored = getSettings().custom_providers?.[providerId]?.api_key;
+    if (body.api_key === REDACTED && !stored) {
+        return fail(c, 'api_key is required');
+    }
+
     const settings = await mutateSettings(s => {
         if (!s.custom_providers) s.custom_providers = {};
+        const apiKey = body.api_key === REDACTED ? s.custom_providers[providerId]?.api_key ?? '' : body.api_key!;
         s.custom_providers[providerId] = {
             name: body.name!,
             harness: body.harness!,
             base_url: body.base_url!,
-            api_key: body.api_key!,
+            api_key: apiKey,
             ...(body.model ? { model: body.model } : {}),
         };
     });
 
     log('INFO', `[API] Custom provider '${providerId}' saved`);
-    return ok(c, { provider: settings.custom_providers![providerId] });
+    return ok(c, { provider: redactSettings(settings.custom_providers![providerId]) });
 });
 
 app.delete('/api/custom-providers/:id', async (c) => {

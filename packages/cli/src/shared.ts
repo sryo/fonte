@@ -2,7 +2,7 @@ import * as p from '@clack/prompts';
 import fs from 'fs';
 import http from 'http';
 import path from 'path';
-import { Settings, SETTINGS_FILE, FONTE_HOME, SCRIPT_DIR } from '@fonte/core';
+import { Settings, SETTINGS_FILE, FONTE_HOME, SCRIPT_DIR, writeSettingsAtomic } from '@fonte/core';
 
 export { SETTINGS_FILE, FONTE_HOME, SCRIPT_DIR };
 
@@ -106,10 +106,7 @@ export function readSettings(): Settings {
 
 // Atomic write via tmp + rename.
 export function writeSettings(settings: Settings): void {
-    fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
-    const tmp = SETTINGS_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(settings, null, 2) + '\n');
-    fs.renameSync(tmp, SETTINGS_FILE);
+    writeSettingsAtomic(settings);
 }
 
 // Exits with an error if the settings file is missing.
