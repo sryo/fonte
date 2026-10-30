@@ -1,3 +1,5 @@
+import { redactSecretText } from './secrets';
+
 export type AgentFailureKind = 'auth' | 'rate_limit' | 'billing' | 'unknown';
 
 const AUTH_RE = /oauth session expired|failed to authenticate|not (?:logged in|authenticated)|invalid (?:api[ _-]?key|x-api-key|bearer token|credentials)|authentication[_ ]error|\b401\b|unauthorized|run \/login|api key (?:is )?(?:invalid|missing|required)/i;
@@ -18,7 +20,7 @@ export class AgentRunError extends Error {
     readonly kind: AgentFailureKind;
 
     constructor(message: string, kind: AgentFailureKind = classifyAgentFailure(message)) {
-        super(message.slice(0, MESSAGE_MAX));
+        super(redactSecretText(message).slice(0, MESSAGE_MAX));
         this.name = 'AgentRunError';
         this.kind = kind;
     }

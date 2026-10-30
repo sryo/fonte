@@ -15,6 +15,7 @@ import { log } from '@fonte/core';
 import { getTorrentManager } from '@fonte/torrent';
 import { addSSEClient, removeSSEClient } from './sse';
 import { ok, fail } from './http';
+import { guardPolicy, isAllowedOrigin, requestGuard } from './request-guard';
 
 import messagesRoutes from './routes/messages';
 import agentsRoutes from './routes/agents';
@@ -37,7 +38,7 @@ const API_PORT = parseInt(process.env.FONTE_API_PORT || '3777', 10);
 // beyond this machine (or to arbitrary web origins) hands out full control.
 const API_HOST = process.env.FONTE_API_HOST || '127.0.0.1';
 
-const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const GUARD_POLICY = guardPolicy(API_HOST);
 
 const startedAt = Date.now();
 
@@ -50,8 +51,9 @@ const startedAt = Date.now();
 export function startApiServer(services?: ServiceHandlers): http.Server {
     const app = new Hono();
 
+    app.use('/*', requestGuard(GUARD_POLICY));
     app.use('/*', cors({
-        origin: (origin) => (LOCAL_ORIGIN.test(origin) ? origin : null),
+        origin: (origin) => (isAllowedOrigin(origin, GUARD_POLICY) ? origin : null),
     }));
 
     app.route('/', messagesRoutes);
@@ -85,7 +87,7 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
-            ...(origin && LOCAL_ORIGIN.test(origin) ? { 'Access-Control-Allow-Origin': origin } : {}),
+            ...(origin && isAllowedOrigin(origin, GUARD_POLICY) ? { 'Access-Control-Allow-Origin': origin } : {}),
         });
         nodeRes.write(`event: connected\ndata: ${JSON.stringify({ timestamp: Date.now() })}\n\n`);
         addSSEClient(nodeRes);

@@ -25,7 +25,8 @@ export const geminiAdapter: AgentAdapter = {
         const { agentId, message, workingDir, systemPrompt, model, shouldReset, envOverrides, onEvent } = opts;
         log('DEBUG', `Using Gemini CLI (agent: ${agentId})`);
 
-        const args = ['-p', message];
+        // `=` form: a message starting with "-" would otherwise parse as a flag.
+        const args = [`--prompt=${message}`];
         if (model) args.push('--model', model);
         if (systemPrompt) args.push('--system-instruction', systemPrompt);
         args.push('--output-format', 'json');

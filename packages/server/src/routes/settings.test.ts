@@ -57,7 +57,39 @@ describe('GET /api/settings', () => {
 
         const res = await app.request('/api/settings');
         expect(res.status).toBe(200);
-        expect(await res.json()).toEqual({ ok: true, settings });
+        expect(await res.json()).toEqual({
+            ok: true,
+            settings: { ...settings, subtitles: { enabled: true, tmdb_api_key: '__REDACTED__' } },
+        });
+    });
+
+    it('never returns a saved secret', async () => {
+        fs.writeFileSync(settingsPath(), JSON.stringify({ models: { anthropic: { oauth_token: 'sk-ant-oat01-secret', model: 'opus' } } }));
+        const body = await (await app.request('/api/settings')).text();
+        expect(body).not.toContain('sk-ant-oat01-secret');
+        expect(JSON.parse(body).settings.models.anthropic).toEqual({ oauth_token: '__REDACTED__', model: 'opus' });
+    });
+});
+
+describe('secrets round trip', () => {
+    it('keeps the stored secret when the redacted placeholder comes back', async () => {
+        fs.writeFileSync(settingsPath(), JSON.stringify({ models: { anthropic: { oauth_token: 'sk-ant-oat01-secret', model: 'sonnet' } } }));
+        const res = await putSettings({ models: { anthropic: { oauth_token: '__REDACTED__', model: 'opus' } } });
+        expect(res.status).toBe(200);
+        expect((await res.json()).settings.models.anthropic.oauth_token).toBe('__REDACTED__');
+        const onDisk = JSON.parse(fs.readFileSync(settingsPath(), 'utf8'));
+        expect(onDisk.models.anthropic).toEqual({ oauth_token: 'sk-ant-oat01-secret', model: 'opus' });
+    });
+
+    it('replaces a secret when a new value is sent', async () => {
+        fs.writeFileSync(settingsPath(), JSON.stringify({ watchlist: { jackett_api_key: 'old' } }));
+        await putSettings({ watchlist: { jackett_api_key: 'new' } });
+        expect(JSON.parse(fs.readFileSync(settingsPath(), 'utf8')).watchlist.jackett_api_key).toBe('new');
+    });
+
+    it('writes settings.json readable by the owner only', async () => {
+        await putSettings({ watchlist: { enabled: true } });
+        expect(fs.statSync(settingsPath()).mode & 0o777).toBe(0o600);
     });
 });
 

@@ -144,7 +144,8 @@ export class WhatsAppService {
             log('WARN', `WhatsApp: legacy session cleanup failed: ${(err as Error).message}`);
         }
 
-        fs.mkdirSync(AUTH_DIR, { recursive: true });
+        fs.mkdirSync(AUTH_DIR, { recursive: true, mode: 0o700 });
+        fs.chmodSync(AUTH_DIR, 0o700);
         fs.mkdirSync(FILES_DIR, { recursive: true });
         const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
         if (generation !== this.generation) return;

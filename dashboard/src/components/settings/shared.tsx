@@ -17,6 +17,7 @@ import { Spinner } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils";
 import { createAutoSaveQueue, IDLE, textDraftCommit, type SaveStatus } from "@/lib/auto-save";
 import { parseNumberDraft } from "@/lib/number-draft";
+import { REDACTED } from "@/lib/settings-patch";
 
 export type { SaveStatus };
 
@@ -142,7 +143,7 @@ export function SettingRow({
   );
 }
 
-/** Masked input with a reveal toggle, for API keys and tokens. */
+/** Masked input with a reveal toggle, for API keys and tokens. A saved secret arrives redacted, so it has nothing to reveal. */
 export function SecretInput({
   value,
   onChange,
@@ -161,27 +162,31 @@ export function SecretInput({
   className?: string;
 }) {
   const [show, setShow] = useState(false);
+  const saved = value === REDACTED;
   return (
     <div className={cn("relative", className)}>
       <Input
         id={id}
-        type={show ? "text" : "password"}
+        type={show && !saved ? "text" : "password"}
         autoComplete="off"
         value={value}
         onChange={onChange}
+        onFocus={saved ? (e) => e.currentTarget.select() : undefined}
         onBlur={onBlur}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         className="pr-8 text-sm"
       />
-      <button
-        type="button"
-        aria-label={show ? "Hide value" : "Show value"}
-        onClick={() => setShow((s) => !s)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-      >
-        {show ? <EyeSlash className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-      </button>
+      {!saved && (
+        <button
+          type="button"
+          aria-label={show ? "Hide value" : "Show value"}
+          onClick={() => setShow((s) => !s)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        >
+          {show ? <EyeSlash className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+        </button>
+      )}
     </div>
   );
 }

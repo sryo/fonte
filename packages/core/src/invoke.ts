@@ -1,4 +1,5 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, ChildProcessByStdio } from 'child_process';
+import { Readable } from 'stream';
 import fs from 'fs';
 import path from 'path';
 import { AgentConfig, CustomProvider, TeamConfig } from './types';
@@ -14,26 +15,42 @@ export function getActiveAgentIds(): string[] {
     return Array.from(activeProcesses.keys());
 }
 
+// Group signal: the CLI is spawned detached as a group leader, so this
+// reaches its own subprocesses (bash tools etc.), not just the CLI.
+function signalGroup(child: ChildProcess, sig: NodeJS.Signals): void {
+    try {
+        if (child.pid) process.kill(-child.pid, sig);
+        else child.kill(sig);
+    } catch {
+        try { child.kill(sig); } catch { /* already dead */ }
+    }
+}
+
+function terminateGroup(child: ChildProcess): void {
+    signalGroup(child, 'SIGTERM');
+    setTimeout(() => {
+        if (child.exitCode === null && child.signalCode === null) signalGroup(child, 'SIGKILL');
+    }, 3000).unref();
+}
+
 export function killAgentProcess(agentId: string): boolean {
     const child = activeProcesses.get(agentId);
     if (!child) return false;
-    // Group signal: the CLI is spawned detached as a group leader, so this
-    // reaches its own subprocesses (bash tools etc.), not just the CLI.
-    const signal = (sig: NodeJS.Signals) => {
-        try {
-            if (child.pid) process.kill(-child.pid, sig);
-            else child.kill(sig);
-        } catch {
-            try { child.kill(sig); } catch { /* already dead */ }
-        }
-    };
-    signal('SIGTERM');
-    setTimeout(() => {
-        if (child.exitCode === null && child.signalCode === null) signal('SIGKILL');
-    }, 3000).unref();
+    terminateGroup(child);
     activeProcesses.delete(agentId);
     return true;
 }
+
+/**
+ * Runs the CLI through /bin/sh with a watcher in its process group. The
+ * watcher blocks on fd 3, whose other end only this daemon holds, so a daemon
+ * that crashes or is SIGKILLed still stops the CLI instead of leaving it
+ * running beside the session the next daemon resumes.
+ */
+export const GROUP_WATCH_SCRIPT = [
+    "{ trap '' TERM; read -r _ <&3; kill -TERM 0; sleep 5; kill -KILL 0; } </dev/null >/dev/null 2>&1 &",
+    'exec "$@" 3<&-',
+].join('\n');
 
 export async function runCommand(command: string, args: string[], cwd?: string, envOverrides?: Record<string, string>): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -99,13 +116,20 @@ export function runCommandStreaming(
         const env = { ...process.env, ...envOverrides };
         delete env.CLAUDECODE;
 
-        const child = spawn(command, args, {
+        const child = spawn('/bin/sh', ['-c', GROUP_WATCH_SCRIPT, 'fonte-agent', command, ...args], {
             cwd: cwd || SCRIPT_DIR,
-            stdio: ['ignore', 'pipe', 'pipe'],
+            stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
             env,
             // Own process group, so a user-initiated stop can signal the CLI
             // together with its subprocesses.
             detached: true,
+        }) as ChildProcessByStdio<null, Readable, Readable>;
+        // MCP servers and background shell jobs stay in the group after the
+        // CLI exits; nothing else would ever stop them.
+        child.once('exit', () => {
+            if (child.pid) {
+                try { process.kill(-child.pid, 'SIGKILL'); } catch { /* group already gone */ }
+            }
         });
 
         if (agentId) {
@@ -121,13 +145,18 @@ export function runCommandStreaming(
         let settled = false;
         let graceTimer: ReturnType<typeof setTimeout> | null = null;
 
-        function settle(code: number | null) {
+        function settle(code: number | null, signal: NodeJS.Signals | null = null) {
             if (settled) return;
             settled = true;
             if (graceTimer) clearTimeout(graceTimer);
             if (lineBuffer.trim()) onLine(lineBuffer);
-            if (code === 0 || code === null) {
+            if (code === 0) {
                 resolve(stdout);
+            } else if (signal) {
+                // Killed (OOM, a stop, SIGKILL): whatever it printed last is not an answer.
+                reject(Object.assign(new Error(`${command} was killed by ${signal}`), { signal }));
+            } else if (code === 127 && /not found/.test(stderr)) {
+                reject(new Error(`${command} was not found on the daemon's PATH`));
             } else {
                 reject(new Error(stderr.trim() || `Command exited with code ${code}`));
             }
@@ -141,7 +170,7 @@ export function runCommandStreaming(
                     // Resolve successfully BEFORE killing — the kill triggers a
                     // `close` event with code 143 which would otherwise reject.
                     settle(0);
-                    try { child.kill('SIGTERM'); } catch { /* already dead */ }
+                    terminateGroup(child);
                 }
             }, 30_000);
         };
@@ -172,8 +201,9 @@ export function runCommandStreaming(
             }
         });
 
-        child.on('close', (code) => {
-            settle(code);
+        child.on('close', (code, signal) => {
+            child.stdio[3]?.destroy();
+            settle(code, signal);
         });
     });
 

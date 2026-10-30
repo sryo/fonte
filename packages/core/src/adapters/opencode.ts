@@ -1,6 +1,7 @@
 import { AgentAdapter, InvokeOptions } from './types';
 import { runCommand, runCommandStreaming } from '../invoke';
 import { log } from '../logging';
+import { AgentRunError } from '../agent-failure';
 
 /**
  * Extract displayable text from an OpenCode JSONL event.
@@ -10,6 +11,14 @@ function extractEventText(json: any): string | null {
         return json.part.text;
     }
     return null;
+}
+
+/** OpenCode reports provider failures (auth, quota, funds) as an `error` event. */
+function extractErrorText(json: any): string | null {
+    if (json.type !== 'error') return null;
+    const error = json.error;
+    if (typeof error === 'string') return error;
+    return error?.data?.message || error?.message || error?.name || 'OpenCode reported an error';
 }
 
 export const opencodeAdapter: AgentAdapter = {
@@ -40,38 +49,33 @@ export const opencodeAdapter: AgentAdapter = {
         if (model) args.push('--model', model);
         if (systemPrompt) args.push('--agent', agentId);
         if (continueConversation) args.push('-c');
-        args.push(message);
+        args.push('--', message);
 
         let response = '';
-
-        if (onEvent) {
-            const { promise } = runCommandStreaming('opencode', args, (line) => {
-                try {
-                    const json = JSON.parse(line);
-                    const text = extractEventText(json);
-                    if (text) {
-                        response = text;
-                        onEvent(text);
-                    }
-                } catch (e) {
-                    // Ignore non-JSON lines
-                }
-            }, workingDir, envOverrides, agentId);
-            await promise;
-        } else {
-            const output = await runCommand('opencode', args, workingDir, envOverrides);
-            const lines = output.trim().split('\n');
-            for (const line of lines) {
-                try {
-                    const json = JSON.parse(line);
-                    if (json.type === 'text' && json.part?.text) {
-                        response = json.part.text;
-                    }
-                } catch (e) {
-                    // Ignore non-JSON lines
-                }
+        let errorText: string | null = null;
+        const readLine = (line: string, onText?: (text: string) => void) => {
+            let json: any;
+            try { json = JSON.parse(line); } catch { return; }
+            errorText = extractErrorText(json) ?? errorText;
+            const text = extractEventText(json);
+            if (text) {
+                response = text;
+                onText?.(text);
             }
+        };
+
+        try {
+            if (onEvent) {
+                const { promise } = runCommandStreaming('opencode', args, (line) => readLine(line, onEvent), workingDir, envOverrides, agentId);
+                await promise;
+            } else {
+                const output = await runCommand('opencode', args, workingDir, envOverrides);
+                for (const line of output.trim().split('\n')) readLine(line);
+            }
+        } catch (err) {
+            throw new AgentRunError(errorText ?? (err as Error).message);
         }
+        if (errorText && !response) throw new AgentRunError(errorText);
 
         return response || 'Sorry, I could not generate a response from OpenCode.';
     },

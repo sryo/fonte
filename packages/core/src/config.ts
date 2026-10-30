@@ -108,6 +108,15 @@ export function validateSettings(raw: unknown): { settings: Settings; warnings: 
 
 let warnedSettingsOnce = false;
 
+/** settings.json holds provider tokens, so it is owner-only (0600) on every write. */
+export function writeSettingsAtomic(settings: Settings): void {
+    fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
+    const tmp = `${SETTINGS_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 });
+    fs.chmodSync(tmp, 0o600);
+    fs.renameSync(tmp, SETTINGS_FILE);
+}
+
 let settingsWriteChain: Promise<unknown> = Promise.resolve();
 
 /**
@@ -117,10 +126,7 @@ let settingsWriteChain: Promise<unknown> = Promise.resolve();
 export function updateSettingsFile(mutate: (current: Settings) => Settings): Promise<Settings> {
     const run = settingsWriteChain.then(() => {
         const next = mutate(getSettings());
-        fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
-        const tmp = SETTINGS_FILE + '.tmp';
-        fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + '\n');
-        fs.renameSync(tmp, SETTINGS_FILE);
+        writeSettingsAtomic(next);
         return next;
     });
     settingsWriteChain = run.then(() => undefined, () => undefined);
@@ -179,7 +185,7 @@ export function getSettings(): Settings {
 
                 const backupPath = SETTINGS_FILE + '.bak';
                 fs.copyFileSync(SETTINGS_FILE, backupPath);
-                fs.writeFileSync(SETTINGS_FILE, JSON.stringify(parsed, null, 2) + '\n');
+                writeSettingsAtomic(parsed as Settings);
                 console.error(`[WARN] Auto-fixed settings.json (backup: ${backupPath})`);
             } catch {
                 console.error(`[ERROR] Could not auto-fix settings.json — returning empty config`);
