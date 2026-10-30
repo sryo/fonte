@@ -114,3 +114,41 @@ Each entry: what changed, how it was verified, what was deferred and why.
 - `fonte doctor --fix`: writes to the live install.
 - Version handshake (3.1), crash visibility (3.8), log rotation (3.6): need Phase 0 files (`main/src/index.ts`, `server/src/index.ts`).
 - CI workflow and committing `package-lock.json` (2.3): the lockfile is gitignored on purpose today; changing that is the user's call.
+
+## After Phase 0 landed (merged local main at 2677962)
+
+### Sync
+- Merged local `main` (Phase 0 is not on `origin`). Clean merge; the `.claude` copy fix and the `config.ts` destinations line survived. One test expectation updated: Codex now gets `--` before the message.
+
+### Phase 0 follow-ups
+- `/api/setup` no longer copies `.claude`, `heartbeat.md` or `AGENTS.md` from the checkout into `FONTE_HOME`. Only `.claude` ever existed, and it was the developer's own folder (same bug as the agent-dir copy). Test failed first.
+- `sqlite-migrate` is in the `@fonte/core` barrel; the torrent package's two deep imports are gone. The 60s maintenance tick runs `maintainQueueDb()` and `maintainTorrentDb()` inside a try/catch that logs a WARN.
+- `apiPort()` and `apiBaseUrl()` in `config.ts` are the single source for the server, the CLI and the prompt builder. Tests for default and override.
+
+### Stall watchdog (plan 1.3)
+- `runCommandStreaming` arms a timer at spawn and on every stdout or stderr chunk. On expiry it settles with `AgentRunError('stalled')` and stops the process group through the existing `terminateGroup`. Default 15 minutes (Claude's Bash tool can be silent up to 10), `FONTE_AGENT_STALL_MINUTES` overrides, 0 disables.
+- Stalled runs dead-letter like every other `AgentRunError` (no automatic retry), and the user gets "<Provider> stopped responding, so I stopped it. Try again." The dashboard keeps the `stalled` reason.
+- Verified: 12 tests with `writeFakeCli` (silent CLI killed with its background child, progress and stderr keep it alive, timers cleared on exit, stall vs SIGKILL distinguishable, end to end through the Claude adapter); a mutation check (removing the re-arm fails the progress tests).
+- Not verified against the real CLI: that stream-json prints nothing during a long tool call (a live probe was refused by the sandbox classifier).
+
+### One provider session per agent and lane (plan 1.1)
+- `agent_sessions(agent_id, lane, provider, session_id)` (queue migration v2). `runInAgentSession` in `packages/core/src/agent-session.ts`: explicit fork id wins, else the lane's stored id if recorded by the same provider; reset clears both lanes; any announced session is recorded even if the run fails (the provider already holds that turn); a "no conversation found" failure clears the lane and retries once fresh.
+- Claude: `--resume <id>` or nothing (no more `-c`). Codex: `exec resume <id>` or plain `exec` (no more `resume --last`), and it now reports `thread.started.thread_id`, so it gets continuity and edit-and-rerun forks. OpenCode keeps `-c` (session flag unverifiable here). Gemini unchanged (never continued).
+- Automations get one rolling background session per agent and no longer continue the user's chat. `getAgentMessages` exposes `sessionId` for user-lane rows only, so edit-and-rerun can't fork from an automation's session.
+- Migration seeds each agent's user lane from its latest user-lane message with a session id (provider `anthropic`). Agents idle more than 24 hours (rows pruned) or on a `custom:` provider start one fresh chat after deploy.
+- Unverified: Codex's wording for a missing session id (guessed in `MISSING_SESSION_RE`). If it differs, a stale Codex id fails every turn until the agent is reset. Check with `codex exec resume <bogus-uuid> --json`.
+
+### `freshSession` (plan 1.1)
+- Documented in the runtime prompt, never implemented. `POST /api/message` with `freshSession: true` now runs that message in a new conversation and leaves the lane's stored session untouched (queue migration v3 adds `fresh_session`).
+
+### Usage-limit auto-resume (plan 1.2)
+- `rate_limit` failures no longer dead-letter. `planRateLimitRetry` (`packages/core/src/rate-limit-retry.ts`): known future reset holds the message until reset + 60s; unknown or past reset backs off 15, 30, 60, 120 minutes (cap 2h); a message held over 12 hours in total dead-letters as before. `billing` and `auth` still dead-letter at once.
+- Queue migration v4: `messages.not_before`, `paused_ms`, `unknown_resets`, and `provider_pauses(provider, until)`. Claims and `getPendingAgents` skip held rows; `processQueue` starts no run for an agent whose provider is paused, and a running chain re-checks before each claim. `retryDeadMessage` clears the hold fields.
+- Reset time: Claude's `api_error_params.rate_limit_info.resetsAt`, else the last rejected `rate_limit_event` (not for `overloaded`), else text (`usage limit reached|<epoch>`, "resets 3pm (Europe/Madrid)", Codex "try again at 3:42 PM", "try again in 2 hours"). "You've hit your 5-hour limit" now classifies as `rate_limit`.
+- User sees one note in the chat and on the originating channel: "Paused until 15:00. Claude's usage limit resets then." or "Paused until 13:35. Claude is rate limiting, so I'll try again then." `agent:paused` is emitted and the agent chat refetches on it.
+- Verified: tests for the planner, the notice formatter, queue holds and pauses (including a v3 to v4 migration), and adapter parsing via `writeFakeCli`. All provider fixtures are synthetic (strings taken from the installed Claude Code 2.1.312 and codex-cli 0.154.0 binaries); no real limit was hit. `main/index.ts` wiring is type-checked only; the daemon wasn't run end to end (it would sync against the real Transmission).
+- Behaviour to know: 429 and 529 "overloaded" now also pause the whole provider for at least 15 minutes. Each re-hit sends a fresh notice (up to about six over 12 hours for an unknown reset). A new chat message to a paused provider waits silently as pending; there's no dashboard banner or "resume now" control yet.
+
+## Status after the runtime pass
+- `npm run check` green: see the commit list (`git log main..HEAD`).
+- Not started, needs the user's go-ahead: fonte actions as MCP tools (plan 1.4), a large re-architecture.
