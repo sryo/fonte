@@ -2,17 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { subscribeToEvents, type EventData } from "./api";
+import { backoffDelay, startPolling } from "./visibility-poller";
 
 /**
  * For pages that own several state slices; when a single fetched value is
  * enough, prefer usePolling below, which also guards against post-unmount setState.
  */
 export function usePollingEffect(fn: () => void, intervalMs: number) {
-  useEffect(() => {
-    fn();
-    const interval = setInterval(fn, intervalMs);
-    return () => clearInterval(interval);
-  }, [fn, intervalMs]);
+  useEffect(() => startPolling(fn, { intervalMs }), [fn, intervalMs]);
 }
 
 export function usePolling<T>(
@@ -25,6 +22,7 @@ export function usePolling<T>(
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
+  const failures = useRef(0);
   const latest = useRef({ fetcher, isEqual });
 
   useEffect(() => {
@@ -39,7 +37,9 @@ export function usePolling<T>(
         setData((prev) => (same && same(prev, result) ? prev : result));
         setError(null);
       }
+      failures.current = 0;
     } catch (err) {
+      failures.current += 1;
       if (mountedRef.current) {
         setError((err as Error).message);
       }
@@ -50,11 +50,12 @@ export function usePolling<T>(
 
   useEffect(() => {
     mountedRef.current = true;
-    refresh();
-    const id = intervalMs > 0 ? setInterval(refresh, intervalMs) : null;
+    const stop = startPolling(refresh, {
+      intervalMs: () => backoffDelay(intervalMs, failures.current),
+    });
     return () => {
       mountedRef.current = false;
-      if (id) clearInterval(id);
+      stop();
     };
   }, [refresh, intervalMs]);
 

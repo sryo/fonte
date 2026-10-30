@@ -1,10 +1,7 @@
 import { getApiBase } from "./client";
+import { EventHub, type EventData } from "../event-hub";
 
-export interface EventData {
-  type: string;
-  timestamp: number;
-  [key: string]: unknown;
-}
+export type { EventData };
 
 // Every event the daemon actually emits, minus the two high-frequency ticks:
 // torrent:stats (3s) and agent:progress (per streaming chunk) would evict real
@@ -20,26 +17,23 @@ export const DEFAULT_EVENT_TYPES = [
   "whatsapp:qr", "whatsapp:ready", "whatsapp:disconnected",
 ];
 
+let hub: EventHub | null = null;
+
 export function subscribeToEvents(
   onEvent: (event: EventData) => void,
   opts?: {
     onOpen?: () => void;
     onError?: (err: Event) => void;
+    onResync?: () => void;
     eventTypes?: string[];
   }
 ): () => void {
-  const es = new EventSource(`${getApiBase()}/api/events/stream`);
-
-  const handler = (e: MessageEvent) => {
-    try { onEvent(JSON.parse(e.data)); } catch {}
-  };
-
-  for (const type of opts?.eventTypes ?? DEFAULT_EVENT_TYPES) {
-    es.addEventListener(type, handler);
-  }
-
-  if (opts?.onOpen) es.onopen = opts.onOpen;
-  if (opts?.onError) es.onerror = opts.onError;
-
-  return () => es.close();
+  hub ??= new EventHub(() => new EventSource(`${getApiBase()}/api/events/stream`));
+  return hub.subscribe({
+    onEvent,
+    eventTypes: opts?.eventTypes ?? DEFAULT_EVENT_TYPES,
+    onOpen: opts?.onOpen,
+    onError: opts?.onError,
+    onResync: opts?.onResync,
+  });
 }

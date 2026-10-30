@@ -16,6 +16,7 @@ import {
 } from "@/lib/api";
 import { groupActivity, isTextRow, type TranscriptEvent } from "@/lib/agent-activity";
 import { buildSentHistory } from "@/lib/input-history";
+import { startPolling } from "@/lib/visibility-poller";
 
 /**
  * pending: POST in flight, or accepted and waiting for its agent_messages echo.
@@ -179,12 +180,7 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
 
   useEffect(() => {
     if (!active) return;
-    const first = setTimeout(refresh, 0);
-    const id = setInterval(refresh, POLL_MS);
-    return () => {
-      clearTimeout(first);
-      clearInterval(id);
-    };
+    return startPolling(refresh, { intervalMs: POLL_MS });
   }, [active, refresh]);
 
   useEffect(() => {
@@ -198,7 +194,7 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
           refresh();
         }, SSE_DEBOUNCE_MS);
       },
-      { eventTypes: CHAT_EVENT_TYPES }
+      { eventTypes: CHAT_EVENT_TYPES, onResync: refresh }
     );
     return () => {
       unsubscribe();

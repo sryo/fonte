@@ -57,7 +57,7 @@ export function EditAutomationModal({
   useEffect(() => {
     return subscribeToEvents(
       (event) => { if (event.ruleId === rule.id) loadRuns(); },
-      { eventTypes: ["automation:executed", "automation:finished"] },
+      { eventTypes: ["automation:executed", "automation:finished"], onResync: loadRuns },
     );
   }, [rule.id, loadRuns]);
 
