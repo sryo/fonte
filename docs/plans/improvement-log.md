@@ -151,7 +151,7 @@ Each entry: what changed, how it was verified, what was deferred and why.
 
 ## Status after the runtime pass
 - `npm run check` green: see the commit list (`git log main..HEAD`).
-- Not started, needs the user's go-ahead: fonte actions as MCP tools (plan 1.4), a large re-architecture.
+- Dropped: fonte actions as MCP tools (plan 1.4). The user doesn't want it (2026-10-30).
 
 ## Prompt gaps closed (user's decision 2, 2026-10-30)
 - Magnet: rule 4 names `POST /api/torrents {"magnetUri"}` for a pasted magnet and `POST /api/search` for a bare hash; the magnet example under search is gone. The search route still accepts magnets, and eval case 03 still accepts either route.
