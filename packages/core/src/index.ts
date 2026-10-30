@@ -8,6 +8,7 @@
 export * from './types';
 export * from './config';
 export * from './secrets';
+export * from './instance-lock';
 export * from './logging';
 export * from './notify';
 export * from './reveal';

@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import {
     MessageJobData,
-    getSettings, getAgents, checkSettingsFile, LOG_FILE, FILES_DIR, FONTE_HOME,
+    getSettings, getAgents, checkSettingsFile, LOG_FILE, FILES_DIR, FONTE_HOME, SETTINGS_FILE,
     log, emitEvent, onEvent, notifyForEvent,
     parseAgentRouting, getAgentResetFlag,
     invokeAgent, killAgentProcess, getActiveAgentIds,
@@ -19,6 +19,7 @@ import {
     insertAgentMessage, deleteAgentMessagesByMessageId, updateAgentToolMessage,
     registerSystemPromptSection,
     deadLetterMessage, toAgentRunError, describeAgentFailure, AgentRunError,
+    acquireInstanceLock,
 } from '@fonte/core';
 import { startApiServer } from '@fonte/server';
 import {
@@ -293,6 +294,15 @@ function logAgentConfig(): void {
 
 // ─── Start ──────────────────────────────────────────────────────────────────
 
+// Taken before any state is touched: a second daemon that got as far as the
+// PID file and stale-message recovery would requeue the live daemon's runs.
+if (!acquireInstanceLock(path.join(FONTE_HOME, 'daemon.lock'), 10_000)) {
+    log('ERROR', `Another Fonte daemon owns ${FONTE_HOME}. Exiting.`);
+    process.exit(0);
+}
+
+try { fs.chmodSync(SETTINGS_FILE, 0o600); } catch { /* not created yet */ }
+
 initQueueDb();
 
 // Write PID file so the CLI can find this process
@@ -352,12 +362,12 @@ startWatchlistRunner();
 const automationEngine = createAutomationEngine();
 automationEngine.start();
 
-// The port bind doubles as the single-instance lock: only start WhatsApp once
-// it succeeds. A second daemon opening a Baileys socket on the same saved
-// credentials makes WhatsApp revoke the device link.
+// WhatsApp starts only once the port is ours. A second daemon opening a
+// Baileys socket on the same saved credentials makes WhatsApp revoke the
+// device link.
 apiServer.on('error', (err: NodeJS.ErrnoException) => {
     log('ERROR', err.code === 'EADDRINUSE'
-        ? 'API port already in use — another Fonte daemon is running. Exiting.'
+        ? 'API port already in use by another process. Exiting.'
         : `API server error: ${err.message}`);
     process.exit(1);
 });
