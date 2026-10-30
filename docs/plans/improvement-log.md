@@ -186,3 +186,11 @@ Each entry: what changed, how it was verified, what was deferred and why.
 - Tests: `composerButton` cases and `isStopAndSend` (mod+Enter only with text during a run), written first. `npm run check`: 90 files, 926 tests.
 - Verified by hand against the API-only test server: the tooltip text, ⌘↵ cancelling the running turn (status `cancelled`) and queuing the new message, and plain Enter queuing without cancelling.
 - Not deployed.
+
+## Delayed status (plan 4.9, 2026-10-30)
+- Short-lived chat states now show only after they have lasted 400ms. Once shown, they stay for at least 400ms. This covers the dimmed pending bubble, the "Sending" line under it, the send to stop icon swap, and "Working…". A failed send still shows "Couldn't send" at once.
+- `useDelayedFlag` (`hooks/use-delayed-flag.ts`) wraps the pure timer rule `nextDelayedFlagTimer` (`lib/delayed-flag.ts`). "Working…" remembers the run's start time, so it can finish its minimum after the run ends.
+- Behaviour notes: for the first 400ms of a run, the button stays in send mode and the tooltip says "Send message" rather than "Queue message". ⌘↵ and double-send protection still use the real state.
+- Tests: `lib/delayed-flag.test.ts` (5) and composer and transcript cases (nothing transient in the first render; a failure shows at once), written first. `npm run check`: 91 files, 933 tests.
+- Verified by hand against the API-only test server with a DOM trace around a send: "Sending" and the dimmed bubble never appeared on a fast local send. "Working…" and the stop icon appeared together, 468ms after Enter. The 400ms minimum is covered by the unit tests only.
+- Not deployed.

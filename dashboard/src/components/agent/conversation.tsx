@@ -24,6 +24,7 @@ import {
   ToolActivity,
 } from "@/components/agent/tool-activity";
 import { useAgentChat, type ChatMessage } from "@/hooks/use-agent-chat";
+import { useDelayedFlag } from "@/hooks/use-delayed-flag";
 import { useInputHistory } from "@/hooks/use-input-history";
 import { modKeyLabel, useIsMac } from "@/hooks/use-platform";
 import { Kbd } from "@/components/ui/kbd";
@@ -146,7 +147,9 @@ interface RowProps {
 }
 
 function MessageStatus({ msg, chat, className }: { msg: ChatMessage; chat: AgentChat; className: string }) {
+  const pendingShown = useDelayedFlag(msg.local?.phase === "pending");
   if (!msg.local || msg.local.phase === "queued" || !msg.message_id) return null;
+  if (msg.local.phase === "pending" && !pendingShown) return null;
   const messageId = msg.message_id;
   return (
     <SendStatus
@@ -161,6 +164,7 @@ function MessageStatus({ msg, chat, className }: { msg: ChatMessage; chat: Agent
 
 function BubbleRow({ msg, chat, onEdit }: RowProps) {
   const isUser = msg.role === "user";
+  const dim = useDelayedFlag(msg.local?.phase === "pending");
   return (
     <div className={cn("flex flex-col gap-1", isUser ? "items-end" : "items-start")}>
       <div className={cn("group/bubble flex items-end gap-1", isUser ? "justify-end" : "justify-start")}>
@@ -174,7 +178,7 @@ function BubbleRow({ msg, chat, onEdit }: RowProps) {
               ? "bg-muted font-medium rounded-xl rounded-br-sm whitespace-pre-wrap"
               : "bg-card border rounded-xl rounded-bl-sm prose prose-sm dark:prose-invert max-w-none",
             chat.editingRowId === msg.id && "ring-2 ring-ring/50",
-            msg.local?.phase === "pending" && "opacity-60"
+            dim && "opacity-60"
           )}
         >
           {isUser ? msg.content : <Markdown>{msg.content}</Markdown>}
@@ -188,11 +192,12 @@ function BubbleRow({ msg, chat, onEdit }: RowProps) {
 function AuthorRow({ msg, chat, onEdit, agentId, agentName }: RowProps) {
   const isUser = msg.role === "user";
   const label = isUser ? "You" : agentName;
+  const dim = useDelayedFlag(msg.local?.phase === "pending");
   return (
     <div
       className={cn(
         "group/bubble flex items-start gap-3",
-        msg.local?.phase === "pending" && "opacity-60",
+        dim && "opacity-60",
         chat.editingRowId === msg.id && "ring-2 ring-ring/50 rounded-md -mx-2 px-2 py-1"
       )}
     >
@@ -301,16 +306,20 @@ export function AgentComposer({
 }) {
   const { run, stopping, stop, queued, cancellingId, cancelQueued, sending, editingRowId, disconnected } = chat;
   const { input, setInput, inputRef, recall, endEdit, submit } = composer;
-  const button = composerButton({ running: run != null, input, sending, stopping });
+  const runShown = useDelayedFlag(run != null);
+  const sendingShown = useDelayedFlag(sending);
+  const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
+  if (run && run.startedAt !== runStartedAt) setRunStartedAt(run.startedAt);
+  const button = composerButton({ running: runShown, input, sending: sendingShown, stopping });
   const mod = modKeyLabel(useIsMac());
   const panel = layout === "panel";
   const inset = panel ? "px-4 pt-2" : "px-1";
 
-  const working = run && (
+  const working = runShown && runStartedAt != null && (
     <div className={cn("flex items-baseline gap-2.5 text-xs", inset)}>
       <span className="shimmer-text font-extrabold" data-text="Working…">Working…</span>
       <span className="font-black text-ghost tabular-nums">
-        <Elapsed since={run.startedAt} />
+        <Elapsed since={runStartedAt} />
       </span>
     </div>
   );

@@ -84,6 +84,15 @@ describe.each(layouts)("AgentTranscript (%s)", (layout) => {
     expect(transcript(chat, layout).match(/aria-label="Edit and rerun"/g)).toHaveLength(1);
   });
 
+  it("holds back the pending look of a fresh send but shows a failure at once", () => {
+    const pending: ChatMessage = { ...row(1, "user", "hello"), message_id: "m1", local: { phase: "pending" } };
+    const failed: ChatMessage = { ...row(2, "user", "again"), message_id: "m2", local: { phase: "failed", error: "rejected" } };
+    const html = transcript(withMessages([pending, failed]), layout);
+    expect(html).not.toContain("opacity-60");
+    expect(html).not.toContain("Sending");
+    expect(html).toContain("Couldn&#x27;t send");
+  });
+
   it("shows the same empty state", () => {
     const html = transcript(fakeChat(), layout);
     expect(html).toContain("No messages yet");
@@ -92,10 +101,9 @@ describe.each(layouts)("AgentTranscript (%s)", (layout) => {
 });
 
 describe.each(layouts)("AgentComposer (%s)", (layout) => {
-  it("shows the running timer while the agent works", () => {
-    expect(composer(fakeChat(), layout)).not.toContain("Working…");
+  it("holds back the running timer until a run has lasted a moment", () => {
     const running = fakeChat({ run: { startedAt: Date.now() } as AgentChat["run"] });
-    expect(composer(running, layout)).toContain("Working…");
+    expect(composer(running, layout)).not.toContain("Working…");
   });
 
   it("shows the edit banner while editing", () => {
