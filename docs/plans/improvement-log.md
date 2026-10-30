@@ -194,3 +194,6 @@ Each entry: what changed, how it was verified, what was deferred and why.
 - Tests: `lib/delayed-flag.test.ts` (5) and composer and transcript cases (nothing transient in the first render; a failure shows at once), written first. `npm run check`: 91 files, 933 tests.
 - Verified by hand against the API-only test server with a DOM trace around a send: "Sending" and the dimmed bubble never appeared on a fast local send. "Working…" and the stop icon appeared together, 468ms after Enter. The 400ms minimum is covered by the unit tests only.
 - Not deployed.
+
+## Deployed 2026-10-30
+- `main` fast-forwarded to fc77e83 (4.6, 4.8, 4.7, 4.9). Dashboard rebuilt and com.fonte.dashboard restarted. The daemon was not restarted, since no daemon code changed.
