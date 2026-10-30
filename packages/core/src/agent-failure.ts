@@ -1,12 +1,19 @@
 import { redactSecretText } from './secrets';
 
-export type AgentFailureKind = 'auth' | 'rate_limit' | 'billing' | 'unknown';
+export type AgentFailureKind = 'auth' | 'rate_limit' | 'billing' | 'stalled' | 'unknown';
+
+/** What the stall watchdog says when it stops a silent run; `classifyAgentFailure` keys on it. */
+export function stalledRunMessage(command: string, silentFor: string): string {
+    return `${command} produced no output for ${silentFor}, so it was stopped`;
+}
 
 const AUTH_RE = /oauth session expired|failed to authenticate|not (?:logged in|authenticated)|invalid (?:api[ _-]?key|x-api-key|bearer token|credentials)|authentication[_ ]error|\b401\b|unauthorized|run \/login|api key (?:is )?(?:invalid|missing|required)/i;
 const BILLING_RE = /credit balance|insufficient (?:funds|credits|quota)|billing|payment required|\b402\b|quota exceeded/i;
 const RATE_RE = /rate[_ ]limit|\b429\b|too many requests|overloaded|usage limit|limit reached/i;
+const STALLED_RE = /produced no output for .+, so it was stopped/;
 
 export function classifyAgentFailure(text: string): AgentFailureKind {
+    if (STALLED_RE.test(text)) return 'stalled';
     if (AUTH_RE.test(text)) return 'auth';
     if (BILLING_RE.test(text)) return 'billing';
     if (RATE_RE.test(text)) return 'rate_limit';
@@ -56,6 +63,8 @@ export function describeAgentFailure(kind: AgentFailureKind, providerLabel: stri
             return { summary: `${providerLabel} is rate limiting right now.`, remedy: 'Try again in a few minutes.' };
         case 'billing':
             return { summary: `${providerLabel} rejected the request over billing.`, remedy: "Check the account's credits." };
+        case 'stalled':
+            return { summary: `${providerLabel} stopped responding, so I stopped it.`, remedy: 'Try again.' };
         default: {
             const line = excerpt(detail);
             return { summary: line ? `I couldn't finish answering. ${line}` : "I couldn't finish answering." };

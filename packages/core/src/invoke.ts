@@ -7,6 +7,7 @@ import { SCRIPT_DIR, resolveModel, getSettings, compactSecret } from './config';
 import { log } from './logging';
 import { ensureAgentDirectory, buildSystemPrompt } from './agent';
 import { getAdapter } from './adapters';
+import { AgentRunError, stalledRunMessage } from './agent-failure';
 
 // ── Active process tracking ─────────────────────────────────────────────────
 const activeProcesses = new Map<string, ChildProcess>();
@@ -51,6 +52,27 @@ export const GROUP_WATCH_SCRIPT = [
     "{ trap '' TERM; read -r _ <&3; kill -TERM 0; sleep 5; kill -KILL 0; } </dev/null >/dev/null 2>&1 &",
     'exec "$@" 3<&-',
 ].join('\n');
+
+// Claude's Bash tool may run silently for up to 10 minutes, and stream-json
+// prints nothing until the tool returns.
+export const DEFAULT_AGENT_STALL_MS = 15 * 60_000;
+
+/** `FONTE_AGENT_STALL_MINUTES` overrides the default; 0 turns the watchdog off. */
+export function agentStallTimeoutMs(): number {
+    const raw = process.env.FONTE_AGENT_STALL_MINUTES?.trim();
+    if (!raw) return DEFAULT_AGENT_STALL_MS;
+    const minutes = Number(raw);
+    return Number.isFinite(minutes) && minutes >= 0 ? minutes * 60_000 : DEFAULT_AGENT_STALL_MS;
+}
+
+function describeSilence(ms: number): string {
+    if (ms >= 60_000) {
+        const minutes = Math.round(ms / 6_000) / 10;
+        return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+    }
+    const seconds = Math.round(ms / 100) / 10;
+    return `${seconds} second${seconds === 1 ? '' : 's'}`;
+}
 
 export async function runCommand(command: string, args: string[], cwd?: string, envOverrides?: Record<string, string>): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -101,6 +123,9 @@ export async function runCommand(command: string, args: string[], cwd?: string, 
  * output has been received (e.g. after a `result` JSON event). After signalDone,
  * the process gets a 30-second grace period to exit; if it doesn't, it's killed.
  * This prevents hangs when the subprocess stalls during post-result cleanup.
+ *
+ * A run that writes nothing to stdout or stderr for `stallTimeoutMs` has its
+ * process group stopped and rejects with an `AgentRunError` of kind 'stalled'.
  */
 export function runCommandStreaming(
     command: string,
@@ -109,6 +134,7 @@ export function runCommandStreaming(
     cwd?: string,
     envOverrides?: Record<string, string>,
     agentId?: string,
+    options: { stallTimeoutMs?: number } = {},
 ): { promise: Promise<string>; signalDone: () => void } {
     let signalDoneCallback: (() => void) | null = null;
 
@@ -144,13 +170,37 @@ export function runCommandStreaming(
         let lineBuffer = '';
         let settled = false;
         let graceTimer: ReturnType<typeof setTimeout> | null = null;
+        let stallTimer: ReturnType<typeof setTimeout> | null = null;
+        const stallTimeoutMs = options.stallTimeoutMs ?? agentStallTimeoutMs();
 
-        function settle(code: number | null, signal: NodeJS.Signals | null = null) {
+        function clearTimers() {
+            if (graceTimer) clearTimeout(graceTimer);
+            if (stallTimer) clearTimeout(stallTimer);
+            stallTimer = null;
+        }
+
+        function armStallTimer() {
+            if (settled || stallTimeoutMs <= 0) return;
+            if (stallTimer) clearTimeout(stallTimer);
+            stallTimer = setTimeout(() => {
+                const silentFor = describeSilence(stallTimeoutMs);
+                log('WARN', `Process '${command}' produced no output for ${silentFor}${agentId ? ` (agent: ${agentId})` : ''}, stopping it`);
+                // Settle first: the kill's own `close` would otherwise report a plain signal.
+                // `signal` tells adapters the last text printed is not an answer, as for any kill.
+                const stalled = new AgentRunError(stalledRunMessage(path.basename(command), silentFor), 'stalled');
+                settle(null, null, Object.assign(stalled, { signal: 'SIGTERM' as NodeJS.Signals }));
+                terminateGroup(child);
+            }, stallTimeoutMs);
+        }
+
+        function settle(code: number | null, signal: NodeJS.Signals | null = null, failure?: Error) {
             if (settled) return;
             settled = true;
-            if (graceTimer) clearTimeout(graceTimer);
+            clearTimers();
             if (lineBuffer.trim()) onLine(lineBuffer);
-            if (code === 0) {
+            if (failure) {
+                reject(failure);
+            } else if (code === 0) {
                 resolve(stdout);
             } else if (signal) {
                 // Killed (OOM, a stop, SIGKILL): whatever it printed last is not an answer.
@@ -164,6 +214,8 @@ export function runCommandStreaming(
 
         signalDoneCallback = () => {
             if (settled) return;
+            if (stallTimer) clearTimeout(stallTimer);
+            stallTimer = null;
             graceTimer = setTimeout(() => {
                 if (!settled) {
                     log('WARN', `Process '${command}' did not exit within grace period after result — killing`);
@@ -178,7 +230,10 @@ export function runCommandStreaming(
         child.stdout.setEncoding('utf8');
         child.stderr.setEncoding('utf8');
 
+        armStallTimer();
+
         child.stdout.on('data', (chunk: string) => {
+            if (stallTimer) armStallTimer();
             stdout += chunk;
             lineBuffer += chunk;
             const lines = lineBuffer.split('\n');
@@ -190,13 +245,14 @@ export function runCommandStreaming(
         });
 
         child.stderr.on('data', (chunk: string) => {
+            if (stallTimer) armStallTimer();
             stderr += chunk;
         });
 
         child.on('error', (error) => {
             if (!settled) {
                 settled = true;
-                if (graceTimer) clearTimeout(graceTimer);
+                clearTimers();
                 reject(error);
             }
         });

@@ -15,7 +15,7 @@ export interface ToolCall {
 
 export type TranscriptEventName = "automation-fired" | "automation-paused" | "agent-failed";
 
-export type FailureReason = "auth" | "rate_limit" | "billing" | "unknown";
+export type FailureReason = "auth" | "rate_limit" | "billing" | "stalled" | "unknown";
 
 /** Parsed `kind: 'event'` row. Unknown event names still carry a summary. */
 export interface TranscriptEvent {
@@ -90,7 +90,7 @@ export function parseEventRow(msg: ActivityRow): TranscriptEvent | null {
       ruleName: str(parsed.ruleName),
       trigger: trigger === "event" || trigger === "schedule" || trigger === "manual" ? trigger : undefined,
       summary: str(parsed.summary) ?? "",
-      reason: reason === "auth" || reason === "rate_limit" || reason === "billing" || reason === "unknown" ? reason : undefined,
+      reason: reason === "auth" || reason === "rate_limit" || reason === "billing" || reason === "stalled" || reason === "unknown" ? reason : undefined,
       detail: str(parsed.detail),
       queueId: typeof parsed.queueId === "number" ? parsed.queueId : undefined,
     };

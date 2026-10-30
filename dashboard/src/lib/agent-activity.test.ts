@@ -92,6 +92,13 @@ describe("parseEventRow", () => {
     expect(event?.detail).toContain("OAuth session expired");
   });
 
+  it("keeps the stalled reason", () => {
+    const event = parseEventRow(
+      row(8, { kind: "event", content: JSON.stringify({ event: "agent-failed", reason: "stalled", summary: "x" }) })
+    );
+    expect(event?.reason).toBe("stalled");
+  });
+
   it("drops unknown reasons and non-numeric queue ids", () => {
     const event = parseEventRow(
       row(7, { kind: "event", content: JSON.stringify({ event: "agent-failed", reason: "cosmic", queueId: "42", summary: "x" }) })

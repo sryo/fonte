@@ -14,6 +14,10 @@ describe('classifyAgentFailure', () => {
         expect(classifyAgentFailure('Overloaded')).toBe('rate_limit');
     });
 
+    it('recognises the watchdog stopping a silent run', () => {
+        expect(classifyAgentFailure('claude produced no output for 15 minutes, so it was stopped')).toBe('stalled');
+    });
+
     it('leaves everything else unknown', () => {
         expect(classifyAgentFailure('Command exited with code 1')).toBe('unknown');
         expect(classifyAgentFailure('')).toBe('unknown');
@@ -28,6 +32,12 @@ describe('describeAgentFailure', () => {
 
         const rejected = describeAgentFailure('auth', 'Claude', 'invalid x-api-key');
         expect(rejected.summary).toBe("Claude sign-in was rejected, so I couldn't answer.");
+    });
+
+    it('says a stalled run was stopped and can be tried again', () => {
+        const { summary, remedy } = describeAgentFailure('stalled', 'Claude', 'claude produced no output for 15 minutes, so it was stopped');
+        expect(summary).toBe('Claude stopped responding, so I stopped it.');
+        expect(remedy).toBe('Try again.');
     });
 
     it('keeps the first line of an unknown error, trimmed', () => {
