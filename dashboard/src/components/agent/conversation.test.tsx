@@ -5,6 +5,7 @@ import {
   AgentComposer,
   AgentTranscript,
   composerButton,
+  isStopAndSend,
   useChatComposer,
   type AgentChat,
   type ConversationLayout,
@@ -120,7 +121,7 @@ describe.each(layouts)("AgentComposer (%s)", (layout) => {
 describe("composerButton", () => {
   it("sends typed text when idle", () => {
     expect(composerButton({ running: false, input: "hi", sending: false, stopping: false })).toEqual({
-      mode: "send", icon: "send", tooltip: "Send message", disabled: false,
+      mode: "send", icon: "send", tooltip: "Send message", disabled: false, sendNow: false,
     });
   });
 
@@ -130,18 +131,39 @@ describe("composerButton", () => {
 
   it("stops the run when nothing is typed", () => {
     expect(composerButton({ running: true, input: "", sending: false, stopping: false })).toEqual({
-      mode: "stop", icon: "stop", tooltip: "Stop the agent", disabled: false,
+      mode: "stop", icon: "stop", tooltip: "Stop the agent", disabled: false, sendNow: false,
     });
     expect(composerButton({ running: true, input: "", sending: false, stopping: true }).disabled).toBe(true);
   });
 
-  it("sends instead of stopping once something is typed during a run", () => {
-    expect(composerButton({ running: true, input: "also this", sending: false, stopping: false }).mode).toBe("send");
+  it("queues what is typed during a run and offers to stop and send it now", () => {
+    expect(composerButton({ running: true, input: "also this", sending: false, stopping: false })).toEqual({
+      mode: "send", icon: "send", tooltip: "Queue message", disabled: false, sendNow: true,
+    });
   });
 
   it("holds while a send is in flight", () => {
     expect(composerButton({ running: false, input: "hi", sending: true, stopping: false })).toEqual({
-      mode: "send", icon: "stop", tooltip: "Sending...", disabled: true,
+      mode: "send", icon: "stop", tooltip: "Sending...", disabled: true, sendNow: false,
     });
+  });
+});
+
+describe("isStopAndSend", () => {
+  const key = (over: Partial<{ key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }>) => ({
+    key: "Enter", metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, ...over,
+  });
+
+  it("is mod+Enter with something typed during a run", () => {
+    expect(isStopAndSend(key({ metaKey: true }), { running: true, input: "now" })).toBe(true);
+    expect(isStopAndSend(key({ ctrlKey: true }), { running: true, input: "now" })).toBe(true);
+  });
+
+  it("leaves plain Enter, an idle agent and an empty composer alone", () => {
+    expect(isStopAndSend(key({}), { running: true, input: "now" })).toBe(false);
+    expect(isStopAndSend(key({ metaKey: true }), { running: false, input: "now" })).toBe(false);
+    expect(isStopAndSend(key({ metaKey: true }), { running: true, input: "  " })).toBe(false);
+    expect(isStopAndSend(key({ metaKey: true, shiftKey: true }), { running: true, input: "now" })).toBe(false);
+    expect(isStopAndSend(key({ key: "k", metaKey: true }), { running: true, input: "now" })).toBe(false);
   });
 });

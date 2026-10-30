@@ -17,6 +17,8 @@ export interface Outbound {
   rerunFrom?: number;
   /** The daemon was unreachable; resent on the next successful poll. */
   waiting?: boolean;
+  /** Stop the agent's current run before sending. */
+  interrupt?: boolean;
 }
 
 export function isUnreachable(err: unknown): boolean {

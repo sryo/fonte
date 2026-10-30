@@ -25,6 +25,8 @@ import {
 } from "@/components/agent/tool-activity";
 import { useAgentChat, type ChatMessage } from "@/hooks/use-agent-chat";
 import { useInputHistory } from "@/hooks/use-input-history";
+import { modKeyLabel, useIsMac } from "@/hooks/use-platform";
+import { Kbd } from "@/components/ui/kbd";
 import { parseEventRow } from "@/lib/agent-activity";
 import { agentColor } from "@/lib/agent-colors";
 import { formatClock } from "@/lib/format";
@@ -47,12 +49,28 @@ export function composerButton({
   stopping: boolean;
 }) {
   const stopMode = running && !input.trim();
+  const queues = running && !stopMode && !sending;
   return {
     mode: stopMode ? ("stop" as const) : ("send" as const),
     icon: stopMode || sending ? ("stop" as const) : ("send" as const),
-    tooltip: stopMode ? "Stop the agent" : sending ? "Sending..." : "Send message",
+    tooltip: stopMode ? "Stop the agent" : sending ? "Sending..." : queues ? "Queue message" : "Send message",
     disabled: stopMode ? stopping : !input.trim() || sending,
+    sendNow: queues,
   };
+}
+
+export function isStopAndSend(
+  e: { key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean },
+  { running, input }: { running: boolean; input: string }
+): boolean {
+  return (
+    e.key === "Enter" &&
+    (e.metaKey || e.ctrlKey) &&
+    !e.shiftKey &&
+    !e.altKey &&
+    running &&
+    input.trim().length > 0
+  );
 }
 
 export function useChatComposer(chat: AgentChat) {
@@ -76,12 +94,15 @@ export function useChatComposer(chat: AgentChat) {
     setInput("");
   }, [cancelEditing]);
 
-  const submit = useCallback(() => {
-    const value = input.trim();
-    if (!value || sending) return;
-    setInput("");
-    void send(value);
-  }, [input, sending, send]);
+  const submit = useCallback(
+    (now = false) => {
+      const value = input.trim();
+      if (!value || sending) return;
+      setInput("");
+      void send(value, { now });
+    },
+    [input, sending, send]
+  );
 
   return { input, setInput, inputRef, recall, beginEdit, endEdit, submit };
 }
@@ -281,6 +302,7 @@ export function AgentComposer({
   const { run, stopping, stop, queued, cancellingId, cancelQueued, sending, editingRowId, disconnected } = chat;
   const { input, setInput, inputRef, recall, endEdit, submit } = composer;
   const button = composerButton({ running: run != null, input, sending, stopping });
+  const mod = modKeyLabel(useIsMac());
   const panel = layout === "panel";
   const inset = panel ? "px-4 pt-2" : "px-1";
 
@@ -318,7 +340,7 @@ export function AgentComposer({
       value={input}
       onValueChange={setInput}
       isLoading={sending}
-      onSubmit={submit}
+      onSubmit={() => submit()}
       className={panel ? "flex items-end gap-2 border-0 bg-muted p-1.5 pl-3.5" : "relative w-full shadow-md"}
     >
       <PromptInputTextarea
@@ -327,6 +349,11 @@ export function AgentComposer({
         className={panel ? "min-h-0 text-sm" : "min-h-[70px]"}
         onKeyDown={(e) => {
           if (recall.onKeyDown(e)) return;
+          if (isStopAndSend(e, { running: run != null, input })) {
+            e.preventDefault();
+            submit(true);
+            return;
+          }
           if (e.key === "Escape" && editingRowId != null) {
             e.stopPropagation();
             endEdit();
@@ -334,13 +361,27 @@ export function AgentComposer({
         }}
       />
       <PromptInputActions className={panel ? "h-9" : "absolute bottom-2 right-2"}>
-        <PromptInputAction tooltip={button.tooltip}>
+        <PromptInputAction
+          tooltip={
+            button.sendNow ? (
+              <span className="flex flex-col gap-1">
+                <span>{button.tooltip}</span>
+                <span className="flex items-center gap-1.5">
+                  Stop and send now
+                  <Kbd className="bg-background/20 text-background">{mod}↵</Kbd>
+                </span>
+              </span>
+            ) : (
+              button.tooltip
+            )
+          }
+        >
           <Button
             variant="default"
             size="icon"
             className={cn("rounded-full", panel ? "h-9 w-9" : "h-8 w-8")}
             disabled={button.disabled}
-            onClick={button.mode === "stop" ? stop : submit}
+            onClick={button.mode === "stop" ? stop : () => submit()}
           >
             <IconSwap
               active={button.icon}

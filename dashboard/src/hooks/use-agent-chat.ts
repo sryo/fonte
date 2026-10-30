@@ -242,10 +242,11 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
 
   const deliver = useCallback(
     async (outbound: Outbound) => {
-      const { messageId, content, rerunFrom } = outbound;
+      const { messageId, content, rerunFrom, interrupt } = outbound;
       setInFlightSends((n) => n + 1);
       try {
         let resumeSessionId: string | undefined;
+        if (interrupt && rerunFrom == null && runRef.current) await cancelAgentRun(runRef.current.id);
         if (rerunFrom != null) {
           // Stop the in-flight run, truncate history from the edited row, and
           // fork from the previous run's provider session, or reset for a
@@ -283,7 +284,7 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
   );
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, opts: { now?: boolean } = {}) => {
       const content = text.trim();
       if (!content) return;
       const outbound: Outbound = {
@@ -292,6 +293,7 @@ export function useAgentChat(agentId: string, opts: { active: boolean; limit?: n
         createdAt: Date.now(),
         phase: "pending",
         rerunFrom: editingRowId ?? undefined,
+        interrupt: opts.now || undefined,
       };
       setEditingRowId(null);
       setOutbox((prev) => [...prev, outbound]);

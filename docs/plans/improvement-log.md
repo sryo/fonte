@@ -177,3 +177,12 @@ Each entry: what changed, how it was verified, what was deferred and why.
 - Tests: `lib/outbox.test.ts` (6) and two composer cases, written first. `npm run check`: 90 files, 924 tests.
 - Verified by hand against the API-only test server: after the API stopped, the notice appeared at 6s (absent at 0 to 5s). A message sent while it was down showed "Sending", then reached the server exactly once within one poll of the API returning, and the notice cleared.
 - Not deployed.
+
+## Send says what it does (plan 4.7, 2026-10-30)
+- While the agent works and something is typed, the send button's tooltip reads "Queue message" with a second line "Stop and send now ⌘↵" (Ctrl↵ off Mac). That kbd badge appears only there.
+- ⌘↵ (or Ctrl↵) during a run cancels the current run, then sends. Plain Enter still queues. When the agent is idle, ⌘↵ just sends.
+- `PromptInputTextarea` now runs the caller's `onKeyDown` before its own Enter-to-submit, and skips submit when the caller called `preventDefault`. The only caller is the shared composer.
+- Limit: "now" means right after the cancelled run. Messages already queued still go first.
+- Tests: `composerButton` cases and `isStopAndSend` (mod+Enter only with text during a run), written first. `npm run check`: 90 files, 926 tests.
+- Verified by hand against the API-only test server: the tooltip text, ⌘↵ cancelling the running turn (status `cancelled`) and queuing the new message, and plain Enter queuing without cancelling.
+- Not deployed.
