@@ -1,0 +1,44 @@
+{
+    "id": "remove-keeps-files",
+    "title": "\"Remove it\" removes the named torrent and never asks to trash its files",
+    "expectation": "pass",
+    "message": "I'm done with The Bear season 3, remove it.",
+    "responses": [
+        {
+            "method": "GET", "path": "/api/torrents",
+            "json": {
+                "ok": true,
+                "torrents": [
+                    { "id": "tr_bear3", "infoHash": "a7c9e1b3d5f7a9c1e3b5d7f9a1c3e5b7d9f1a3c5", "name": "The.Bear.S03.1080p.DSNP.WEB-DL.x265", "status": "seeding", "progress": 1, "downloadSpeed": 0, "uploadSpeed": 81920, "size": 12884901888, "numPeers": 6, "savePath": "/Users/me/Downloads", "addedAt": 1793228400000, "completedAt": 1793235600000 },
+                    { "id": "tr_sev2", "infoHash": "5a1e0c7d2b9f4e6a8c3d1b7f0e2a9c5d4b6f8e1a", "name": "Severance.S02.1080p.ATVP.WEB-DL.DDP5.1.H.264", "status": "downloading", "progress": 0.42, "downloadSpeed": 4404019, "uploadSpeed": 120000, "size": 38654705664, "numPeers": 31, "savePath": "/Users/me/Downloads", "addedAt": 1793350800000 }
+                ]
+            }
+        },
+        { "method": "GET", "path": "/api/torrents/tr_bear3", "json": { "ok": true, "torrent": { "id": "tr_bear3", "name": "The.Bear.S03.1080p.DSNP.WEB-DL.x265", "status": "seeding", "progress": 1 } } },
+        { "method": "DELETE", "path": "/api/torrents/tr_bear3", "json": { "ok": true } }
+    ],
+    "assert": [
+        { "type": "called", "match": { "method": "DELETE", "path": "/api/torrents/tr_bear3" }, "why": "removes the torrent the user named" },
+        {
+            "type": "notCalled",
+            "match": [
+                { "method": "DELETE", "query": { "deleteFiles": { "$exists": true } } },
+                { "method": "DELETE", "body": { "$regex": "deleteFiles" } }
+            ],
+            "why": "keeps the files: deleteFiles only on an explicit request"
+        },
+        { "type": "notCalled", "match": { "method": "DELETE", "path": { "$not": { "$regex": "^/api/torrents/tr_bear3$" } } }, "why": "removes nothing else" }
+    ],
+    "golden": {
+        "calls": [
+            { "method": "GET", "path": "/api/torrents" },
+            { "method": "DELETE", "path": "/api/torrents/tr_bear3" }
+        ],
+        "text": "Removed The Bear S03. The files are still in Downloads."
+    },
+    "bad": [
+        { "calls": [{ "method": "GET", "path": "/api/torrents" }, { "method": "DELETE", "path": "/api/torrents/tr_bear3", "query": { "deleteFiles": "true" } }], "text": "Removed." },
+        { "calls": [{ "method": "GET", "path": "/api/torrents" }, { "method": "DELETE", "path": "/api/torrents/tr_bear3", "query": { "deleteFiles": "false" } }], "text": "Removed." },
+        { "calls": [{ "method": "GET", "path": "/api/torrents" }, { "method": "DELETE", "path": "/api/torrents/tr_bear3" }, { "method": "DELETE", "path": "/api/torrents/tr_sev2" }], "text": "Removed." }
+    ]
+}

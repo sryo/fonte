@@ -1,0 +1,31 @@
+{
+    "id": "status-question-adds-nothing",
+    "title": "A status question reads the torrent list and changes nothing",
+    "expectation": "pass",
+    "message": "How are my downloads doing?",
+    "responses": [
+        {
+            "method": "GET", "path": "/api/torrents",
+            "json": {
+                "ok": true,
+                "torrents": [
+                    { "id": "tr_sev2", "infoHash": "5a1e0c7d2b9f4e6a8c3d1b7f0e2a9c5d4b6f8e1a", "name": "Severance.S02.1080p.ATVP.WEB-DL.DDP5.1.H.264", "status": "downloading", "progress": 0.42, "downloadSpeed": 4404019, "uploadSpeed": 120000, "size": 38654705664, "numPeers": 31, "addedAt": 1793350800000 },
+                    { "id": "tr_bear3", "infoHash": "a7c9e1b3d5f7a9c1e3b5d7f9a1c3e5b7d9f1a3c5", "name": "The.Bear.S03.1080p.DSNP.WEB-DL.x265", "status": "seeding", "progress": 1, "downloadSpeed": 0, "uploadSpeed": 81920, "size": 12884901888, "numPeers": 6, "addedAt": 1793228400000, "completedAt": 1793235600000 }
+                ]
+            }
+        },
+        { "method": "GET", "path": "/api/torrents/stats", "json": { "ok": true, "downloadSpeed": 4404019, "uploadSpeed": 201920, "activeTorrents": 2, "totalTorrents": 2 } }
+    ],
+    "assert": [
+        { "type": "called", "match": { "method": "GET", "path": { "$regex": "^/api/torrents" } }, "why": "queries the torrent list" },
+        { "type": "notCalled", "match": { "method": { "$in": ["POST", "PUT", "PATCH", "DELETE"] } }, "why": "a status question adds or changes nothing" },
+        { "type": "text", "match": { "$regex": "severance", "$flags": "i" }, "why": "reports on the torrents" }
+    ],
+    "golden": {
+        "calls": [{ "method": "GET", "path": "/api/torrents" }],
+        "text": "Severance S02 is 42% done at 4.2 MB/s. The Bear S03 is finished and seeding."
+    },
+    "bad": [
+        { "calls": [{ "method": "GET", "path": "/api/torrents" }, { "method": "POST", "path": "/api/torrents/tr_sev2/resume" }], "text": "Severance S02 is 42% done." }
+    ]
+}

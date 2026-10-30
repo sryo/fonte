@@ -1,0 +1,45 @@
+{
+    "id": "magnet-added-directly",
+    "title": "A pasted magnet link is added once, with no title search",
+    "expectation": "pass",
+    "message": "Add this one: magnet:?xt=urn:btih:3f8a6c2e9b1d4f7a0c5e8b2d6f9a1c4e7b0d3f6a&dn=Debian.13.0.0.amd64.netinst.iso",
+    "responses": [
+        {
+            "method": "POST", "path": "/api/search", "body": { "query": { "$regex": "3f8a6c2e9b1d4f7a0c5e8b2d6f9a1c4e7b0d3f6a", "$flags": "i" } },
+            "json": { "ok": true, "action": "added", "torrent": { "id": "tr_deb13", "infoHash": "3f8a6c2e9b1d4f7a0c5e8b2d6f9a1c4e7b0d3f6a", "name": "Debian.13.0.0.amd64.netinst.iso", "status": "adding", "progress": 0 } }
+        },
+        { "method": "POST", "path": "/api/search", "json": { "ok": true, "query": "Debian 13", "quality": "1080p", "resultCount": 0, "results": [] } },
+        { "method": "POST", "path": "/api/torrents", "json": { "ok": true, "torrent": { "id": "tr_deb13", "infoHash": "3f8a6c2e9b1d4f7a0c5e8b2d6f9a1c4e7b0d3f6a", "name": "Debian.13.0.0.amd64.netinst.iso", "status": "adding", "progress": 0 } } }
+    ],
+    "assert": [
+        {
+            "type": "called", "min": 1, "max": 1,
+            "match": [
+                { "method": "POST", "path": "/api/torrents", "body": { "$regex": "3f8a6c2e9b1d4f7a0c5e8b2d6f9a1c4e7b0d3f6a", "$flags": "i" } },
+                { "method": "POST", "path": "/api/search", "body": { "query": { "$regex": "3f8a6c2e9b1d4f7a0c5e8b2d6f9a1c4e7b0d3f6a", "$flags": "i" } } }
+            ],
+            "why": "adds the magnet once, through either documented direct-add route (rule 4)"
+        },
+        { "type": "notCalled", "match": { "method": "POST", "path": "/api/search", "body": { "query": { "$not": { "$regex": "3f8a6c2e9b1d4f7a0c5e8b2d6f9a1c4e7b0d3f6a", "$flags": "i" } } } }, "why": "runs no title search (rule 4)" }
+    ],
+    "golden": {
+        "calls": [{ "method": "POST", "path": "/api/torrents", "body": { "magnetUri": "magnet:?xt=urn:btih:3f8a6c2e9b1d4f7a0c5e8b2d6f9a1c4e7b0d3f6a&dn=Debian.13.0.0.amd64.netinst.iso" } }],
+        "text": "Added Debian.13.0.0.amd64.netinst.iso."
+    },
+    "bad": [
+        {
+            "calls": [
+                { "method": "POST", "path": "/api/search", "body": { "query": "Debian 13 netinst" } },
+                { "method": "POST", "path": "/api/torrents", "body": { "magnetUri": "magnet:?xt=urn:btih:3f8a6c2e9b1d4f7a0c5e8b2d6f9a1c4e7b0d3f6a" } }
+            ],
+            "text": "Added it."
+        },
+        {
+            "calls": [
+                { "method": "POST", "path": "/api/search", "body": { "query": "magnet:?xt=urn:btih:3f8a6c2e9b1d4f7a0c5e8b2d6f9a1c4e7b0d3f6a" } },
+                { "method": "POST", "path": "/api/torrents", "body": { "magnetUri": "magnet:?xt=urn:btih:3f8a6c2e9b1d4f7a0c5e8b2d6f9a1c4e7b0d3f6a" } }
+            ],
+            "text": "Added it."
+        }
+    ]
+}

@@ -1,0 +1,33 @@
+{
+    "id": "search-before-asking",
+    "title": "A bare title is searched right away, without a clarifying question",
+    "expectation": "pass",
+    "message": "Get me Severance",
+    "responses": [
+        {
+            "method": "POST", "path": "/api/search",
+            "json": {
+                "ok": true, "query": "Severance", "quality": "1080p", "resultCount": 3,
+                "results": [
+                    { "title": "Severance.S02.1080p.ATVP.WEB-DL.DDP5.1.H.264", "magnetUri": "magnet:?xt=urn:btih:5a1e0c7d2b9f4e6a8c3d1b7f0e2a9c5d4b6f8e1a&dn=Severance.S02.1080p", "infoHash": "5a1e0c7d2b9f4e6a8c3d1b7f0e2a9c5d4b6f8e1a", "seeders": 412, "leechers": 37, "size": 38654705664, "sizeStr": "36.0 GB", "source": "Source A" },
+                    { "title": "Severance.S01.1080p.ATVP.WEB-DL.DDP5.1.H.264", "magnetUri": "magnet:?xt=urn:btih:c2d4e6f8a0b1c3d5e7f9a1b3c5d7e9f1a3b5c7d9&dn=Severance.S01.1080p", "infoHash": "c2d4e6f8a0b1c3d5e7f9a1b3c5d7e9f1a3b5c7d9", "seeders": 288, "leechers": 12, "size": 32212254720, "sizeStr": "30.0 GB", "source": "Source B" },
+                    { "title": "Severance.S02E10.1080p.WEB.h264", "magnetUri": "magnet:?xt=urn:btih:9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d&dn=Severance.S02E10.1080p", "infoHash": "9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d", "seeders": 95, "leechers": 4, "size": 3758096384, "sizeStr": "3.5 GB", "source": "Source A" }
+                ]
+            }
+        },
+        { "method": "POST", "path": "/api/torrents", "json": { "ok": true, "torrent": { "id": "tr_sev2", "infoHash": "5a1e0c7d2b9f4e6a8c3d1b7f0e2a9c5d4b6f8e1a", "name": "Severance.S02.1080p.ATVP.WEB-DL.DDP5.1.H.264", "status": "adding", "progress": 0 } } }
+    ],
+    "assert": [
+        { "type": "called", "match": { "method": "POST", "path": "/api/search", "body": { "query": { "$regex": "severance", "$flags": "i" } } }, "why": "searches immediately (rule 1)" },
+        { "type": "text", "match": { "$not": { "$regex": "movie or (a |the )?(tv|show|series)", "$flags": "i" } }, "why": "does not ask movie or TV (rule 6)" },
+        { "type": "text", "match": { "$not": { "$regex": "which (quality|resolution)", "$flags": "i" } }, "why": "does not ask which quality (rule 6)" }
+    ],
+    "golden": {
+        "calls": [{ "method": "POST", "path": "/api/search", "body": { "query": "Severance" } }],
+        "text": "Found Severance. Top result: Severance.S02.1080p, 36.0 GB, 412 seeders."
+    },
+    "bad": [
+        { "calls": [], "text": "Do you mean the movie or the TV show?" },
+        { "calls": [{ "method": "POST", "path": "/api/search", "body": { "query": "Severance" } }], "text": "Which quality do you want, 1080p or 2160p?" }
+    ]
+}

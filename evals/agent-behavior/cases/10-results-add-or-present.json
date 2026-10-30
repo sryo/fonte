@@ -1,0 +1,40 @@
+{
+    "id": "results-add-or-present",
+    "title": "With several results: add the best one, or present 3-5 and wait for a pick",
+    "expectation": "undecided",
+    "note": "The prompt disagrees with itself. 'Don't ask, act' (opening line), rule 2 ('add the best one unless the user wants to choose') and the inline API section ('help them find the magnet link and add it') say add now; 'When results come back' says present the top 3-5 and add whichever the user picks. This case only records which way the agent goes until that is settled.",
+    "message": "Download Dune Part Two",
+    "responses": [
+        {
+            "method": "POST", "path": "/api/search",
+            "json": {
+                "ok": true, "query": "Dune Part Two", "quality": "1080p", "resultCount": 5,
+                "results": [
+                    { "title": "Dune.Part.Two.2024.1080p.WEB-DL.DDP5.1.Atmos.H.264-KESTREL", "magnetUri": "magnet:?xt=urn:btih:1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b&dn=Dune.Part.Two.2024.1080p.KESTREL", "infoHash": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b", "seeders": 1840, "leechers": 122, "size": 7516192768, "sizeStr": "7.0 GB", "source": "Source A" },
+                    { "title": "Dune.Part.Two.2024.1080p.BluRay.x264-HALCYON", "magnetUri": "magnet:?xt=urn:btih:2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c&dn=Dune.Part.Two.2024.1080p.HALCYON", "infoHash": "2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c", "seeders": 1312, "leechers": 87, "size": 15032385536, "sizeStr": "14.0 GB", "source": "Source B" },
+                    { "title": "Dune.Part.Two.2024.1080p.WEB.x265.10bit-MARROW", "magnetUri": "magnet:?xt=urn:btih:3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d&dn=Dune.Part.Two.2024.1080p.MARROW", "infoHash": "3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d", "seeders": 655, "leechers": 40, "size": 3221225472, "sizeStr": "3.0 GB", "source": "Source A" },
+                    { "title": "Dune.Part.Two.2024.1080p.AMZN.WEB-DL.DDP5.1.H.264-QUILLON", "magnetUri": "magnet:?xt=urn:btih:4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e&dn=Dune.Part.Two.2024.1080p.QUILLON", "infoHash": "4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e", "seeders": 402, "leechers": 21, "size": 8053063680, "sizeStr": "7.5 GB", "source": "Source B" },
+                    { "title": "Dune.Part.Two.2024.1080p.BluRay.REMUX.AVC.TrueHD.7.1-OSPREY", "magnetUri": "magnet:?xt=urn:btih:5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f&dn=Dune.Part.Two.2024.1080p.REMUX.OSPREY", "infoHash": "5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f", "seeders": 214, "leechers": 30, "size": 37580963840, "sizeStr": "35.0 GB", "source": "Source A" }
+                ]
+            }
+        },
+        { "method": "POST", "path": "/api/torrents", "json": { "ok": true, "torrent": { "id": "tr_dune2", "infoHash": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b", "name": "Dune.Part.Two.2024.1080p.WEB-DL.DDP5.1.Atmos.H.264-KESTREL", "status": "adding", "progress": 0 } } }
+    ],
+    "observe": [
+        { "label": "added a release in the same turn", "assert": [{ "type": "called", "match": { "method": "POST", "path": "/api/torrents" } }] },
+        {
+            "label": "listed 3 or more results without adding",
+            "assert": [
+                { "type": "notCalled", "match": { "method": "POST", "path": "/api/torrents" } },
+                { "type": "mentions", "patterns": ["KESTREL", "HALCYON", "MARROW", "QUILLON", "OSPREY"], "min": 3 }
+            ]
+        },
+        {
+            "label": "asked the user to pick",
+            "assert": [
+                { "type": "notCalled", "match": { "method": "POST", "path": "/api/torrents" } },
+                { "type": "text", "match": { "$regex": "\\?" } }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,39 @@
+{
+    "id": "quiet-when-nothing-to-report",
+    "title": "A rule that says to stay quiet replies exactly [quiet] when nothing is stalled",
+    "expectation": "pass",
+    "automation": {
+        "rule": {
+            "id": "au_stall01",
+            "name": "Stalled downloads",
+            "prompt": "Check for stalled downloads and tell me which ones are stuck. Stay quiet if nothing is stalled.",
+            "trigger": { "type": "cron", "schedule": "0 * * * *" }
+        },
+        "fired": "schedule",
+        "firedAt": "2026-10-30T09:00:00"
+    },
+    "responses": [
+        {
+            "method": "GET", "path": "/api/torrents",
+            "json": {
+                "ok": true,
+                "torrents": [
+                    { "id": "tr_sev2", "infoHash": "5a1e0c7d2b9f4e6a8c3d1b7f0e2a9c5d4b6f8e1a", "name": "Severance.S02.1080p.ATVP.WEB-DL.DDP5.1.H.264", "status": "downloading", "progress": 0.63, "downloadSpeed": 4404019, "uploadSpeed": 120000, "size": 38654705664, "numPeers": 31, "addedAt": 1793350800000 },
+                    { "id": "tr_bear3", "infoHash": "a7c9e1b3d5f7a9c1e3b5d7f9a1c3e5b7d9f1a3c5", "name": "The.Bear.S03.1080p.DSNP.WEB-DL.x265", "status": "seeding", "progress": 1, "downloadSpeed": 0, "uploadSpeed": 81920, "size": 12884901888, "numPeers": 6, "addedAt": 1793228400000, "completedAt": 1793235600000 }
+                ]
+            }
+        }
+    ],
+    "assert": [
+        { "type": "called", "match": { "method": "GET", "path": { "$regex": "^/api/torrents" } }, "why": "checks the torrents before deciding" },
+        { "type": "quiet", "value": true, "why": "replies exactly [quiet] (Automation Context)" }
+    ],
+    "golden": {
+        "calls": [{ "method": "GET", "path": "/api/torrents" }],
+        "text": "[quiet]"
+    },
+    "bad": [
+        { "calls": [{ "method": "GET", "path": "/api/torrents" }], "text": "Nothing is stalled right now." },
+        { "calls": [{ "method": "GET", "path": "/api/torrents" }], "text": "[quiet] Nothing stalled." }
+    ]
+}

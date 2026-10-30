@@ -1,0 +1,39 @@
+{
+    "id": "report-when-something-stalled",
+    "title": "The same quiet rule reports when a download is stalled",
+    "expectation": "pass",
+    "automation": {
+        "rule": {
+            "id": "au_stall01",
+            "name": "Stalled downloads",
+            "prompt": "Check for stalled downloads and tell me which ones are stuck. Stay quiet if nothing is stalled.",
+            "trigger": { "type": "cron", "schedule": "0 * * * *" }
+        },
+        "fired": "schedule",
+        "firedAt": "2026-10-30T09:00:00"
+    },
+    "responses": [
+        {
+            "method": "GET", "path": "/api/torrents",
+            "json": {
+                "ok": true,
+                "torrents": [
+                    { "id": "tr_sev2", "infoHash": "5a1e0c7d2b9f4e6a8c3d1b7f0e2a9c5d4b6f8e1a", "name": "Severance.S02.1080p.ATVP.WEB-DL.DDP5.1.H.264", "status": "downloading", "progress": 0.63, "downloadSpeed": 4404019, "uploadSpeed": 120000, "size": 38654705664, "numPeers": 31, "addedAt": 1793350800000 },
+                    { "id": "tr_go26", "infoHash": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c", "name": "Glass.Orchard.2026.1080p.WEB-DL.x264", "status": "downloading", "progress": 0.12, "downloadSpeed": 0, "uploadSpeed": 0, "size": 6442450944, "numPeers": 0, "addedAt": 1793228400000, "stalledSince": 1793350800000, "swarmSeeders": 0 }
+                ]
+            }
+        }
+    ],
+    "assert": [
+        { "type": "called", "match": { "method": "GET", "path": { "$regex": "^/api/torrents" } }, "why": "checks the torrents before deciding" },
+        { "type": "quiet", "value": false, "why": "does not stay quiet when something is stalled" },
+        { "type": "text", "match": { "$regex": "glass.?orchard", "$flags": "i" }, "why": "names the stalled download" }
+    ],
+    "golden": {
+        "calls": [{ "method": "GET", "path": "/api/torrents" }],
+        "text": "Glass Orchard (2026) has been stalled for 3 hours at 12% with no peers."
+    },
+    "bad": [
+        { "calls": [{ "method": "GET", "path": "/api/torrents" }], "text": "[quiet]" }
+    ]
+}

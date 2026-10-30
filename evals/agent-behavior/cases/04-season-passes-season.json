@@ -1,0 +1,29 @@
+{
+    "id": "season-passes-season",
+    "title": "\"Season 5\" is sent as the season field of the search",
+    "expectation": "pass",
+    "message": "Download season 5 of The Bear",
+    "responses": [
+        {
+            "method": "POST", "path": "/api/search",
+            "json": {
+                "ok": true, "query": "The Bear", "quality": "1080p", "season": 5, "resultCount": 2,
+                "results": [
+                    { "title": "The.Bear.S05.1080p.DSNP.WEB-DL.DDP5.1.H.264", "magnetUri": "magnet:?xt=urn:btih:b3a5c7e9d1f3a5b7c9e1d3f5a7b9c1e3d5f7a9b1&dn=The.Bear.S05.1080p", "infoHash": "b3a5c7e9d1f3a5b7c9e1d3f5a7b9c1e3d5f7a9b1", "seeders": 233, "leechers": 19, "size": 21474836480, "sizeStr": "20.0 GB", "source": "Source A" },
+                    { "title": "The Bear Season 5 Complete 1080p WEB x265", "magnetUri": "magnet:?xt=urn:btih:e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0&dn=The.Bear.Season.5", "infoHash": "e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0", "seeders": 61, "leechers": 8, "size": 9663676416, "sizeStr": "9.0 GB", "source": "Source B" }
+                ]
+            }
+        },
+        { "method": "POST", "path": "/api/torrents", "json": { "ok": true, "torrent": { "id": "tr_bear5", "infoHash": "b3a5c7e9d1f3a5b7c9e1d3f5a7b9c1e3d5f7a9b1", "name": "The.Bear.S05.1080p.DSNP.WEB-DL.DDP5.1.H.264", "status": "adding", "progress": 0 } } }
+    ],
+    "assert": [
+        { "type": "called", "match": { "method": "POST", "path": "/api/search", "body": { "query": { "$regex": "bear", "$flags": "i" }, "season": 5 } }, "why": "passes season: 5 to the search (search docs)" }
+    ],
+    "golden": {
+        "calls": [{ "method": "POST", "path": "/api/search", "body": { "query": "The Bear", "season": 5 } }],
+        "text": "Found The Bear season 5: The.Bear.S05.1080p, 20.0 GB, 233 seeders."
+    },
+    "bad": [
+        { "calls": [{ "method": "POST", "path": "/api/search", "body": { "query": "The Bear season 5" } }], "text": "Found it." }
+    ]
+}
