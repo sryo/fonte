@@ -69,19 +69,25 @@ export const claudeAdapter: AgentAdapter = {
         }
 
         if (onEvent) {
-            args.push('--output-format', 'stream-json', '--verbose', '-p', message);
+            args.push('--output-format', 'stream-json', '--verbose', '-p', '--', message);
 
             let response = '';
             let resultOk = false;
             let failure = null as AgentRunError | null;
+            // A failed API call can still come back as a non-error result.
+            let apiFailed = false;
             const { promise, signalDone } = runCommandStreaming('claude', args, (line) => {
                 try {
                     const json = JSON.parse(line);
                     if (json.session_id && onSessionId) onSessionId(json.session_id);
                     if (json.type === 'result') {
-                        if (json.is_error === true) {
-                            failure ??= new AgentRunError((typeof json.result === 'string' && json.result) || response || 'Claude reported an error');
-                        } else {
+                        const resultText = typeof json.result === 'string' ? json.result : '';
+                        const isApiError = json.terminal_reason === 'api_error' || /^\s*API Error:/.test(resultText);
+                        if (json.is_error === true || isApiError) {
+                            failure ??= new AgentRunError(resultText || response || 'Claude reported an error');
+                            apiFailed ||= isApiError;
+                        } else if (!failure) {
+                            // An empty success can trail a failure; it must not hide it.
                             resultOk = true;
                             if (json.result) response = json.result;
                         }
@@ -113,16 +119,17 @@ export const claudeAdapter: AgentAdapter = {
                 }
                 // Older CLIs don't tag the error turn and leave stderr empty, so
                 // the last text they printed is the real error.
-                throw failure ?? new AgentRunError(response || (err as Error).message);
+                const killed = (err as { signal?: string }).signal !== undefined;
+                throw failure ?? new AgentRunError(killed ? (err as Error).message : response || (err as Error).message);
             }
             // An error result with a clean exit and no recognisable cause (max
             // turns) still carries the partial answer.
-            if (failure && failure.kind !== 'unknown') throw failure;
+            if (failure && (failure.kind !== 'unknown' || apiFailed)) throw failure;
 
             return response || NO_RESPONSE;
         }
 
-        args.push('-p', message);
+        args.push('-p', '--', message);
         return await runCommand('claude', args, workingDir, env);
     },
 };

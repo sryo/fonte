@@ -29,14 +29,14 @@ function fakeClaude(lines: object[], exitCode: number): void {
     fs.chmodSync(bin, 0o755);
 }
 
-async function invoke(): Promise<{ result: string | null; error: unknown; events: string[] }> {
+async function invoke(message = 'hi'): Promise<{ result: string | null; error: unknown; events: string[] }> {
     // Through the registry: importing ./claude first would hit the
     // invoke ↔ adapters import cycle before claudeAdapter exists.
     const { getAdapter } = await import('./index');
     const events: string[] = [];
     try {
         const result = await getAdapter('anthropic')!.invoke({
-            agentId: 'test', message: 'hi', workingDir: tmp, systemPrompt: '', model: '', shouldReset: true,
+            agentId: 'test', message, workingDir: tmp, systemPrompt: '', model: '', shouldReset: true,
             envOverrides: { PATH: `${fakeBin}:${process.env.PATH}` },
             onEvent: (text) => events.push(text),
         });
@@ -93,6 +93,64 @@ describe('claudeAdapter streaming', () => {
         const { result, events } = await invoke();
         expect(result).toBe('final');
         expect(events).toEqual(['partial']);
+    });
+
+    it('fails a run whose result is an API error the CLI did not flag', async () => {
+        fakeClaude([
+            assistant('API Error: 400 Request rejected'),
+            { type: 'result', is_error: false, terminal_reason: 'api_error', result: 'API Error: 400 Request rejected' },
+        ], 0);
+        const { error, result } = await invoke();
+        expect(result).toBeNull();
+        expect((error as Error).message).toContain('API Error: 400');
+    });
+
+    it('keeps the failure when an empty success trails it', async () => {
+        fakeClaude([
+            { ...assistant('Rate limited'), error: 'rate_limit' },
+            { type: 'result', is_error: true },
+            { type: 'result', is_error: false, result: '' },
+        ], 1);
+        const { error } = await invoke();
+        expect((error as { kind?: string }).kind).toBe('rate_limit');
+    });
+
+    it('never returns partial text from a run that was killed', async () => {
+        const bin = path.join(fakeBin, 'claude');
+        fs.writeFileSync(bin, `#!/bin/sh
+echo '${JSON.stringify(assistant('Let me check…'))}'
+kill -KILL $$
+`);
+        fs.chmodSync(bin, 0o755);
+        const { error, result } = await invoke();
+        expect(result).toBeNull();
+        expect((error as Error).message).toBe('claude was killed by SIGKILL');
+    });
+
+    it('passes a message that starts with a dash as the prompt', async () => {
+        const bin = path.join(fakeBin, 'claude');
+        fs.writeFileSync(bin, `#!/bin/sh
+for last; do :; done
+printf '{"type":"result","result":"%s"}\n' "$last"
+`);
+        fs.chmodSync(bin, 0o755);
+        const { result } = await invoke('-1 season of Dune');
+        expect(result).toBe('-1 season of Dune');
+    });
+
+    it('stops what the CLI left running in its group when it exits', async () => {
+        const pidFile = path.join(tmp, 'bg.pid');
+        const bin = path.join(fakeBin, 'claude');
+        fs.writeFileSync(bin, `#!/bin/sh
+sleep 30 &
+echo $! > ${pidFile}
+echo '{"type":"result","result":"done"}'
+`);
+        fs.chmodSync(bin, 0o755);
+        const { result } = await invoke();
+        expect(result).toBe('done');
+        const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+        await expect.poll(() => { try { process.kill(pid, 0); return true; } catch { return false; } }).toBe(false);
     });
 
     it('still surfaces stderr when the CLI never spoke', async () => {
