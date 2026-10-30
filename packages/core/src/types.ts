@@ -25,6 +25,8 @@ export interface TeamConfig {
     leader_agent: string;
 }
 
+export type NotificationDestination = 'mac' | 'whatsapp' | 'both';
+
 export interface Settings {
     workspace?: {
         path?: string;
@@ -86,6 +88,11 @@ export interface Settings {
         torrent_completed?: boolean;
         watchlist_match?: boolean;
         automation_failed?: boolean;
+        destinations?: {
+            torrent_completed?: NotificationDestination;
+            watchlist_match?: NotificationDestination;
+            automation_failed?: NotificationDestination;
+        };
     };
     libraries?: Record<string, string>;  // type → folder path, e.g. { "Movies": "/media/Movies", "TV": "/media/TV", "Music": "/media/Music" }
     whatsapp?: {
