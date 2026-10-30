@@ -123,6 +123,6 @@ describe('recordings against the real adapters', () => {
 
         expect(result).toBe('One torrent is downloading: Some Show S01E01, 42% done.');
         expect(events).toEqual(['One torrent is downloading: Some Show S01E01, 42% done.']);
-        expect(cli.invocations()[0].argv).toEqual(['exec', '--skip-git-repo-check', '--dangerously-bypass-approvals-and-sandbox', '--json', 'what is downloading?']);
+        expect(cli.invocations()[0].argv).toEqual(['exec', '--skip-git-repo-check', '--dangerously-bypass-approvals-and-sandbox', '--json', '--', 'what is downloading?']);
     });
 });
