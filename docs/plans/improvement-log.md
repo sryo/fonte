@@ -160,3 +160,12 @@ Each entry: what changed, how it was verified, what was deferred and why.
 - Season on the watchlist: documented `{"mediaType": "tv", "seasonPattern": "S05"}` and that `mediaType` defaults to `movie`. New eval case 11 checks a season with no results is watched that way.
 - Budget: the built prompt fit the 15104-byte budget only after cutting four search-internals bullets (query variations, dedupe, title filter wording, IMDB resolution) down to two.
 - Verified: 4 new prompt tests failed before and pass after; case 11's golden passes and both bad runs fail. `npm run check`: 88 files, 897 tests. The real provider was not run.
+
+## Agent panel (plan 4.6, 2026-10-30)
+- One chat component: `dashboard/src/components/agent/conversation.tsx` holds `AgentTranscript`, `AgentComposer`, `useChatComposer` and `composerButton`. The side panel (`chat-panel.tsx`) and the agent page (`agent/chat-view.tsx`) are now thin shells with a `panel` or `page` layout; each keeps its look (bubbles in the panel, author rows on the page).
+- What changed for the user: the panel now stays on the newest message as replies stream in (it only jumped to the bottom on open before). The agent page shows the "Working…" timer too. Both use one empty state ("No messages yet. Ask the agent anything below") and one placeholder ("Message <agent>…").
+- Agent page layout: the chat never had a height, so the whole page scrolled and follow-bottom couldn't work there either (true on the live build too). The page is now a flex column, so the transcript scrolls inside it and the composer sits at the bottom of the window.
+- The panel's backdrop fade is unchanged. The user said there was never a rule against it; the memory note claiming one was deleted.
+- Tests: `conversation.test.tsx` (19, server-rendered, both layouts), written before the component. Root `vitest.config.ts` now resolves the dashboard's `@/` alias so component tests can import it. `npm run check`: 89 files, 916 tests.
+- Verified by hand in Chrome against an API-only server on port 3901 with a temp FONTE_HOME and seeded messages (the full daemon would talk to the real Transmission, whose address is hardcoded): the agent page opens at the newest message with the composer pinned, sending keeps it at the bottom and shows the timer, and the panel opens at the bottom with the input focused and one edit button. The built-in browser pane couldn't check scrolling, since it pauses animation frames while hidden.
+- Not deployed.

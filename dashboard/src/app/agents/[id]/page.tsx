@@ -151,7 +151,7 @@ export default function AgentConfigPage({
   }
 
   return (
-    <div className="max-w-(--content-max-w) mx-auto px-6 py-6 space-y-6 animate-card-enter">
+    <div className="max-w-(--content-max-w) mx-auto flex h-full flex-col gap-6 px-6 py-6 animate-card-enter">
       <PageHeader
         backHref="/"
         title={
@@ -206,7 +206,7 @@ export default function AgentConfigPage({
         })}
       </div>
 
-      <div>
+      <div className={activeTab === "chat" ? "min-h-0 flex-1" : undefined}>
         {activeTab === "chat" && (
           <div className="h-full min-h-0">
             <AgentChatView agentId={agentId} agentName={agent.name} />
