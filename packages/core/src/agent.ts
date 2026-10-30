@@ -113,11 +113,6 @@ export function ensureAgentDirectory(agentDir: string): void {
     fs.mkdirSync(agentDir, { recursive: true });
 
     if (isNew) {
-        const sourceClaudeDir = path.join(SCRIPT_DIR, '.claude');
-        if (fs.existsSync(sourceClaudeDir)) {
-            copyDirSync(sourceClaudeDir, path.join(agentDir, '.claude'));
-        }
-
         const sourceHeartbeat = path.join(SCRIPT_DIR, 'heartbeat.md');
         if (fs.existsSync(sourceHeartbeat)) {
             fs.copyFileSync(sourceHeartbeat, path.join(agentDir, 'heartbeat.md'));
