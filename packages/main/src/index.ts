@@ -14,7 +14,7 @@ import {
     initQueueDb, getPendingAgents, claimNextPendingMessage,
     markProcessing, completeMessage, failMessage, getMessageStatus, setMessageSessionId,
     interruptMessage, oldestPendingUserMessageAge, getProcessingMessages,
-    recoverStaleMessages, pruneAckedResponses, pruneCompletedMessages,
+    recoverStaleMessages, pruneAckedResponses, pruneCompletedMessages, maintainQueueDb,
     closeQueueDb, queueEvents,
     insertAgentMessage, deleteAgentMessagesByMessageId, updateAgentToolMessage,
     registerSystemPromptSection,
@@ -25,7 +25,7 @@ import { startApiServer } from '@fonte/server';
 import {
     createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted,
     createAutomationEngine, getWhatsAppService, hasLinkedSession, backfillPosters,
-    AUTOMATION_QUIET_REPLY, renderAutomationsSection,
+    AUTOMATION_QUIET_REPLY, renderAutomationsSection, maintainTorrentDb,
 } from '@fonte/torrent';
 
 // A background run older than this while a person is waiting gets paused and re-queued.
@@ -338,6 +338,12 @@ const pollInterval = setInterval(() => processQueue(), 5000);
 const maintenanceInterval = setInterval(() => {
     pruneAckedResponses();
     pruneCompletedMessages();
+    try {
+        maintainQueueDb();
+        maintainTorrentDb();
+    } catch (err) {
+        log('WARN', `DB maintenance skipped: ${(err as Error).message}`);
+    }
 }, 60 * 1000);
 
 const watchdogInterval = setInterval(pauseBackgroundRunsForWaitingUsers, 5000);

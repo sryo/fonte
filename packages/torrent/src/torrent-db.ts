@@ -1,7 +1,6 @@
 import { TorrentStatus, TorrentRecord, TorrentFileRecord } from './types';
 import path from 'path';
-import { FONTE_HOME, log } from '@fonte/core';
-import { Migration, runMigrations } from '@fonte/core/dist/sqlite-migrate';
+import { FONTE_HOME, log, Migration, runMigrations } from '@fonte/core';
 import { initDb, getDb, closeDb } from './db-connection';
 import { DEFAULT_AUTOMATION_AGENT, backfillLegacyTriggers, importLegacySchedules } from './automation-db';
 import { extractInfoHash } from './search-aggregator';

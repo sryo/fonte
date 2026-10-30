@@ -1,7 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import { FONTE_HOME } from '@fonte/core';
-import { applyPragmas, maintainDb } from '@fonte/core/dist/sqlite-migrate';
+import { FONTE_HOME, applyPragmas, maintainDb } from '@fonte/core';
 
 const DB_PATH = path.join(FONTE_HOME, 'torrents.db');
 

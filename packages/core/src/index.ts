@@ -21,5 +21,6 @@ export * from './plugins';
 export * from './response';
 export * from './agent';
 export * from './queues';
+export * from './sqlite-migrate';
 export * from './memory';
 export * from './ids';
