@@ -97,7 +97,7 @@ Each entry: what changed, how it was verified, what was deferred and why.
 ## Needs the user's decision
 1. Runtime prompt contradiction: with search results, add the best one ("Don't ask, act", rule 2, default SOUL) or present the top 3 to 5 and wait for a pick. The eval case `results-add-or-present` stays ungraded until decided.
 2. ~~Smaller prompt gaps from the evals~~: the user chose to close them on 2026-10-30. See "Prompt gaps closed" below.
-3. Live install: fix `~/.fonte/cli-path` (points at the deleted `~/Documents/aitorrent` checkout); delete the stray `~/fonte-workspace/fonte/.claude/{worktrees,settings.local.json,launch.json}`; first deploy writes two small DB backups into `~/.fonte/backups`.
+3. ~~Live install cleanup~~: done 2026-10-30 at the user's request. `~/.fonte/cli-path` now points at `~/Documents/fonte/packages/cli/bin/fonte.mjs`; the stray `~/fonte-workspace/fonte/.claude` folder was moved to the Trash (`~/.Trash/fonte-agent-stray-claude-20261030-075509`), unused since the agent runs with `--dangerously-skip-permissions`. The branch was fast-forwarded into `main` and deployed the same day; the first start wrote `fonte-v0-*.db` and `torrents-v0-*.db` into `~/.fonte/backups`. `fonte doctor`: all ok except the warning that the daemon runs from `~/Documents`.
 4. Whether to make `next build` in the main checkout safe too (its `.next` is a symlink into `~/.fonte`), via a FONTE_HOME-keyed `distDir`.
 5. Paid eval run: not run; costs 19 provider invocations on the user's sign-in.
 
