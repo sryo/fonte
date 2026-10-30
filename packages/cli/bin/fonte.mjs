@@ -38,7 +38,7 @@ function runCliScript(script, args) {
 const command = process.argv[2] || 'start';
 const restArgs = process.argv.slice(3);
 
-console.log(BANNER);
+if (!(command === 'doctor' && restArgs.includes('--json'))) console.log(BANNER);
 
 switch (command) {
     // ── Daemon ──────────────────────────────────────────────────────────────
@@ -57,6 +57,10 @@ switch (command) {
 
     case 'status':
         runCliScript('daemon.js', ['status']);
+        break;
+
+    case 'doctor':
+        runCliScript('doctor.js', restArgs);
         break;
 
     // ── Torrents ────────────────────────────────────────────────────────────
@@ -216,6 +220,7 @@ switch (command) {
         console.log('  stop                     Stop all processes');
         console.log('  restart                  Restart Fonte');
         console.log('  status                   Show current status');
+        console.log('  doctor [--json]          Check the install for problems (read-only)');
         console.log('');
         console.log('Torrents:');
         console.log('  torrent add <magnet>     Add a torrent (magnet URI or .torrent path)');
