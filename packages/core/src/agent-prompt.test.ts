@@ -94,6 +94,34 @@ describe('runtime agent prompt', () => {
         });
     });
 
+    describe('request details the agent cannot guess', () => {
+        const prompt = () => agentModule.BUILTIN_AGENT_INSTRUCTIONS;
+        const section = (heading: string) => prompt().split(heading)[1].split('\n## ')[0];
+
+        it('shows how to watch one season of a show', () => {
+            const watchlist = section('## Watchlist');
+            expect(watchlist).toContain('"mediaType": "tv"');
+            expect(watchlist).toContain('"seasonPattern": "S05"');
+        });
+
+        it('says when quality may be left out', () => {
+            expect(prompt()).toMatch(/omit `quality`/i);
+            expect(section('## Watchlist')).toContain('FLAC');
+        });
+
+        it('says Fonte fetches subtitles on its own and how to tell', () => {
+            const subtitles = section('## Subtitles');
+            expect(subtitles).toContain('subtitles.auto_download');
+            expect(subtitles).toContain('GET /api/settings');
+            expect(prompt()).not.toContain('Subdl');
+        });
+
+        it('names one route for a magnet the user pastes', () => {
+            const rules = section('## Rules');
+            expect(rules).toMatch(/magnet[^\n]*POST \/api\/torrents/);
+        });
+    });
+
     it('stays within the system prompt size budget', () => {
         const prompt = agentModule.buildSystemPrompt('fonte', agentDir, agents, teams);
         const bytes = Buffer.byteLength(prompt, 'utf8');

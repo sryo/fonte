@@ -96,7 +96,7 @@ Each entry: what changed, how it was verified, what was deferred and why.
 
 ## Needs the user's decision
 1. Runtime prompt contradiction: with search results, add the best one ("Don't ask, act", rule 2, default SOUL) or present the top 3 to 5 and wait for a pick. The eval case `results-add-or-present` stays ungraded until decided.
-2. Smaller prompt gaps from the evals: magnet route (`POST /api/torrents` vs `POST /api/search`, both accepted now); how the agent knows subtitles are "configured"; whether "default to 1080p" means passing `quality`; a season request with no results can't be expressed in the documented watchlist body (`seasonPattern` isn't in the prompt).
+2. ~~Smaller prompt gaps from the evals~~: the user chose to close them on 2026-10-30. See "Prompt gaps closed" below.
 3. Live install: fix `~/.fonte/cli-path` (points at the deleted `~/Documents/aitorrent` checkout); delete the stray `~/fonte-workspace/fonte/.claude/{worktrees,settings.local.json,launch.json}`; first deploy writes two small DB backups into `~/.fonte/backups`.
 4. Whether to make `next build` in the main checkout safe too (its `.next` is a symlink into `~/.fonte`), via a FONTE_HOME-keyed `distDir`.
 5. Paid eval run: not run; costs 19 provider invocations on the user's sign-in.
@@ -152,3 +152,11 @@ Each entry: what changed, how it was verified, what was deferred and why.
 ## Status after the runtime pass
 - `npm run check` green: see the commit list (`git log main..HEAD`).
 - Not started, needs the user's go-ahead: fonte actions as MCP tools (plan 1.4), a large re-architecture.
+
+## Prompt gaps closed (user's decision 2, 2026-10-30)
+- Magnet: rule 4 names `POST /api/torrents {"magnetUri"}` for a pasted magnet and `POST /api/search` for a bare hash; the magnet example under search is gone. The search route still accepts magnets, and eval case 03 still accepts either route.
+- Subtitles: the daemon already fetches them on completion when `subtitles.enabled` and `subtitles.auto_download` are on (`handleTorrentCompleted`), so the prompt now says that, points at `GET /api/settings`, and tells the agent not to refetch. "Downloads via Subdl" was wrong (the code uses OpenSubtitles) and is gone.
+- Quality: search and the watchlist both default to 1080p when `quality` is omitted (FLAC for music on the watchlist), so rule 6 says to omit it unless the user names one.
+- Season on the watchlist: documented `{"mediaType": "tv", "seasonPattern": "S05"}` and that `mediaType` defaults to `movie`. New eval case 11 checks a season with no results is watched that way.
+- Budget: the built prompt fit the 15104-byte budget only after cutting four search-internals bullets (query variations, dedupe, title filter wording, IMDB resolution) down to two.
+- Verified: 4 new prompt tests failed before and pass after; case 11's golden passes and both bad runs fail. `npm run check`: 88 files, 897 tests. The real provider was not run.

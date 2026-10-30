@@ -16,22 +16,14 @@ curl -X POST http://localhost:3777/api/search -H "Content-Type: application/json
 curl -X POST http://localhost:3777/api/search -H "Content-Type: application/json" \
   -d '{"query": "https://www.imdb.com/title/tt33400055/"}'
 
-# Magnet link (adds directly, no search needed)
-curl -X POST http://localhost:3777/api/search -H "Content-Type: application/json" \
-  -d '{"query": "magnet:?xt=urn:btih:..."}'
-
 # Info hash (adds directly)
 curl -X POST http://localhost:3777/api/search -H "Content-Type: application/json" \
   -d '{"query": "8acade7b990df0dcc8996f3107a1fa28a9a0cf66"}'
 ```
 
 The search endpoint:
-- Tries multiple query variations (title+year+quality, title+year, title alone)
-- Searches every configured source in parallel, each on its own timeout
-- Deduplicates by info hash
-- Filters by title match
-- Sorts by seeders then size
-- Resolves IMDB IDs to titles via TMDB
+- Searches every configured source, each on its own timeout
+- Keeps only matching titles, sorted by seeders then size
 
 **When results come back:** Present the top 3-5 to the user with title, size, seeders, and source. Then add whichever they pick via `POST /api/torrents {"magnetUri": "..."}`.
 
@@ -71,6 +63,7 @@ A torrent is fully downloaded iff `progress` is 1 — check that, not `status ==
 
 ```
 POST   /api/watchlist                     Add: {"title": "...", "year": 2025, "mediaType": "movie"}
+                                          One season: {"title": "...", "mediaType": "tv", "seasonPattern": "S05"}
 GET    /api/watchlist                     List (entries carry newResultsCount)
 POST   /api/watchlist/:id/search          Trigger search now
 POST   /api/watchlist/:id/results/viewed  Reset the entry's newResultsCount
@@ -79,6 +72,8 @@ POST   /api/watchlist/:id/results/:rid/feedback  Rate a result: {"feedback": "up
 POST   /api/watchlist/check               Check all entries now
 DELETE /api/watchlist/:id                 Remove
 ```
+
+`mediaType` defaults to `movie`. Omit `quality` for 1080p (FLAC for music); `""` means any.
 
 Grabbing a result from an ongoing watch (tv/music with no seasonPattern) keeps the entry `watching`; movies and season-pattern entries become `fulfilled`.
 
@@ -89,10 +84,12 @@ Thumbs-down on a result, or deleting a torrent the watchlist grabbed, permanentl
 ## Subtitles
 
 ```
-POST   /api/torrents/:id/subtitles/fetch     Auto-fetch (detects language via TMDB, downloads via Subdl)
+POST   /api/torrents/:id/subtitles/fetch     Fetch now (detects language via TMDB)
 POST   /api/subtitles/:id/translate          Translate: {"language": "es"}
 GET    /api/torrents/:id/subtitles           List
 ```
+
+With `subtitles.enabled` and `subtitles.auto_download` on (`GET /api/settings`), Fonte fetches them on completion. Fetch by hand only if asked or that failed.
 
 ## Other endpoints
 
@@ -156,9 +153,9 @@ The CLI is for humans and shell scripts. Agents should use the API directly — 
 1. When the user says "download X" or "find X" or pastes a link — search immediately, don't ask clarifying questions first.
 2. If you get results, present the best matches and add the best one unless the user wants to choose.
 3. If no results, add to watchlist and tell the user it's being monitored.
-4. If the user gives you a magnet link or hash, add it directly — no search needed.
-5. After a download completes, auto-fetch subtitles if configured.
-6. Don't ask "which quality" — default to 1080p. Don't ask "movie or TV" — infer from context.
+4. Add a pasted magnet with `POST /api/torrents {"magnetUri": "..."}`, a bare hash with `POST /api/search`. No title search.
+5. Subtitles: see Subtitles, don't refetch.
+6. Don't ask "which quality": omit `quality` unless the user names one. Don't ask "movie or TV": infer it.
 
 ## Automation Context
 

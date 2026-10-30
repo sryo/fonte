@@ -1,0 +1,45 @@
+{
+    "id": "season-no-results-watches-season",
+    "title": "A season with no results is watched as that season of a show",
+    "expectation": "pass",
+    "message": "Get me season 3 of Lantern Bay",
+    "responses": [
+        { "method": "POST", "path": "/api/search", "json": { "ok": true, "query": "Lantern Bay", "quality": "1080p", "season": 3, "resultCount": 0, "results": [] } },
+        {
+            "method": "POST", "path": "/api/watchlist",
+            "json": { "ok": true, "entry": { "id": "wl_lb3", "title": "Lantern Bay", "mediaType": "tv", "seasonPattern": "S03", "quality": "1080p", "status": "watching", "searchQuery": "Lantern Bay 1080p", "newResultsCount": 0 } }
+        }
+    ],
+    "assert": [
+        { "type": "called", "match": { "method": "POST", "path": "/api/search", "body": { "query": { "$regex": "lantern bay", "$flags": "i" }, "season": 3 } }, "why": "searches the season first (rule 1)" },
+        {
+            "type": "called",
+            "match": { "method": "POST", "path": "/api/watchlist", "body": { "title": { "$regex": "lantern bay", "$flags": "i" }, "mediaType": "tv", "seasonPattern": { "$regex": "^S03$", "$flags": "i" } } },
+            "why": "watches that one season of a show (watchlist docs)"
+        },
+        { "type": "notCalled", "match": { "method": "POST", "path": "/api/torrents" }, "why": "adds no torrent" }
+    ],
+    "golden": {
+        "calls": [
+            { "method": "POST", "path": "/api/search", "body": { "query": "Lantern Bay", "season": 3 } },
+            { "method": "POST", "path": "/api/watchlist", "body": { "title": "Lantern Bay", "mediaType": "tv", "seasonPattern": "S03" } }
+        ],
+        "text": "Season 3 of Lantern Bay isn't out yet. I'm watching for it."
+    },
+    "bad": [
+        {
+            "calls": [
+                { "method": "POST", "path": "/api/search", "body": { "query": "Lantern Bay", "season": 3 } },
+                { "method": "POST", "path": "/api/watchlist", "body": { "title": "Lantern Bay season 3" } }
+            ],
+            "text": "Watching for it."
+        },
+        {
+            "calls": [
+                { "method": "POST", "path": "/api/search", "body": { "query": "Lantern Bay", "season": 3 } },
+                { "method": "POST", "path": "/api/watchlist", "body": { "title": "Lantern Bay", "mediaType": "tv" } }
+            ],
+            "text": "Watching for it."
+        }
+    ]
+}
