@@ -161,6 +161,19 @@ describe('result feedback and blocking', () => {
         expect(blocked(other)).toBe(false);
     });
 
+    it('blockResultsByInfoHash also blocks download-link rows of the same release', () => {
+        insertEntry('wl1');
+        const grabbed = insertResult('wl1', 'http://localhost:9117/dl/x?path=1');
+        const sameAgain = insertResult('wl1', 'http://localhost:9117/dl/x?path=2');
+        wdb.markResultSelected(grabbed, HEX.toUpperCase());
+
+        expect(wdb.blockResultsByInfoHash(HEX)).toBe(2);
+        const blocked = (rid: number) => !!(conn.getDb().prepare(
+            'SELECT auto_blocked FROM watchlist_results WHERE id = ?'
+        ).get(rid) as { auto_blocked: number }).auto_blocked;
+        expect(blocked(sameAgain)).toBe(true);
+    });
+
     it('getBlockedResultKeys covers downvoted and auto-blocked rows, magnet-only when the hash is unparseable', () => {
         insertEntry('wl1');
         const voted = insertResult('wl1', HEX_MAGNET);

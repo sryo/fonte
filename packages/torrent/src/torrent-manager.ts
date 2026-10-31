@@ -14,7 +14,8 @@ import {
     decodeTorrentName,
 } from './torrent-db';
 import { fetchTorrentPoster } from './poster-manager';
-import { blockResultsByInfoHash } from './watchlist-db';
+import { blockResultsByInfoHash, getEntryThatGrabbed, updateWatchlistEntry } from './watchlist-db';
+import { executableIn } from './fake-release';
 import { extractInfoHash } from './search-aggregator';
 import { resolveReleaseSource } from './release-source';
 import { getSubtitlesByTorrent } from './subtitle-db';
@@ -129,6 +130,7 @@ export class TorrentManager {
     private downloadActivity = new Map<string, { downloaded: number; lastDataAt: number }>();
     private stalledNotified = new Set<string>();
     private transmissionIds = new Map<string, number>();
+    private payloadChecked = new Set<string>();
     private listenPort: { port: number | null; open: boolean | null; checkedAt: number } = { port: null, open: null, checkedAt: 0 };
     private listenPortCheck: Promise<void> | null = null;
     private reapplyConfig = false;
@@ -722,6 +724,7 @@ export class TorrentManager {
         }
         if (Date.now() - this.listenPort.checkedAt > LISTEN_PORT_RECHECK_MS) void this.checkListenPort();
 
+        const fakes: { record: TorrentRecord; file: string }[] = [];
         for (const t of transmissionTorrents) {
             const hash = (t.hashString as string || '').toLowerCase();
             const record = getTorrentByHash(hash);
@@ -848,7 +851,19 @@ export class TorrentManager {
             if (files.length === 0 || newStatus === 'downloading' || justCompleted || staleDoneFiles) {
                 await this.syncTorrentFiles(record.id, t.id);
             }
+
+            if (!this.payloadChecked.has(record.id)) {
+                const known = files.length > 0 ? files : getTorrentFiles(record.id);
+                if (known.length > 0) {
+                    this.payloadChecked.add(record.id);
+                    const entry = getEntryThatGrabbed(record.infoHash, record.id);
+                    const file = entry && executableIn(entry.mediaType, known.map(f => f.path));
+                    if (file) fakes.push({ record, file });
+                }
+            }
         }
+
+        for (const { record, file } of fakes) await this.rejectFakeGrab(record, file);
 
         // Records missing from Transmission were removed by an external client.
         const transmissionHashes = new Set(transmissionTorrents.map((t: any) => (t.hashString || '').toLowerCase()));
@@ -864,6 +879,24 @@ export class TorrentManager {
         }
 
         emitEvent(TORRENT_EVENTS.STATS, this.getStats() as unknown as Record<string, unknown>);
+    }
+
+    // A watch that wanted media but got a program: trash it, block the release,
+    // and send the watch back to searching.
+    private async rejectFakeGrab(record: TorrentRecord, file: string): Promise<void> {
+        const entry = getEntryThatGrabbed(record.infoHash, record.id);
+        if (!entry) return;
+        const reason = `Skipped "${record.name}": it contained ${path.basename(file)}, not ${entry.mediaType === 'music' ? 'audio' : 'video'}`;
+        try {
+            await this.removeTorrent(record.id, true);
+        } catch (err) {
+            log('ERROR', `Watchlist: could not remove fake release "${record.name}": ${(err as Error).message}`);
+            return;
+        }
+        const now = Date.now();
+        updateWatchlistEntry(entry.id, { status: 'watching', lastError: reason, lastErrorAt: now });
+        emitEvent(TORRENT_EVENTS.ERROR, { id: record.id, name: record.name, error: reason });
+        log('ERROR', `Watchlist: ${reason} (for "${entry.title}"); moved to the Trash and blocked`);
     }
 
     private getRequiredTorrent(id: string): TorrentRecord {

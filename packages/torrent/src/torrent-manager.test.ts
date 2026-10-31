@@ -700,3 +700,38 @@ describe('updateConfig', () => {
         expect(calls.some(c => c.method === 'session-set')).toBe(false);
     });
 });
+
+describe('fake watchlist grabs', () => {
+    let wl: typeof import('./watchlist-db');
+    beforeAll(async () => { wl = await import('./watchlist-db'); });
+    beforeEach(() => { conn.getDb().exec('DELETE FROM watchlist_results; DELETE FROM watchlist;'); });
+
+    function grabbedFor(mediaType: 'movie' | 'app', fileName: string) {
+        wl.insertWatchlistEntry({ id: 'wl_1', title: 'Some Film', mediaType, quality: '1080p', searchQuery: 'Some Film', category: 2000 });
+        insertBasic('t1', { savePath: tmpHome });
+        wl.updateWatchlistEntry('wl_1', { status: 'fulfilled', matchedTorrentId: 't1' });
+        db.insertTorrentFiles('t1', [{ name: fileName, path: fileName, size: 1000 }]);
+        return managerWith([tRow('t1', { status: 4, percentDone: 0.5 })]);
+    }
+
+    it('trashes an executable payload and sends the watch back to searching', async () => {
+        await sync(grabbedFor('movie', 'Some Film 2026.1080p. HD h264- ETHE.exe'));
+
+        expect(db.getTorrent('t1')).toBeUndefined();
+        const entry = wl.getWatchlistEntry('wl_1')!;
+        expect(entry.status).toBe('watching');
+        expect(entry.lastError).toBe('Skipped "Torrent t1": it contained Some Film 2026.1080p. HD h264- ETHE.exe, not video');
+        expect(eventsOf(TORRENT_EVENTS.ERROR)).toHaveLength(1);
+    });
+
+    it('leaves a real video alone', async () => {
+        await sync(grabbedFor('movie', 'Some.Film.2026.1080p.mkv'));
+        expect(db.getTorrent('t1')).toBeDefined();
+        expect(wl.getWatchlistEntry('wl_1')!.status).toBe('fulfilled');
+    });
+
+    it('leaves software watches alone', async () => {
+        await sync(grabbedFor('app', 'setup.exe'));
+        expect(db.getTorrent('t1')).toBeDefined();
+    });
+});

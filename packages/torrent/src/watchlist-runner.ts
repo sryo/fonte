@@ -6,7 +6,7 @@ import {
 import {
     getWatchlistEntries, updateWatchlistEntry,
     insertWatchlistResult, getWatchlistResultByMagnet, markResultSelected,
-    getFeedbackTitles, getBlockedResultKeys, isOngoingWatch, searchYear,
+    getFeedbackTitles, getBlockedResultKeys, isOngoingWatch, searchYear, releaseKey,
 } from './watchlist-db';
 import { buildAffinity } from './release-affinity';
 import { getTorrentManager } from './torrent-manager';
@@ -208,7 +208,13 @@ async function persistAndGrab(
                 votes.filter(v => v.feedback > 0).map(v => v.title),
                 votes.filter(v => v.feedback < 0).map(v => v.title))
             : undefined;
-        const ranked = rankResults(filtered, wantedQuality, affinity);
+        const blocked = getBlockedResultKeys(entry.id);
+        const isBlocked = (r: { magnetUri: string; title: string; size?: number }) => {
+            const infoHash = extractInfoHash(r.magnetUri);
+            if (infoHash) return blocked.infoHashes.has(infoHash) || blocked.magnetUris.has(r.magnetUri);
+            return blocked.magnetUris.has(r.magnetUri) || blocked.releases.has(releaseKey(r));
+        };
+        const ranked = rankResults(filtered.filter(r => !isBlocked(r)), wantedQuality, affinity);
         // Ongoing watches fall through past already-tracked releases. That is
         // what lets a show keep grabbing new episodes after its first,
         // higher-ranked grab (a season pack would otherwise pin ranked[0]
@@ -218,13 +224,11 @@ async function persistAndGrab(
         // A release already tracked by a live torrent row doesn't count as
         // addable; 'removed' tombstones and 'error' rows do, so a failed add
         // doesn't block the release forever (addTorrent replaces such rows).
-        // Downvoted and removal-blocked releases are the exception: those
-        // never come back.
-        const blocked = getBlockedResultKeys(entry.id);
+        // Downvoted and removal-blocked releases never come back; they are
+        // dropped before ranking so a blocked best doesn't stall a one-shot watch.
         const best = pool.find((r) => {
             if (!r.seeders || computeQualityMatch(r.title, wantedQuality) < 0.5) return false;
             const infoHash = extractInfoHash(r.magnetUri);
-            if ((infoHash && blocked.infoHashes.has(infoHash)) || blocked.magnetUris.has(r.magnetUri)) return false;
             const existing = infoHash ? getTorrentByHash(infoHash) : null;
             return !existing || existing.status === 'removed' || existing.status === 'error';
         });
@@ -235,7 +239,7 @@ async function persistAndGrab(
 
                 const selected = getWatchlistResultByMagnet(entry.id, best.magnetUri);
                 if (selected) {
-                    markResultSelected(selected.id);
+                    markResultSelected(selected.id, torrent.infoHash);
                 }
 
                 updateWatchlistEntry(entry.id, {

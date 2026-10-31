@@ -317,6 +317,46 @@ describe('feedback and removal blocking', () => {
         expect(eventsOf(WATCHLIST_EVENTS.MATCH)).toHaveLength(1);
     });
 
+    it('a one-shot watch moves on when its top release is blocked', async () => {
+        seedEntry();
+        const otherMagnet = 'magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=Show+1080p';
+        aggregateSearch.mockResolvedValue([
+            { ...searchResult(), seeders: 90 },
+            { ...searchResult(), title: 'Show 1080p WEB-DL', magnetUri: otherMagnet, seeders: 10 },
+        ]);
+        const manager = installManager();
+        await runner.runWatchlistCheck();
+        wdb.blockResultsByInfoHash(HEX);
+        wdb.updateWatchlistEntry('wl1', { status: 'watching' });
+        conn.getDb().exec('DELETE FROM torrent_files; DELETE FROM torrents;');
+        const addSpy = vi.spyOn(manager, 'addTorrent');
+
+        await runner.runWatchlistCheck();
+
+        expect(addSpy).toHaveBeenCalledTimes(1);
+        expect(addSpy.mock.calls[0][0]).toBe(otherMagnet);
+    });
+
+    it('does not re-add a removed release that comes back under a new download link', async () => {
+        seedEntry();
+        const link = (n: number) => `http://localhost:9117/dl/limetorrents/?jackett_apikey=k&path=${n}`;
+        aggregateSearch.mockResolvedValue([{ ...searchResult(), magnetUri: link(1) }]);
+        const manager = installManager();
+        vi.spyOn(manager, 'addTorrent').mockImplementation(async () => {
+            db.insertTorrent({ id: 'tor_link', infoHash: HEX, name: 'Show S01 1080p WEB-DL', status: 'downloading', savePath: '/downloads' });
+            return db.getTorrent('tor_link')!;
+        });
+
+        await runner.runWatchlistCheck();
+        await manager.removeTorrent('tor_link');
+        wdb.updateWatchlistEntry('wl1', { status: 'watching' });
+        aggregateSearch.mockResolvedValue([{ ...searchResult(), magnetUri: link(2) }]);
+
+        await runner.runWatchlistCheck();
+
+        expect(manager.addTorrent).toHaveBeenCalledTimes(1);
+    });
+
     it('affinity steers the pick away from downvoted traits', async () => {
         const HEX2 = '0123456789abcdef0123456789abcdef01234567';
         const MAGNET2 = `magnet:?xt=urn:btih:${HEX2}&dn=Show+1080p`;

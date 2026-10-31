@@ -362,7 +362,7 @@ app.post('/api/watchlist/:id/results/:rid/add', requireEntry, async (c) => {
 
     try {
         const torrent = await getTorrentManager().addTorrent(result.magnetUri, { name: result.title });
-        markResultSelected(rid);
+        markResultSelected(rid, torrent.infoHash);
         clearResultBlock(rid);
         updateWatchlistEntry(id, {
             lastMatchAt: Date.now(),

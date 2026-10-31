@@ -105,6 +105,18 @@ export function getWatchlistEntry(id: string): WatchlistRecord | undefined {
     return rowToWatchlistRecord(row);
 }
 
+/** The watch that auto-grabbed this torrent, by its selected result or its latest match. */
+export function getEntryThatGrabbed(infoHash: string, torrentId: string): WatchlistRecord | undefined {
+    const row = getDb().prepare(`
+        SELECT w.* FROM watchlist w
+        WHERE w.matched_torrent_id = ?
+           OR EXISTS (SELECT 1 FROM watchlist_results r
+                      WHERE r.watchlist_id = w.id AND r.was_selected = 1 AND r.info_hash = lower(?))
+        LIMIT 1
+    `).get(torrentId, infoHash) as any;
+    return row ? rowToWatchlistRecord(row) : undefined;
+}
+
 export function getWatchlistEntries(filter?: { status?: WatchlistStatus; enabled?: boolean }): WatchlistRecord[] {
     let sql = 'SELECT * FROM watchlist';
     const conditions: string[] = [];
@@ -212,22 +224,30 @@ export function getWatchlistResults(watchlistId: string, limit?: number): Watchl
     return rows.map(rowToResultRecord);
 }
 
-export function markResultSelected(resultId: number): void {
-    getDb().prepare('UPDATE watchlist_results SET was_selected = 1 WHERE id = ?').run(resultId);
+/** A download-link result learns its info hash here, once the add has resolved it. */
+export function markResultSelected(resultId: number, infoHash?: string): void {
+    getDb().prepare('UPDATE watchlist_results SET was_selected = 1, info_hash = COALESCE(info_hash, lower(?)) WHERE id = ?')
+        .run(infoHash ?? null, resultId);
 }
 
 export function setResultFeedback(resultId: number, feedback: -1 | 0 | 1): void {
     getDb().prepare('UPDATE watchlist_results SET feedback = ? WHERE id = ?').run(feedback, resultId);
 }
 
+/** Identifies one release across searches, where download links change every time. */
+export function releaseKey(r: { title: string; size?: number | null }): string {
+    return `${r.title}\u0000${r.size ?? 0}`;
+}
+
 /** Releases the auto-add gate must skip: downvoted or blocked by a removal. */
-export function getBlockedResultKeys(watchlistId: string): { infoHashes: Set<string>; magnetUris: Set<string> } {
+export function getBlockedResultKeys(watchlistId: string): { infoHashes: Set<string>; magnetUris: Set<string>; releases: Set<string> } {
     const rows = getDb().prepare(
-        'SELECT info_hash, magnet_uri FROM watchlist_results WHERE watchlist_id = ? AND (feedback = -1 OR auto_blocked = 1)'
-    ).all(watchlistId) as { info_hash: string | null; magnet_uri: string }[];
+        'SELECT info_hash, magnet_uri, title, size FROM watchlist_results WHERE watchlist_id = ? AND (feedback = -1 OR auto_blocked = 1)'
+    ).all(watchlistId) as { info_hash: string | null; magnet_uri: string; title: string; size: number | null }[];
     return {
         infoHashes: new Set(rows.map(r => r.info_hash).filter((h): h is string => !!h)),
         magnetUris: new Set(rows.map(r => r.magnet_uri)),
+        releases: new Set(rows.map(releaseKey)),
     };
 }
 
@@ -238,9 +258,12 @@ export function getFeedbackTitles(watchlistId: string): { title: string; feedbac
 }
 
 export function blockResultsByInfoHash(infoHash: string): number {
-    return getDb().prepare(
-        'UPDATE watchlist_results SET auto_blocked = 1 WHERE info_hash = lower(?)'
-    ).run(infoHash).changes;
+    return getDb().prepare(`
+        UPDATE watchlist_results SET auto_blocked = 1
+        WHERE info_hash = lower(?)
+           OR (info_hash IS NULL AND (watchlist_id, title, size) IN
+               (SELECT watchlist_id, title, size FROM watchlist_results WHERE info_hash = lower(?)))
+    `).run(infoHash, infoHash).changes;
 }
 
 /** A manual add contradicts a downvote but not an upvote. */
