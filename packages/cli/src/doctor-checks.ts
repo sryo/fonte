@@ -653,11 +653,44 @@ export const checkJackett: Check = {
     },
 };
 
+export const checkFrontDoor: Check = {
+    id: 'front-door',
+    title: 'Front door',
+    async run(ctx) {
+        const parsed = readJson(path.join(ctx.fonteHome, 'front-door.json'));
+        if (!parsed.ok) return { status: 'skip', summary: 'The daemon has not reported it yet.' };
+        const { bound, port, error } = parsed.value ?? {};
+        if (!bound) {
+            if (error === 'disabled' || error === 'stopped') return { status: 'skip', summary: `Not running (${error}).` };
+            return {
+                status: 'warn',
+                summary: `Could not bind :${port} (${error}). The dashboard is at http://localhost:3000.`,
+                fix: `See what holds the port with lsof -nP -iTCP:${port} -sTCP:LISTEN, free it, then restart the daemon.`,
+            };
+        }
+        const url = port === 80 ? 'http://fonte.localhost' : `http://fonte.localhost:${port}`;
+        try {
+            const res = await ctx.fetch(`${url}/api/status`, { signal: AbortSignal.timeout(ctx.timeoutMs) });
+            await res.text().catch(() => '');
+            if (res.ok) return { status: 'ok', summary: `Dashboard at ${url}.` };
+            return { status: 'warn', summary: `${url} answered HTTP ${res.status}.` };
+        } catch (err) {
+            return {
+                status: 'warn',
+                summary: `${url} is not answering.`,
+                detail: errorText(err),
+                fix: 'Restart the daemon.',
+            };
+        }
+    },
+};
+
 export const CHECKS: Check[] = [
     checkDaemon,
     checkDaemonBuild,
     checkLaunchAgent(DAEMON_LABEL),
     checkLaunchAgent(DASHBOARD_LABEL),
+    checkFrontDoor,
     checkCliPath,
     checkClaudeCli,
     checkSettings,

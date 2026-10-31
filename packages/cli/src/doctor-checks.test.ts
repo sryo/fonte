@@ -20,6 +20,7 @@ import {
     checkClaudeCli,
     checkTransmission,
     checkJackett,
+    checkFrontDoor,
     checkLogs,
     formatReport,
     parsePlist,
@@ -563,6 +564,56 @@ describe('checkTransmission', () => {
         const result = await checkTransmission.run(makeCtx());
         expect(result.status).toBe('fail');
         expect(result.fix).toContain('transmission');
+    });
+});
+
+describe('checkFrontDoor', () => {
+    function state(value: unknown): void {
+        fs.writeFileSync(path.join(fonteHome, 'front-door.json'), JSON.stringify(value));
+    }
+
+    async function serveDualStack(handler: http.RequestListener): Promise<number> {
+        const server = http.createServer(handler);
+        servers.push(server);
+        await new Promise<void>((resolve) => server.listen(0, '::', resolve));
+        return (server.address() as AddressInfo).port;
+    }
+
+    it('skips before the daemon has reported', async () => {
+        expect((await checkFrontDoor.run(makeCtx())).status).toBe('skip');
+    });
+
+    it('skips when turned off', async () => {
+        state({ bound: false, port: 0, error: 'disabled' });
+        expect((await checkFrontDoor.run(makeCtx())).status).toBe('skip');
+    });
+
+    it('passes when fonte.localhost answers through the front door', async () => {
+        let host: string | undefined;
+        const port = await serveDualStack((req, res) => {
+            host = req.headers.host;
+            res.writeHead(200, { 'content-type': 'application/json' });
+            res.end('{"ok":true}');
+        });
+        state({ bound: true, port });
+        const result = await checkFrontDoor.run(makeCtx());
+        expect(result.status).toBe('ok');
+        expect(result.summary).toContain(`http://fonte.localhost:${port}`);
+        expect(host).toBe(`fonte.localhost:${port}`);
+    });
+
+    it('warns when bound but not answering', async () => {
+        state({ bound: true, port: 1 });
+        const result = await checkFrontDoor.run(makeCtx());
+        expect(result.status).toBe('warn');
+    });
+
+    it('warns with the cause and the fallback when :80 is taken', async () => {
+        state({ bound: false, port: 80, error: 'EADDRINUSE' });
+        const result = await checkFrontDoor.run(makeCtx());
+        expect(result.status).toBe('warn');
+        expect(result.summary).toContain('http://localhost:3000');
+        expect(result.fix).toContain('lsof -nP -iTCP:80');
     });
 });
 

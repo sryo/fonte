@@ -13,6 +13,7 @@ import {
   getApiBase,
   setApiBase,
   defaultApiBase,
+  displayApiBase,
   type QueueStatus,
   type ProcessingMessage,
   type SystemStatus,
@@ -104,12 +105,12 @@ function DisconnectedSplash({ onReconnect }: { onReconnect: () => void }) {
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleConnect()}
-              placeholder={defaultApiBase()}
+              placeholder={displayApiBase(defaultApiBase())}
               className="flex-1 px-3 py-2 text-sm border bg-background rounded"
             />
             <button
               onClick={handleConnect}
-              disabled={checking || !apiUrl}
+              disabled={checking}
               className="px-4 py-2 text-sm bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50 rounded"
             >
               {checking ? <Spinner size="xs" /> : "Connect"}
@@ -227,7 +228,7 @@ function ApiConnectionSection() {
             <WifiHigh className="h-3.5 w-3.5 text-done flex-shrink-0" />
             <p className="text-sm font-semibold">API Connection</p>
             {!editingUrl && (
-              <p className="text-xs text-muted-foreground">{getApiBase()}</p>
+              <p className="text-xs text-muted-foreground">{displayApiBase(getApiBase())}</p>
             )}
           </div>
           {!editingUrl ? (
@@ -253,12 +254,12 @@ function ApiConnectionSection() {
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
-              placeholder={defaultApiBase()}
+              placeholder={displayApiBase(defaultApiBase())}
               className="flex-1 px-2.5 py-1.5 text-sm border bg-background rounded"
             />
             <button
               onClick={handleSave}
-              disabled={checking || !apiUrl}
+              disabled={checking}
               className="px-3 py-1.5 text-xs bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-50 rounded"
             >
               {checking ? <Spinner size="xs" /> : "Save"}

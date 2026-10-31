@@ -1,13 +1,20 @@
 const STORAGE_KEY = "fonte_api_base";
 
 /**
- * The build-time API base, before any localStorage override. Both env reads
- * are inlined at build time (FONTE_API_PORT via next.config env), so they must
- * stay literal `process.env.NAME` accesses and can't be overridden later.
+ * The build-time API base, before any localStorage override. The env read is
+ * inlined at build time, so it must stay a literal `process.env.NAME` access.
+ * Empty means same-origin: the front door and next.config rewrites both route
+ * /api to the daemon.
  */
 export function defaultApiBase(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  return `http://localhost:${process.env.FONTE_API_PORT || "3777"}`;
+  return process.env.NEXT_PUBLIC_API_URL || "";
+}
+
+export function displayApiBase(
+  base: string,
+  pageOrigin: string = typeof window !== "undefined" ? window.location.origin : "",
+): string {
+  return base || pageOrigin;
 }
 
 /** Resolve the API base URL. Priority: env > localStorage > default. */

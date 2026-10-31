@@ -23,7 +23,7 @@ import {
     runInAgentSession, sessionLane, getAgentSession, setAgentSession, clearAgentSessions,
     acquireInstanceLock,
 } from '@fonte/core';
-import { startApiServer } from '@fonte/server';
+import { startApiServer, openFrontDoor } from '@fonte/server';
 import {
     createTorrentManager, startWatchlistRunner, stopWatchlistRunner, handleTorrentCompleted,
     createAutomationEngine, getWhatsAppService, hasLinkedSession, backfillPosters,
@@ -420,7 +420,14 @@ apiServer.on('error', (err: NodeJS.ErrnoException) => {
         : `API server error: ${err.message}`);
     process.exit(1);
 });
+let frontDoor: Awaited<ReturnType<typeof openFrontDoor>> = null;
 apiServer.on('listening', () => {
+    openFrontDoor().then(door => {
+        if (shuttingDown) void door?.close();
+        else frontDoor = door;
+    }).catch(err => {
+        log('WARN', `Front door failed: ${(err as Error).message}`);
+    });
     if (hasLinkedSession()) {
         log('INFO', 'WhatsApp: restoring previous session...');
         getWhatsAppService().start().catch(err => {
@@ -462,6 +469,7 @@ function shutdown(exitCode = 0): void {
     apiServer.close();
 
     const teardown = Promise.allSettled([
+        frontDoor?.close(),
         getWhatsAppService().stop(),
         torrentManager.stop(),
     ]);

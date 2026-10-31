@@ -60,6 +60,17 @@ describe('requestGuard', () => {
         })).status).toBe(200);
     });
 
+    it('lets the front door through at fonte.localhost', async () => {
+        const app = appWith();
+        expect((await app.request('/api/x', { headers: { host: 'fonte.localhost' } })).status).toBe(200);
+        expect((await app.request('/api/x', post({ host: 'fonte.localhost:80', origin: 'http://fonte.localhost' }))).status).toBe(200);
+    });
+
+    it('still refuses hosts that only start like fonte.localhost', async () => {
+        const res = await appWith().request('/api/x', { headers: { host: 'fonte.localhost.evil.example' } });
+        expect(res.status).toBe(403);
+    });
+
     it('does not treat a wildcard bind as a hostname', () => {
         expect(guardPolicy('0.0.0.0').hosts.has('0.0.0.0')).toBe(false);
     });
@@ -71,8 +82,14 @@ describe('isAllowedOrigin', () => {
         expect(isAllowedOrigin('http://127.0.0.1:3000', policy)).toBe(true);
         expect(isAllowedOrigin('http://[::1]:3000', policy)).toBe(true);
     });
+    it('accepts *.localhost, which browsers pin to loopback', () => {
+        expect(isAllowedOrigin('http://fonte.localhost', policy)).toBe(true);
+        expect(isAllowedOrigin('http://fonte.localhost:8080', policy)).toBe(true);
+    });
     it('rejects lookalikes', () => {
         expect(isAllowedOrigin('http://localhost.evil.example', policy)).toBe(false);
         expect(isAllowedOrigin('file://', policy)).toBe(false);
+        expect(isAllowedOrigin('http://fonte.localhost.evil.example', policy)).toBe(false);
+        expect(isAllowedOrigin('https://office.example.com', policy)).toBe(false);
     });
 });

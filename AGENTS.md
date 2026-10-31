@@ -10,10 +10,10 @@ npm workspace `packages/*` plus a Next.js `dashboard/` with its own `node_module
 | --- | --- |
 | `packages/core` | Settings and paths (`config.ts`, `FONTE_HOME`), the SQLite queue in `fonte.db` (`queues.ts`: messages, responses, per-agent chat history), agent workspaces and system prompt building (`agent.ts`, runtime prompt in `prompts/agent.md`), provider CLI invocation (`invoke.ts`, `adapters/` for claude, codex, gemini, opencode), `@agent` routing (`router.ts`), memory, plugins, logging and the in-process event bus (`emitEvent`/`onEvent`), notifications (`notify.ts`). |
 | `packages/torrent` | Everything media: Transmission RPC and `TorrentManager`, search across each configured source (`search-aggregator.ts`), TMDB, subtitles, posters, the watchlist (`watchlist-db.ts`, `watchlist-runner.ts`), automations (`automation-*.ts`), the WhatsApp service, and `torrents.db`. `src/types.ts` holds the canonical API wire types. |
-| `packages/server` | Hono HTTP API (`startApiServer`). One file per area in `src/routes/`, mounted in `src/index.ts`. SSE at `/api/events` rebroadcasts every `emitEvent`. Binds `127.0.0.1:${FONTE_API_PORT:-3777}`. |
+| `packages/server` | Hono HTTP API (`startApiServer`). One file per area in `src/routes/`, mounted in `src/index.ts`. SSE at `/api/events` rebroadcasts every `emitEvent`. Binds `127.0.0.1:${FONTE_API_PORT:-3777}`. `front-door.ts` also listens on `:${FONTE_FRONT_DOOR_PORT:-80}` (`off` disables it) and serves `http://fonte.localhost`, with `/api` going to the daemon and everything else to the dashboard. macOS lets it bind :80 only on the wildcard, so it drops non-loopback peers itself. Its bind result lands in `~/.fonte/front-door.json`, which `dashboardUrl()` reads. |
 | `packages/main` | The daemon entry point: queue processor (claims messages, invokes agents, writes responses), starts the API server, `TorrentManager`, watchlist runner and automation engine. The port bind doubles as the single-instance lock. |
 | `packages/cli` | `bin/fonte.mjs` dispatches subcommands to `packages/cli/dist/<area>.js`; sources in `src/`. Talks to the daemon over the HTTP API. `doctor` runs health checks. |
-| `dashboard` | Next.js UI. API clients in `src/lib/api/<area>.ts` (base URL from `NEXT_PUBLIC_API_URL`, then localStorage `fonte_api_base`, then `http://localhost:3777`). `src/lib/api-types.ts` is a generated copy of the wire types. |
+| `dashboard` | Next.js UI. API clients in `src/lib/api/<area>.ts` (base URL from `NEXT_PUBLIC_API_URL`, then localStorage `fonte_api_base`, then same-origin; `next.config.ts` rewrites `/api` to the daemon so `localhost:3000` works too). `src/lib/api-types.ts` is a generated copy of the wire types. |
 
 ## Glossary
 
@@ -33,13 +33,13 @@ npm workspace `packages/*` plus a Next.js `dashboard/` with its own `node_module
 
 The user's real Fonte runs from the main checkout, not from worktrees:
 
-- The daemon is the launchd job `com.fonte.daemon`, running `packages/main/dist/index.js` of the main checkout on port 3777 with its data in `~/.fonte` (`settings.json`, `fonte.db`, `torrents.db`, logs, WhatsApp session). The dashboard is `com.fonte.dashboard` on port 3000.
+- The daemon is the launchd job `com.fonte.daemon`, running `packages/main/dist/index.js` of the main checkout on port 3777 with its data in `~/.fonte` (`settings.json`, `fonte.db`, `torrents.db`, logs, WhatsApp session). The dashboard is `com.fonte.dashboard` on port 3000, reached at `http://fonte.localhost` through the daemon's front door.
 - `fonte start|stop|restart` go through `launchctl` whenever the LaunchAgent plist exists, so they act on the live daemon no matter which checkout you run them from.
 - The dashboard's `npm run build` has a `postbuild` that copies config files and rsyncs `public/` into `~/.fonte/dashboard-app`. Don't run it from a worktree.
 - `FONTE_HOME` is read once, at import of `core/src/config.ts`. Anything that imports `@fonte/core` without it set writes to `~/.fonte`.
 - The torrent backend is the user's Transmission at `127.0.0.1:9091`. A second daemon talks to the same one, so torrents it adds, pauses or removes are real.
 
-For a manual run: `FONTE_HOME=$(mktemp -d) FONTE_API_PORT=3790 node packages/main/dist/index.js`, and point a dashboard dev server at it with `NEXT_PUBLIC_API_URL=http://localhost:3790 npm run dev -- -p 3100` from `dashboard/`. Tests never touch `~/.fonte`; the vitest global setup points `FONTE_HOME` at a temp dir and `core/src/test-home.test.ts` guards it.
+For a manual run: `FONTE_HOME=$(mktemp -d) FONTE_API_PORT=3790 FONTE_FRONT_DOOR_PORT=off node packages/main/dist/index.js`, and point a dashboard dev server at it with `NEXT_PUBLIC_API_URL=http://localhost:3790 npm run dev -- -p 3100` from `dashboard/`. Tests never touch `~/.fonte`; the vitest global setup points `FONTE_HOME` at a temp dir and `core/src/test-home.test.ts` guards it.
 
 ## Adding a capability: hit every surface
 

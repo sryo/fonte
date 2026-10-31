@@ -16,7 +16,7 @@ You tell it what you want — a movie, a season, an album. The agents handle the
 ## Surfaces
 
 - **WhatsApp** — chat with the agent in your conversation; it replies inline
-- **Web dashboard** — Next.js UI at `localhost:3000` for browsing, control, and live status
+- **Web dashboard** — Next.js UI at `fonte.localhost` for browsing, control, and live status
 - **CLI** — `fonte torrent add`, `fonte watchlist`, etc., for shell and scripts
 - **REST API** — `localhost:3777` with Server-Sent Events for live updates
 

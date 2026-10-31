@@ -14,6 +14,38 @@ export function apiBaseUrl(): string {
     return `http://localhost:${apiPort()}`;
 }
 
+export const FRONT_DOOR_FILE = path.join(FONTE_HOME, 'front-door.json');
+export const FRONT_DOOR_HOST = 'fonte.localhost';
+const FALLBACK_DASHBOARD_URL = 'http://localhost:3000';
+
+export interface FrontDoorState {
+    bound: boolean;
+    port: number;
+    error?: string;
+}
+
+export function readFrontDoorState(): FrontDoorState | null {
+    try {
+        const state = JSON.parse(fs.readFileSync(FRONT_DOOR_FILE, 'utf8'));
+        return typeof state?.bound === 'boolean' && typeof state?.port === 'number' ? state : null;
+    } catch {
+        return null;
+    }
+}
+
+export function writeFrontDoorState(state: FrontDoorState): void {
+    fs.mkdirSync(path.dirname(FRONT_DOOR_FILE), { recursive: true });
+    fs.writeFileSync(FRONT_DOOR_FILE, JSON.stringify(state) + '\n');
+}
+
+export function dashboardUrl(): string {
+    const override = process.env.FONTE_DASHBOARD_URL?.trim();
+    if (override) return override.replace(/\/+$/, '');
+    const state = readFrontDoorState();
+    if (!state?.bound) return FALLBACK_DASHBOARD_URL;
+    return state.port === 80 ? `http://${FRONT_DOOR_HOST}` : `http://${FRONT_DOOR_HOST}:${state.port}`;
+}
+
 export const LOG_FILE = path.join(FONTE_HOME, 'logs/queue.log');
 export const SETTINGS_FILE = path.join(FONTE_HOME, 'settings.json');
 export const CHATS_DIR = path.join(FONTE_HOME, 'chats');

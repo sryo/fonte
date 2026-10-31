@@ -5,6 +5,11 @@ const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const WILDCARD_BINDS = new Set(['0.0.0.0', '::', '']);
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+/** Browsers and the macOS resolver pin every *.localhost name to loopback. */
+function isLoopbackName(host: string): boolean {
+    return LOOPBACK_HOSTS.has(host) || host.endsWith('.localhost');
+}
+
 function envList(value: string | undefined): string[] {
     return (value ?? '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 }
@@ -33,12 +38,17 @@ export function guardPolicy(bindHost: string, env: NodeJS.ProcessEnv = process.e
     return { hosts, origins: new Set(envList(env.FONTE_ALLOWED_ORIGINS)) };
 }
 
+export function isAllowedHost(header: string, policy: GuardPolicy): boolean {
+    const host = hostOf(header);
+    return policy.hosts.has(host) || isLoopbackName(host);
+}
+
 export function isAllowedOrigin(origin: string, policy: GuardPolicy): boolean {
     if (policy.origins.has(origin.toLowerCase())) return true;
     try {
         const url = new URL(origin);
         if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
-        return LOOPBACK_HOSTS.has(hostOf(url.host));
+        return isLoopbackName(hostOf(url.host));
     } catch {
         return false;
     }
@@ -53,7 +63,7 @@ export function isAllowedOrigin(origin: string, policy: GuardPolicy): boolean {
 export function requestGuard(policy: GuardPolicy): MiddlewareHandler {
     return async (c, next) => {
         const host = c.req.header('host');
-        if (host && !policy.hosts.has(hostOf(host))) {
+        if (host && !isAllowedHost(host, policy)) {
             return fail(c, 'Host not allowed', 403);
         }
         if (!SAFE_METHODS.has(c.req.method)) {

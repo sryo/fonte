@@ -38,7 +38,8 @@ function runCliScript(script, args) {
 const command = process.argv[2] || 'start';
 const restArgs = process.argv.slice(3);
 
-if (!(command === 'doctor' && restArgs.includes('--json'))) console.log(BANNER);
+const machineOutput = command === 'url' || (command === 'doctor' && restArgs.includes('--json'));
+if (!machineOutput) console.log(BANNER);
 
 switch (command) {
     // ── Daemon ──────────────────────────────────────────────────────────────
@@ -53,6 +54,10 @@ switch (command) {
 
     case 'restart':
         runCliScript('daemon.js', ['restart']);
+        break;
+
+    case 'url':
+        runCliScript('daemon.js', ['url']);
         break;
 
     case 'status':
@@ -197,7 +202,7 @@ switch (command) {
             log(BLUE, 'Building Fonte Dashboard...');
             execSync(`cd "${officeDir}" && npm run build`, { stdio: 'inherit' });
         }
-        log(GREEN, 'Starting Fonte Dashboard on http://localhost:3000');
+        log(GREEN, 'Starting Fonte Dashboard on http://localhost:3000. Run fonte url for its address.');
         const child = spawn('npm', ['run', 'start'], { cwd: officeDir, stdio: 'inherit' });
         child.on('exit', (code) => process.exit(code || 0));
         break;
@@ -257,7 +262,8 @@ switch (command) {
         console.log('  whatsapp                 Start WhatsApp channel (scan QR to pair)');
         console.log('');
         console.log('Other:');
-        console.log('  ui                       Start web dashboard (http://localhost:3000)');
+        console.log('  ui                       Start web dashboard');
+        console.log('  url                      Print the dashboard address (http://fonte.localhost)');
         console.log('  logs [type]              View logs (queue|daemon|all)');
         console.log('  provider [name]          Show or switch AI provider');
         console.log('  version                  Show version');

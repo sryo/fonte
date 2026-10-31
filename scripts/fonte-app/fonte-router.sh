@@ -145,7 +145,8 @@ if [ $# -eq 0 ]; then
         sleep 0.5
     done
 
-    open "http://localhost:3000" 2>/dev/null || true
+    DASHBOARD_URL="$("${CLI[@]}" url 2>/dev/null || true)"
+    open "${DASHBOARD_URL:-http://localhost:3000}" 2>/dev/null || true
     log "Opened dashboard"
     exit 0
 fi

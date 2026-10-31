@@ -6,7 +6,7 @@ import { execSync, spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { FONTE_HOME, SCRIPT_DIR } from '@fonte/core';
+import { FONTE_HOME, SCRIPT_DIR, dashboardUrl } from '@fonte/core';
 import { API_PORT, API_URL } from './shared.ts';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -315,7 +315,7 @@ export async function restartDaemon(): Promise<void> {
 }
 
 export async function openOffice(): Promise<void> {
-    const DASHBOARD_URL = 'http://localhost:3000';
+    const DASHBOARD_URL = dashboardUrl();
     console.log('');
     log(GREEN, `Opening Fonte Dashboard: ${DASHBOARD_URL}`);
     try {
@@ -338,6 +338,9 @@ switch (command) {
         break;
     case 'stop':
         stopDaemon();
+        break;
+    case 'url':
+        console.log(dashboardUrl());
         break;
     case 'restart':
         await restartDaemon();

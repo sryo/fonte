@@ -11,11 +11,12 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import { RESPONSE_ALREADY_SENT } from '@hono/node-server/utils/response';
-import { apiPort, log } from '@fonte/core';
+import { apiPort, log, writeFrontDoorState } from '@fonte/core';
 import { getTorrentManager } from '@fonte/torrent';
 import { addSSEClient, removeSSEClient } from './sse';
 import { ok, fail } from './http';
 import { guardPolicy, isAllowedOrigin, requestGuard } from './request-guard';
+import { frontDoorConfig, startFrontDoor, type FrontDoor } from './front-door';
 
 import messagesRoutes from './routes/messages';
 import agentsRoutes from './routes/agents';
@@ -113,4 +114,33 @@ export function startApiServer(services?: ServiceHandlers): http.Server {
     });
 
     return server as unknown as http.Server;
+}
+
+/**
+ * Serves the dashboard and API together at http://fonte.localhost. A bind
+ * failure is recorded rather than fatal: dashboardUrl() then falls back to
+ * localhost:3000.
+ */
+export async function openFrontDoor(): Promise<FrontDoor | null> {
+    const config = frontDoorConfig(process.env, API_PORT);
+    if (!config) {
+        writeFrontDoorState({ bound: false, port: 0, error: 'disabled' });
+        return null;
+    }
+    const result = await startFrontDoor({ ...config, policy: GUARD_POLICY });
+    if (!result.bound) {
+        log('WARN', `Front door could not bind :${result.port} (${result.error}). Dashboard stays at localhost:${config.dashboardPort}`);
+        writeFrontDoorState({ bound: false, port: result.port, error: result.error });
+        return null;
+    }
+    log('INFO', `Front door listening on http://fonte.localhost${result.port === 80 ? '' : `:${result.port}`}`);
+    writeFrontDoorState({ bound: true, port: result.port });
+    const door = result.door;
+    return {
+        port: door.port,
+        close: async () => {
+            await door.close();
+            writeFrontDoorState({ bound: false, port: door.port, error: 'stopped' });
+        },
+    };
 }
