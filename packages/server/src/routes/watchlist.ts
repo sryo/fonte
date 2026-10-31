@@ -56,6 +56,7 @@ interface SearchableEntry {
 async function searchAndPersist(entry: SearchableEntry): Promise<void> {
     const report = await searchReleasesReport({
         title: entry.title,
+        mediaType: entry.mediaType,
         year: searchYear(entry.mediaType, entry.year),
         quality: entry.quality,
         category: entry.category,

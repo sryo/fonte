@@ -49,6 +49,46 @@ describe('extractInfoHash', () => {
 });
 
 describe('filterByTitle', () => {
+    it('does not match a show whose episode carries the movie title', () => {
+        const out = filterByTitle([
+            { title: 'www.UIndex.org    -    Fear the Walking Dead S03E09 Minotaur 1080p BluRay x264-OFT' },
+            { title: 'Minotaur 2026 1080p WEB-DL' },
+        ], { title: 'Minotaur', mediaType: 'movie' });
+        expect(out.map(r => r.title)).toEqual(['Minotaur 2026 1080p WEB-DL']);
+    });
+
+    it('never matches an episode or season release for a movie', () => {
+        const out = filterByTitle([
+            { title: 'Minotaur S01E01 1080p' },
+            { title: 'Minotaur Season 1 Complete' },
+            { title: 'Minotaur.2026.1080p.WEB.H264' },
+        ], { title: 'Minotaur', mediaType: 'movie' });
+        expect(out.map(r => r.title)).toEqual(['Minotaur.2026.1080p.WEB.H264']);
+    });
+
+    it('lets a movie title contain season words', () => {
+        expect(filterByTitle([{ title: 'Season of the Witch 2011 1080p' }], { title: 'Season of the Witch', mediaType: 'movie' }))
+            .toHaveLength(1);
+    });
+
+    it('skips uploader tags and a leading article the entry leaves out', () => {
+        const out = filterByTitle([
+            { title: '[Anime Land] The Furious (2025) (UHD BDRip 1080p AV1) [D750ADCB].mkv' },
+            { title: 'Fast & Furious 2009 1080p' },
+        ], { title: 'Furious', mediaType: 'movie' });
+        expect(out.map(r => r.title)).toEqual(['[Anime Land] The Furious (2025) (UHD BDRip 1080p AV1) [D750ADCB].mkv']);
+    });
+
+    it('matches across dots, apostrophes and ampersands', () => {
+        expect(filterByTitle([{ title: 'Schindlers.List.1993.1080p' }], { title: "Schindler's List", mediaType: 'movie' })).toHaveLength(1);
+        expect(filterByTitle([{ title: 'Fast and Furious 2009' }], { title: 'Fast & Furious', mediaType: 'movie' })).toHaveLength(1);
+    });
+
+    it('keeps any-order word matching for music', () => {
+        expect(filterByTitle([{ title: 'Radiohead - OK Computer (1997) FLAC' }], { title: 'OK Computer', mediaType: 'music' }))
+            .toHaveLength(1);
+    });
+
     const results = [
         { title: 'The Matrix 1999 1080p BluRay' },
         { title: 'The Matrix Reloaded 2003 720p' },

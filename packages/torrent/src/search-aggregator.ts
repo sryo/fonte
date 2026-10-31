@@ -1,3 +1,4 @@
+import type { MediaType } from './types';
 import { log, getSettings } from '@fonte/core';
 import { searchJackett, JackettResult, JackettSearch } from './jackett-client';
 import { searchBt4g, Bt4gResult } from './bt4g-client';
@@ -185,6 +186,7 @@ export function describeSearchFailure(report: Pick<SearchReport, 'failed'>): str
 export interface SearchReleasesOpts {
     verifySwarms?: boolean;
     title: string;
+    mediaType?: MediaType;
     year?: number;
     quality?: string;
     category?: number;
@@ -199,7 +201,7 @@ export interface SearchReleasesOpts {
  * "find alternatives" flow.
  */
 export async function searchReleasesReport(opts: SearchReleasesOpts): Promise<SearchReport> {
-    const { title, year, quality, category, season } = opts;
+    const { title, year, quality, category, season, mediaType } = opts;
     const seasonPattern = opts.seasonPattern
         ?? (season != null ? `S${String(season).padStart(2, '0')}` : undefined);
     const settings = getSettings();
@@ -223,7 +225,7 @@ export async function searchReleasesReport(opts: SearchReleasesOpts): Promise<Se
         verifySwarms: opts.verifySwarms ?? true,
     });
 
-    const filtered = filterByTitle(report.results, { title, year, seasonPattern });
+    const filtered = filterByTitle(report.results, { title, year, seasonPattern, mediaType });
     return { ...report, results: sortBySeedersThenSize(filtered) };
 }
 
@@ -235,17 +237,48 @@ export interface TitleFilterOpts {
     title: string;
     year?: number;
     seasonPattern?: string;
+    mediaType?: MediaType;
+}
+
+// Uploader stamps ahead of the name: "[Group] ", "www.site.org - ", "site.com - ".
+const LEADING_TAGS = /^(?:\s*(?:\[[^\]]*\]|www\.\S+|[a-z0-9-]+\.(?:org|com|net|to|cc|me)(?=\s+-))\s*-?)+/i;
+const LEADING_ARTICLE = /^(?:the|a|an) (?=\S)/;
+const TV_MARKER = /(?:^|\s)(?:s\d{1,2}(?:e\d{1,3})?|season \d{1,2}|\d{1,2}x\d{2}|episode \d{1,3})(?:\s|$)/;
+
+/** Lowercased words with separators flattened and leading tags dropped. */
+export function normalizeReleaseName(name: string): string {
+    return name
+        .replace(LEADING_TAGS, '')
+        .toLowerCase()
+        .replace(/['’]/g, '')
+        .replace(/&/g, ' and ')
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .trim();
+}
+
+function startsWithTitle(name: string, wanted: string): boolean {
+    const bare = name.replace(LEADING_ARTICLE, '');
+    return [name, bare].some(n => n === wanted || n.startsWith(`${wanted} `));
 }
 
 /**
- * Keep only results whose title contains every word of the wanted title,
- * plus the year and season pattern when specified.
+ * Keep only results that are the wanted title, plus the year and season
+ * pattern when specified. Movies and TV must start with the title, and a
+ * movie never matches an episode or season release. Other kinds only need
+ * every word somewhere, since music and books name artist and work in either order.
  */
 export function filterByTitle<T extends { title: string }>(results: T[], opts: TitleFilterOpts): T[] {
+    const anchored = opts.mediaType === undefined || opts.mediaType === 'movie' || opts.mediaType === 'tv';
+    const wanted = normalizeReleaseName(opts.title);
     const titleWords = opts.title.toLowerCase().split(/\s+/);
     return results.filter(r => {
         const rt = r.title.toLowerCase();
-        if (!titleWords.every(w => rt.includes(w))) return false;
+        if (anchored) {
+            const name = normalizeReleaseName(r.title);
+            if (!startsWithTitle(name, wanted)) return false;
+            const rest = name.slice(name.indexOf(wanted) + wanted.length);
+            if (opts.mediaType === 'movie' && TV_MARKER.test(rest)) return false;
+        } else if (!titleWords.every(w => rt.includes(w))) return false;
         if (opts.year && !rt.includes(String(opts.year))) return false;
         if (opts.seasonPattern && !matchesSeasonPattern(rt, opts.seasonPattern)) return false;
         return true;

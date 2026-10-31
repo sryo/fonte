@@ -207,7 +207,7 @@ app.post('/api/torrents/:id/alternatives', async (c) => {
         const seasonPattern = parsed.isTv ? torrent.name.match(/S\d{2}E\d{2}/i)?.[0] : undefined;
 
         const inLibrary = new Set(getTorrentManager().getTorrents().map(t => t.infoHash.toLowerCase()));
-        const results = (await searchReleases({ title: parsed.title, year: parsed.year, quality, category, seasonPattern }))
+        const results = (await searchReleases({ title: parsed.title, mediaType: parsed.isTv ? 'tv' : 'movie', year: parsed.year, quality, category, seasonPattern }))
             .filter(r => !inLibrary.has(extractInfoHash(r.magnetUri) ?? ''));
         const mapped = results.slice(0, 25).map(r => ({
             title: r.title,

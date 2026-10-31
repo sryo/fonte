@@ -130,6 +130,7 @@ async function checkEntry(
     try {
         report = await searchReleasesReport({
             title: entry.title,
+            mediaType: entry.mediaType,
             year: searchYear(entry.mediaType, entry.year),
             quality: entry.quality,
             category: entry.category,
