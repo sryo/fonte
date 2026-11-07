@@ -1,4 +1,7 @@
-# Fonte
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.svg">
+  <img src="docs/logo.svg" height="56" alt="Fonte">
+</picture>
 
 A torrent client run by agents.
 
@@ -51,3 +54,5 @@ fonte provider anthropic --oauth-token <token>
 ```
 
 The same field lives in the dashboard under Settings → Providers. An API key (`--api-key`) works too; the token wins when both are set.
+
+<img src="docs/wordmark-color.svg" height="24" alt="fonte">
