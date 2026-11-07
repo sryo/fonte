@@ -71,9 +71,24 @@ $PB -c "Add :UTImportedTypeDeclarations:0:UTTypeTagSpecification:public.filename
 $PB -c "Add :UTImportedTypeDeclarations:0:UTTypeTagSpecification:public.filename-extension:0 string torrent" "$PLIST"
 $PB -c "Add :UTImportedTypeDeclarations:0:UTTypeTagSpecification:public.mime-type string 'application/x-bittorrent'" "$PLIST"
 
-if [ -f "$SRC_DIR/Fonte.icns" ]; then
-    cp "$SRC_DIR/Fonte.icns" "$OUT/Contents/Resources/droplet.icns"
-    touch "$OUT"
+# AppIcon.icon is an Icon Composer document; actool turns it into Assets.car
+# (the Liquid Glass icon) plus AppIcon.icns for older macOS.
+ICON_LOG="$(mktemp)"
+xcrun actool "$SRC_DIR/AppIcon.icon" \
+    --compile "$OUT/Contents/Resources" \
+    --platform macosx \
+    --minimum-deployment-target 12.0 \
+    --app-icon AppIcon \
+    --output-partial-info-plist "$ICON_LOG.plist" \
+    --errors --warnings > "$ICON_LOG" 2>&1 || true
+if [ ! -f "$OUT/Contents/Resources/Assets.car" ]; then
+    echo "actool made no Assets.car from AppIcon.icon:" >&2
+    cat "$ICON_LOG" >&2
+    exit 1
 fi
+rm -f "$ICON_LOG" "$ICON_LOG.plist"
+set_or_add CFBundleIconName string AppIcon
+set_or_add CFBundleIconFile string AppIcon
+touch "$OUT"
 
 echo "Built $OUT"

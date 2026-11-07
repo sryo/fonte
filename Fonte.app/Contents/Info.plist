@@ -30,9 +30,9 @@
 	<key>CFBundleExecutable</key>
 	<string>droplet</string>
 	<key>CFBundleIconFile</key>
-	<string>droplet</string>
+	<string>AppIcon</string>
 	<key>CFBundleIconName</key>
-	<string>droplet</string>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.fonte.app</string>
 	<key>CFBundleInfoDictionaryVersion</key>
